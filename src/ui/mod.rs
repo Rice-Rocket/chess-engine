@@ -41,6 +41,7 @@ impl Plugin for UIPlugin {
             .init_resource::<BoardTheme>()
             .init_resource::<PieceTheme>()
             .init_resource::<BoardUITransform>()
+            .init_resource::<BoardUI>()
             .add_event::<BoardUIResetPiecePosition>()
             .add_event::<BoardSetSquareColor>()
             .add_systems(Startup, spawn_camera)
@@ -62,6 +63,7 @@ impl Plugin for UIPlugin {
                 set_square_color,
                 update_board_ui,
                 update_arrows,
+                drag_piece,
             ).run_if(in_state(AppState::InGame)));
     }
 }

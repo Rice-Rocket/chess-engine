@@ -16,6 +16,7 @@ const ARROW_COLOR_1: Color = Color::rgba(0.96, 0.68, 0.19, 0.6);
 const ARROW_COLOR_2: Color = Color::rgba(0.96, 0.24, 0.24, 0.6);
 const ARROW_COLOR_3: Color = Color::rgba(0.17, 0.81, 0.32, 0.6);
 const ARROW_COLOR_4: Color = Color::rgba(0.24, 0.59, 0.87, 0.6);
+const ARROW_DEPTH: f32 = 0.3;
 const ARROW_LINE_WIDTH: f32 = 20.0;
 const ARROW_HEAD_SIZE: f32 = 8.0;
 const ARROW_FLAT_HEAD: bool = true;
@@ -73,7 +74,7 @@ pub fn update_arrows(
                     commands.spawn((MaterialMesh2dBundle {
                         mesh: meshes.add(create_arrow_mesh(Vec2::ZERO, end_pos - start_pos, board_transform.sqr_size).into()).into(),
                         material: materials.add(ColorMaterial::from(col)),
-                        transform: Transform::from_xyz(start_pos.x, start_pos.y, 1.01 + arrows_query.iter().len() as f32 * 0.01),
+                        transform: Transform::from_xyz(start_pos.x, start_pos.y, ARROW_DEPTH + 0.01 + arrows_query.iter().len() as f32 * 0.01),
                         ..default()
                     }, Arrow {}));
                 }

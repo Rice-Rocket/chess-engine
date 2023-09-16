@@ -4,15 +4,16 @@ use crate::game_logic::{moves::{self, EN_PASSANT_CAPTURE}, board::{Board, MainBo
 
 use super::theme::{self, PieceTheme, SquareColorTypes};
 
-const PIECE_DEPTH: f32 = -0.1;
-const PIECE_DRAG_DEPTH: f32 = -0.2;
+const PIECE_DEPTH: f32 = 0.1;
+const PIECE_DRAG_DEPTH: f32 = 0.2;
 const SIDE_PADDING: f32 = 20.0;
 
-#[derive(Component)]
+#[derive(Resource)]
 pub struct BoardUI {
     pub show_legal_moves: bool,
     pub white_is_bottom: bool,
     pub last_made_move: Option<moves::Move>,
+    pub dragged_piece: Option<Coord>,
 }
 
 impl Default for BoardUI {
@@ -20,7 +21,8 @@ impl Default for BoardUI {
         BoardUI {
             show_legal_moves: true,
             white_is_bottom: true,
-            last_made_move: None
+            last_made_move: None,
+            dragged_piece: None
         }
     }
 }
@@ -44,7 +46,6 @@ impl BoardUITransform {
     pub fn get_hovered_square(&self, mouse: Vec2) -> Option<Coord> {
         let file = ((mouse.x - self.x_offset) / self.sqr_size) as i32;
         let rank = ((mouse.y - SIDE_PADDING) / self.sqr_size) as i32;
-        println!("{}, {}", file, rank);
         return match file >= 0 && file < 8 && rank >= 0 && rank < 8 {
             true => Some(Coord::new(file as u32, 7 - rank as u32)),
             false => None
@@ -104,7 +105,6 @@ pub fn spawn_board_ui(
     piece_theme: Res<PieceTheme>,
     board_query: Query<&Board, With<MainBoard>>
 ) {
-    commands.spawn(BoardUI::default());
     if let Ok(board) = board_query.get_single() {
         for rank in 0..8 {
             for file in 0..8 {
@@ -134,7 +134,7 @@ pub fn spawn_board_ui(
                 if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece_value) {
                     commands.spawn((
                         SpriteBundle {
-                            transform: Transform::from_xyz(x_pos, y_pos + PIECE_DEPTH, 1.0),
+                            transform: Transform::from_xyz(x_pos, y_pos, PIECE_DEPTH),
                             texture: sprite,
                             visibility: Visibility::Visible,
                             ..default()
@@ -205,40 +205,38 @@ pub fn update_pieces(
 }
 
 pub fn update_board_ui(
-    mut board_ui_query: Query<&mut BoardUI>,
+    mut board_ui: ResMut<BoardUI>,
     mut set_square_evw: EventWriter<BoardSetSquareColor>,
     mut make_move_evr: EventReader<BoardMakeMove>,
 ) {
-    if let Ok(mut board_ui) = board_ui_query.get_single_mut() {
-        for make_move_event in make_move_evr.iter() {
-            if let Some(last_move) = board_ui.last_made_move {
-                let last_move_start_coord = coord_from_idx(last_move.start());
-                let last_move_end_coord = coord_from_idx(last_move.target());
-                set_square_evw.send(BoardSetSquareColor {
-                    color: SquareColorTypes::Normal,
-                    rank: last_move_start_coord.rank_idx,
-                    file: last_move_start_coord.file_idx,
-                });
-                set_square_evw.send(BoardSetSquareColor {
-                    color: SquareColorTypes::Normal,
-                    rank: last_move_end_coord.rank_idx,
-                    file: last_move_end_coord.file_idx,
-                });
-            }
-            let move_start_coord = coord_from_idx(make_move_event.mov.start());
-            let move_end_coord = coord_from_idx(make_move_event.mov.target());
+    for make_move_event in make_move_evr.iter() {
+        if let Some(last_move) = board_ui.last_made_move {
+            let last_move_start_coord = coord_from_idx(last_move.start());
+            let last_move_end_coord = coord_from_idx(last_move.target());
             set_square_evw.send(BoardSetSquareColor {
-                color: SquareColorTypes::MoveFromHighlight,
-                rank: move_start_coord.rank_idx,
-                file: move_start_coord.file_idx,
+                color: SquareColorTypes::Normal,
+                rank: last_move_start_coord.rank_idx,
+                file: last_move_start_coord.file_idx,
             });
             set_square_evw.send(BoardSetSquareColor {
-                color: SquareColorTypes::MoveToHighlight,
-                rank: move_end_coord.rank_idx,
-                file: move_end_coord.file_idx,
+                color: SquareColorTypes::Normal,
+                rank: last_move_end_coord.rank_idx,
+                file: last_move_end_coord.file_idx,
             });
-            board_ui.last_made_move = Some(make_move_event.mov);
-        };
+        }
+        let move_start_coord = coord_from_idx(make_move_event.mov.start());
+        let move_end_coord = coord_from_idx(make_move_event.mov.target());
+        set_square_evw.send(BoardSetSquareColor {
+            color: SquareColorTypes::MoveFromHighlight,
+            rank: move_start_coord.rank_idx,
+            file: move_start_coord.file_idx,
+        });
+        set_square_evw.send(BoardSetSquareColor {
+            color: SquareColorTypes::MoveToHighlight,
+            rank: move_end_coord.rank_idx,
+            file: move_end_coord.file_idx,
+        });
+        board_ui.last_made_move = Some(make_move_event.mov);
     };
 }
 
@@ -282,6 +280,22 @@ pub fn set_square_color(
                 };
                 square.color = color;
                 sprite.color = color;
+            }
+        }
+    }
+}
+
+pub fn drag_piece(
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    board_ui: Res<BoardUI>,
+    mut pieces_query: Query<(&BoardUIPiece, &mut Transform)>
+) {
+    if let Some(mpos) = window_query.single().cursor_position() {
+        if let Some(piece_sqr) = board_ui.dragged_piece {
+            for (piece, mut transform) in pieces_query.iter_mut() {
+                if piece.rank == piece_sqr.rank_idx && piece.file == piece_sqr.file_idx {
+                    transform.translation = Vec3::new(mpos.x, window_query.single().height() - mpos.y, PIECE_DRAG_DEPTH);
+                }
             }
         }
     }
