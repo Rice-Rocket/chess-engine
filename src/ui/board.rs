@@ -12,7 +12,17 @@ const SIDE_PADDING: f32 = 20.0;
 pub struct BoardUI {
     pub show_legal_moves: bool,
     pub white_is_bottom: bool,
-    pub last_made_move: moves::Move,
+    pub last_made_move: Option<moves::Move>,
+}
+
+impl Default for BoardUI {
+    fn default() -> Self {
+        BoardUI {
+            show_legal_moves: true,
+            white_is_bottom: true,
+            last_made_move: None
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -27,6 +37,9 @@ impl BoardUITransform {
     }
     pub fn y_pos(&self, rank: u32) -> f32 {
         rank as f32 * self.sqr_size + SIDE_PADDING + self.sqr_size / 2.0
+    }
+    pub fn pos_from_coord(&self, coord: Coord) -> Vec2 {
+        Vec2::new(self.x_pos(coord.file_idx), self.y_pos(coord.rank_idx))
     }
     pub fn get_hovered_square(&self, mouse: Vec2) -> Option<Coord> {
         let file = ((mouse.x - self.x_offset) / self.sqr_size) as i32;
@@ -91,6 +104,7 @@ pub fn spawn_board_ui(
     piece_theme: Res<PieceTheme>,
     board_query: Query<&Board, With<MainBoard>>
 ) {
+    commands.spawn(BoardUI::default());
     if let Ok(board) = board_query.get_single() {
         for rank in 0..8 {
             for file in 0..8 {
@@ -197,18 +211,20 @@ pub fn update_board_ui(
 ) {
     if let Ok(mut board_ui) = board_ui_query.get_single_mut() {
         for make_move_event in make_move_evr.iter() {
-            let last_move_start_coord = coord_from_idx(board_ui.last_made_move.start());
-            let last_move_end_coord = coord_from_idx(board_ui.last_made_move.target());
-            set_square_evw.send(BoardSetSquareColor {
-                color: SquareColorTypes::Normal,
-                rank: last_move_start_coord.rank_idx,
-                file: last_move_start_coord.file_idx,
-            });
-            set_square_evw.send(BoardSetSquareColor {
-                color: SquareColorTypes::Normal,
-                rank: last_move_end_coord.rank_idx,
-                file: last_move_end_coord.file_idx,
-            });
+            if let Some(last_move) = board_ui.last_made_move {
+                let last_move_start_coord = coord_from_idx(last_move.start());
+                let last_move_end_coord = coord_from_idx(last_move.target());
+                set_square_evw.send(BoardSetSquareColor {
+                    color: SquareColorTypes::Normal,
+                    rank: last_move_start_coord.rank_idx,
+                    file: last_move_start_coord.file_idx,
+                });
+                set_square_evw.send(BoardSetSquareColor {
+                    color: SquareColorTypes::Normal,
+                    rank: last_move_end_coord.rank_idx,
+                    file: last_move_end_coord.file_idx,
+                });
+            }
             let move_start_coord = coord_from_idx(make_move_event.mov.start());
             let move_end_coord = coord_from_idx(make_move_event.mov.target());
             set_square_evw.send(BoardSetSquareColor {
@@ -221,7 +237,7 @@ pub fn update_board_ui(
                 rank: move_end_coord.rank_idx,
                 file: move_end_coord.file_idx,
             });
-            board_ui.last_made_move = make_move_event.mov;
+            board_ui.last_made_move = Some(make_move_event.mov);
         };
     };
 }

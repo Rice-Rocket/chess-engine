@@ -3,10 +3,12 @@ use bevy::{prelude::*, window::PrimaryWindow};
 pub mod board;
 pub mod theme;
 pub mod menu;
+pub mod arrows;
 
 use board::*;
 use theme::*;
 use menu::*;
+use arrows::*;
 
 
 pub fn spawn_camera(
@@ -50,6 +52,7 @@ impl Plugin for UIPlugin {
                 init_board_ui_transform,
                 init_piece_theme,
                 spawn_board_ui,
+                spawn_arrow_drawer,
                 finish_load_ui,
             ).chain())
             
@@ -58,6 +61,7 @@ impl Plugin for UIPlugin {
                 reset_piece_position,
                 set_square_color,
                 update_board_ui,
+                update_arrows,
             ).run_if(in_state(AppState::InGame)));
     }
 }

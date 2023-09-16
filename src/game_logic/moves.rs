@@ -1,3 +1,5 @@
+use crate::game_logic::representation::square_name_from_idx;
+
 use super::piece;
 
 
@@ -19,6 +21,12 @@ const FLAG_MASK: u16 = 0b1111000000000000;
 #[derive(Clone, Copy)]
 pub struct Move {
     pub move_value: u16,
+}
+
+impl std::fmt::Debug for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} -> {}", square_name_from_idx(self.start()), square_name_from_idx(self.target()))
+    }
 }
 
 

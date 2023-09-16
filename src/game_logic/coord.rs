@@ -1,3 +1,5 @@
+use crate::game_logic::representation::square_name_from_coord;
+
 #[derive(Clone, Copy)]
 pub struct Coord {
     pub file_idx: u32,
@@ -18,5 +20,11 @@ impl Coord {
     }
     pub fn is_eq(&self, other: Self) -> bool {
         return if self.file_idx == other.file_idx && self.rank_idx == other.rank_idx { true } else { false };
+    }
+}
+
+impl std::fmt::Debug for Coord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", square_name_from_coord(self.file_idx, self.rank_idx))
     }
 }
