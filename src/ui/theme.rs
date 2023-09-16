@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::game_logic::piece;
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum SquareColorTypes {
     Normal,
     Legal,

@@ -23,6 +23,7 @@ use board::*;
 use player::*;
 use human_player::*;
 use precomp_move_data::*;
+use pseudo_legal_moves::*;
 
 use crate::ui::menu::AppState;
 
@@ -30,11 +31,18 @@ pub fn spawn_game_logic_resources(
     mut commands: Commands,
 ) {
     commands.insert_resource(PrecomputedMoveData::default());
+    commands.insert_resource(PseudoLegalMoveGenerator::default());
 }
 
 pub fn finish_load_game_logic(
     mut commands: Commands,
+    // mut pseudo_move_gen: ResMut<PseudoLegalMoveGenerator>,
+    // board_query: Query<&Board, With<MainBoard>>,
+    // precomp: Res<PrecomputedMoveData>,
 ) {
+    // if let Ok(board) = board_query.get_single() {
+    //     pseudo_move_gen.generate_moves(board, &precomp);
+    // }
     commands.insert_resource(NextState(Some(AppState::LoadUI)));
 }
 
@@ -54,7 +62,8 @@ impl Plugin for GameLogicPlugin {
             
             .add_systems(Update, (
                 handle_player_input,
-                make_move,
+                make_move.before(generate_pseudo_legal_moves),
+                generate_pseudo_legal_moves,
             ).run_if(in_state(AppState::InGame)));
     }
 }

@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::game_logic::{moves::{self, EN_PASSANT_CAPTURE}, board::{Board, MainBoard, BoardMakeMove}, representation::{self, coord_from_idx}, coord::Coord, piece::color};
+use crate::game_logic::{moves::{self, EN_PASSANT_CAPTURE, CASTLING}, board::{Board, MainBoard, BoardMakeMove}, representation::{self, coord_from_idx}, coord::Coord, piece::color};
 
 use super::theme::{self, PieceTheme, SquareColorTypes};
 
@@ -64,7 +64,7 @@ impl Default for BoardUITransform {
 
 #[derive(Component)]
 pub struct BoardUISquare {
-    pub color: Color,
+    pub color: SquareColorTypes,
     pub rank: u32,
     pub file: u32,
 }
@@ -89,6 +89,11 @@ pub struct BoardSetSquareColor {
     pub file: u32,
 }
 
+#[derive(Event)]
+pub struct BoardResetSquareColors {
+    pub color: Option<SquareColorTypes>
+}
+
 pub fn init_board_ui_transform(
     mut board_transform: ResMut<BoardUITransform>,
     window_query: Query<&Window, With<PrimaryWindow>>,
@@ -109,7 +114,7 @@ pub fn spawn_board_ui(
         for rank in 0..8 {
             for file in 0..8 {
                 let sqr_component = BoardUISquare {
-                    color: if (rank + file) % 2 == 0 { board_theme.light_squares.normal } else { board_theme.dark_squares.normal },
+                    color: SquareColorTypes::Normal,
                     rank, file
                 };
                 let x_pos = board_transform.x_pos(file);
@@ -117,7 +122,7 @@ pub fn spawn_board_ui(
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
-                            color: sqr_component.color,
+                            color: if (rank + file) % 2 == 0 { board_theme.light_squares.normal } else { board_theme.dark_squares.normal },
                             custom_size: Some(Vec2::new(board_transform.sqr_size, board_transform.sqr_size)),
                             ..default()
                         },
@@ -160,11 +165,13 @@ pub fn update_pieces(
     mut commands: Commands,
     mut make_move_evr: EventReader<BoardMakeMove>,
     board_transform: Res<BoardUITransform>,
+    board_query: Query<&Board, With<MainBoard>>,
     piece_theme: Res<PieceTheme>,
     mut pieces_query: Query<(&mut BoardUIPiece, Entity, &mut Transform)>,
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
+        // ! TODO: MAKE UI UPDATE PROPERLY FOR CASTLING
         let start = representation::coord_from_idx(mov.start());
         let target = representation::coord_from_idx(mov.target());
         let captured_sqr = if mov.move_flag() == EN_PASSANT_CAPTURE {
@@ -278,7 +285,35 @@ pub fn set_square_color(
                     (SquareColorTypes::MoveToHighlight, true) => board_theme.light_squares.move_to_highlight,
                     (SquareColorTypes::MoveToHighlight, false) => board_theme.dark_squares.move_to_highlight,
                 };
-                square.color = color;
+                square.color = event.color;
+                sprite.color = color;
+            }
+        }
+    }
+}
+
+pub fn reset_square_colors(
+    mut square_query: Query<(&mut Sprite, &mut BoardUISquare)>,
+    mut reset_square_evr: EventReader<BoardResetSquareColors>,
+    board_theme: Res<theme::BoardTheme>,
+) {
+    for event in reset_square_evr.iter() {
+        for (mut sprite, mut square) in square_query.iter_mut() {
+            if let Some(reset_color) = event.color {
+                if reset_color == square.color {
+                    let color = match (square.rank + square.file) % 2 == 0 {
+                        true => board_theme.light_squares.normal,
+                        false => board_theme.dark_squares.normal
+                    };
+                    square.color = SquareColorTypes::Normal;
+                    sprite.color = color;
+                }
+            } else if square.color != SquareColorTypes::MoveFromHighlight && square.color != SquareColorTypes::MoveToHighlight {
+                let color = match (square.rank + square.file) % 2 == 0 {
+                    true => board_theme.light_squares.normal,
+                    false => board_theme.dark_squares.normal
+                };
+                square.color = SquareColorTypes::Normal;
                 sprite.color = color;
             }
         }

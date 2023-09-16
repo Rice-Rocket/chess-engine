@@ -169,8 +169,8 @@ impl Default for PrecomputedMoveData {
         let mut center_manhattan_distance: [u32; 64] = [0; 64];
         for sqr_a in 0..64 {
             let coord_a = coord_from_idx(sqr_a);
-            let file_center_dst = (3 - coord_a.file_idx).max(coord_a.file_idx - 4);
-            let rank_center_dst = (3 - coord_a.rank_idx).max(coord_a.rank_idx - 4);
+            let file_center_dst = (3 - coord_a.file_idx as i32).max(coord_a.file_idx as i32 - 4) as u32;
+            let rank_center_dst = (3 - coord_a.rank_idx as i32).max(coord_a.rank_idx as i32 - 4) as u32;
             center_manhattan_distance[sqr_a as usize] = file_center_dst + rank_center_dst;
             for sqr_b in 0..64 {
                 let coord_b = coord_from_idx(sqr_b);

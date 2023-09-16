@@ -90,10 +90,10 @@ impl Default for Board {
 }
 
 impl Board {
-    fn get_piece_list(&self, ptype: u32, color_idx: u32) -> &PieceList {
+    pub fn get_piece_list(&self, ptype: u32, color_idx: u32) -> &PieceList {
         return &self.all_pieces[(color_idx * 8 + ptype) as usize];
     }
-    fn get_piece_list_mut(&mut self, ptype: u32, color_idx: u32) -> &mut PieceList {
+    pub fn get_piece_list_mut(&mut self, ptype: u32, color_idx: u32) -> &mut PieceList {
         return &mut self.all_pieces[(color_idx * 8 + ptype) as usize];
     }
 }

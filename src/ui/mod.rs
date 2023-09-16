@@ -44,6 +44,7 @@ impl Plugin for UIPlugin {
             .init_resource::<BoardUI>()
             .add_event::<BoardUIResetPiecePosition>()
             .add_event::<BoardSetSquareColor>()
+            .add_event::<BoardResetSquareColors>()
             .add_systems(Startup, spawn_camera)
             .add_systems(Startup, spawn_main_menu)
             .add_systems(Update, update_menu_buttons.run_if(in_state(AppState::MainMenu)))
@@ -61,6 +62,7 @@ impl Plugin for UIPlugin {
                 update_pieces,
                 reset_piece_position,
                 set_square_color,
+                reset_square_colors,
                 update_board_ui,
                 update_arrows,
                 drag_piece,

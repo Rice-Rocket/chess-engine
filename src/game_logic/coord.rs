@@ -1,6 +1,6 @@
 use crate::game_logic::representation::square_name_from_coord;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Coord {
     pub file_idx: u32,
     pub rank_idx: u32,

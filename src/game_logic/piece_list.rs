@@ -32,7 +32,15 @@ impl PieceList {
         self.occupied_squares[piece_idx as usize] = target;
         self.map[target as usize] = piece_idx;
     }
-    pub fn this(&self, idx: u32) -> u32 {
+    pub fn index(&self, idx: u32) -> u32 {
         self.occupied_squares[idx as usize]
+    }
+}
+
+
+impl std::ops::Index<usize> for PieceList {
+    type Output = u32;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.occupied_squares[index]
     }
 }
