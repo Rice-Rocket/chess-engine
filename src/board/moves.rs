@@ -1,6 +1,6 @@
 use crate::game::representation::square_name_from_idx;
 
-use super::piece;
+use super::piece::*;
 
 
 pub const NONE: u32 = 0;
@@ -65,13 +65,13 @@ impl Move {
     pub fn move_flag(&self) -> u32 {
         (self.move_value >> 12) as u32
     }
-    pub fn promotion_ptype(&self) -> u32 {
+    pub fn promotion_ptype(&self) -> u8 {
         match self.move_flag() {
-            3 => piece::QUEEN,
-            4 => piece::KNIGHT,
-            5 => piece::ROOK,
-            6 => piece::BISHOP,
-            _ => piece::NONE
+            3 => Piece::QUEEN,
+            4 => Piece::KNIGHT,
+            5 => Piece::ROOK,
+            6 => Piece::BISHOP,
+            _ => Piece::NONE
         }
     }
     pub fn value(&self) -> u16 {

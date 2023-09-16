@@ -5,7 +5,7 @@ use crate::{
     game::representation::{idx_from_coord, coord_from_idx},
     board::moves::Move,
     board::coord::Coord,
-    board::piece::is_color,
+    board::piece::*,
     board::board::Board,
     game::player::Player,
     move_gen::pseudo_legal_moves::PseudoLegalMoveGenerator,
@@ -123,7 +123,7 @@ pub fn handle_piece_selection(
         if let Some(piece_sqr) = board_transform.get_hovered_square(mpos) {
             player.selected_piece_sqr = piece_sqr;
             let idx = idx_from_coord(piece_sqr.file_idx, piece_sqr.rank_idx);
-            if is_color(board.square[idx as usize], board.color_to_move) {
+            if board.square[idx as usize].is_color(board.color_to_move) {
                 println!("Highlight legal moves");
                 for legal_move in pseudo_move_gen.moves.iter() {
                     if coord_from_idx(legal_move.start()) == player.selected_piece_sqr {
@@ -187,15 +187,13 @@ pub fn handle_piece_placement(
                 player.current_state = PlayerInputState::PieceSelected;
             } else {
                 player.current_state = PlayerInputState::None;
-                set_sqr_color_evw.send(BoardSetSquareColor {
-                    color: SquareColorTypes::Normal,
-                    rank: player.selected_piece_sqr.rank_idx,
-                    file: player.selected_piece_sqr.file_idx,
+                reset_sqr_color_evw.send(BoardResetSquareColors {
+                    color: None,
                 });
             }
         } else {
             let target_idx = idx_from_coord(target_sqr.file_idx, target_sqr.rank_idx);
-            if is_color(board.square[target_idx as usize], board.color_to_move) && board.square[target_idx as usize] != 0 {
+            if board.square[target_idx as usize].is_color(board.color_to_move) && board.square[target_idx as usize] != Piece::NULL {
                 cancel_piece_selection(&mut player, &mut reset_piece_position_evw, &mut reset_sqr_color_evw);
                 handle_piece_selection(
                     &buttons,

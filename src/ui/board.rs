@@ -5,7 +5,7 @@ use crate::{
     board::coord::Coord,
     board::board::Board,
     game::manager::BoardMakeMove,
-    board::piece::color,
+    board::piece::*,
     game::representation,
     ui::*,
 };
@@ -77,7 +77,7 @@ pub struct BoardUISquare {
 
 #[derive(Component)]
 pub struct BoardUIPiece {
-    pub piece_value: u32,
+    pub piece: Piece,
     pub file: u32,
     pub rank: u32,
 }
@@ -138,10 +138,10 @@ pub fn spawn_board_ui(
             ));
 
             let piece_component = BoardUIPiece {
-                piece_value: board.square[representation::idx_from_coord(file, rank) as usize],
+                piece: board.square[representation::idx_from_coord(file, rank) as usize],
                 rank, file
             };
-            if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece_value) {
+            if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece) {
                 commands.spawn((
                     SpriteBundle {
                         transform: Transform::from_xyz(x_pos, y_pos, PIECE_DEPTH),
@@ -192,11 +192,11 @@ pub fn update_pieces(
                 } else {
                     commands.entity(piece_entity).despawn();
                     let piece_component = BoardUIPiece {
-                        piece_value: mov.promotion_ptype() | color(piece.piece_value),
+                        piece: Piece::new(mov.promotion_ptype() | piece.piece.color()),
                         rank: target.rank_idx, 
                         file: target.file_idx
                     };
-                    if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece_value) {
+                    if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece) {
                         commands.spawn((
                             SpriteBundle {
                                 transform: Transform::from_xyz(x_pos, y_pos + PIECE_DEPTH, 1.0),

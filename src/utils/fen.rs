@@ -1,23 +1,23 @@
-use crate::{board::piece, game::representation};
+use crate::{board::piece::*, game::representation};
 
 
 pub const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-fn ptype_from_symbol(symbol: &str) -> u32 {
+fn ptype_from_symbol(symbol: &str) -> u8 {
     match symbol {
-        "k" => piece::KING,
-        "p" => piece::PAWN,
-        "n" => piece::KNIGHT,
-        "b" => piece::BISHOP,
-        "r" => piece::ROOK,
-        "q" => piece::QUEEN,
-        _ => piece::NONE
+        "k" => Piece::KING,
+        "p" => Piece::PAWN,
+        "n" => Piece::KNIGHT,
+        "b" => Piece::BISHOP,
+        "r" => Piece::ROOK,
+        "q" => Piece::QUEEN,
+        _ => Piece::NONE
     }
 }
 
 
 pub struct LoadedPositionInfo {
-    pub squares: [u32; 64],
+    pub squares: [u8; 64],
     pub white_castle_kingside: bool,
     pub white_castle_queenside: bool,
     pub black_castle_kingside: bool,
@@ -58,7 +58,7 @@ pub fn position_from_fen(fen: String) -> LoadedPositionInfo {
             if symbol.is_digit(10) {
                 file += symbol.to_digit(10).unwrap();
             } else {
-                let pcolor = if symbol.is_uppercase() { piece::WHITE } else { piece::BLACK };
+                let pcolor = if symbol.is_uppercase() { Piece::WHITE } else { Piece::BLACK };
                 let ptype = ptype_from_symbol(&symbol.to_lowercase().to_string());
                 loaded_pos_info.squares[rank as usize * 8 + file as usize] = ptype | pcolor;
                 file += 1;

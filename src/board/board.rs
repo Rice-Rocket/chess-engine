@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use super::{
-    piece, piece_list::PieceList,
+    piece::{self, Piece}, piece_list::PieceList,
     moves::{self, Move}, zobrist::Zobrist
 };
 use crate::{
@@ -8,9 +8,6 @@ use crate::{
     fen,
 };
 
-
-pub const WHITE_INDEX: u32 = 0;
-pub const BLACK_INDEX: u32 = 1;
 
 const WHITE_CASTLE_KINGSIDE_MASK: u32 = 0b1111111111111110;
 const WHITE_CASTLE_QUEENSIDE_MASK: u32 = 0b1111111111111101;
@@ -23,11 +20,11 @@ const BLACK_CASTLE_MASK: u32 = BLACK_CASTLE_KINGSIDE_MASK & BLACK_CASTLE_QUEENSI
 
 #[derive(Resource, Clone)]
 pub struct Board {
-    pub square: [u32; 64],
+    pub square: [Piece; 64],
     pub white_to_move: bool,
-    pub color_to_move: u32,
-    pub opponent_color: u32,
-    pub color_to_move_idx: u32,
+    pub color_to_move: u8,
+    pub opponent_color: u8,
+    pub color_to_move_idx: usize,
 
     game_state_history: Vec<u32>, 
     pub current_game_state: u32,
@@ -52,11 +49,11 @@ impl Default for Board {
         let queens = vec![PieceList::new(9); 2];
         let empty_list = PieceList::new(0);
         Self {
-            square: [0; 64],
+            square: [Piece::NULL; 64],
             white_to_move: true,
-            color_to_move: piece::WHITE,
-            opponent_color: piece::BLACK,
-            color_to_move_idx: WHITE_INDEX,
+            color_to_move: Piece::WHITE,
+            opponent_color: Piece::BLACK,
+            color_to_move_idx: Board::WHITE_INDEX,
 
             game_state_history: Vec::new(),
             current_game_state: 0,
@@ -72,31 +69,34 @@ impl Default for Board {
             all_pieces: vec![
                 empty_list.clone(),
 				empty_list.clone(),
-				pawns[WHITE_INDEX as usize].clone(),
-				knights[WHITE_INDEX as usize].clone(),
+				pawns[Board::WHITE_INDEX as usize].clone(),
+				knights[Board::WHITE_INDEX as usize].clone(),
 				empty_list.clone(),
-				bishops[WHITE_INDEX as usize].clone(),
-				rooks[WHITE_INDEX as usize].clone(),
-				queens[WHITE_INDEX as usize].clone(),
+				bishops[Board::WHITE_INDEX as usize].clone(),
+				rooks[Board::WHITE_INDEX as usize].clone(),
+				queens[Board::WHITE_INDEX as usize].clone(),
 				empty_list.clone(),
 				empty_list.clone(),
-				pawns[BLACK_INDEX as usize].clone(),
-				knights[BLACK_INDEX as usize].clone(),
+				pawns[Board::BLACK_INDEX as usize].clone(),
+				knights[Board::BLACK_INDEX as usize].clone(),
 				empty_list,
-				bishops[BLACK_INDEX as usize].clone(),
-				rooks[BLACK_INDEX as usize].clone(),
-				queens[BLACK_INDEX as usize].clone(),
+				bishops[Board::BLACK_INDEX as usize].clone(),
+				rooks[Board::BLACK_INDEX as usize].clone(),
+				queens[Board::BLACK_INDEX as usize].clone(),
             ],
         }
     }
 }
 
 impl Board {
-    pub fn get_piece_list(&self, ptype: u32, color_idx: u32) -> &PieceList {
-        return &self.all_pieces[(color_idx * 8 + ptype) as usize];
+    pub const WHITE_INDEX: usize = 0;
+    pub const BLACK_INDEX: usize = 1;
+
+    pub fn get_piece_list(&self, ptype: u8, color_idx: usize) -> &PieceList {
+        return &self.all_pieces[color_idx * 8 + ptype as usize];
     }
-    pub fn get_piece_list_mut(&mut self, ptype: u32, color_idx: u32) -> &mut PieceList {
-        return &mut self.all_pieces[(color_idx * 8 + ptype) as usize];
+    pub fn get_piece_list_mut(&mut self, ptype: u8, color_idx: usize) -> &mut PieceList {
+        return &mut self.all_pieces[color_idx * 8 + ptype as usize];
     }
 }
 
@@ -121,25 +121,25 @@ impl Board {
         let mut new_castle_state = original_castle_state;
         self.current_game_state = 0;
     
-        let opponent_color_idx: u32 = 1 - self.color_to_move_idx;
+        let opponent_color_idx: usize = 1 - self.color_to_move_idx;
         let move_from: u32 = mov.start();
         let move_to: u32 = mov.target();
     
-        let captured_ptype = piece::piece_type(self.square[move_to as usize]);
+        let captured_ptype = self.square[move_to as usize].piece_type();
         let move_piece = self.square[move_from as usize];
-        let move_ptype = piece::piece_type(move_piece);
+        let move_ptype = move_piece.piece_type();
     
         let move_flag: u32 = mov.move_flag();
         let is_promotion: bool = mov.is_promotion();
         let is_en_passant: bool = move_flag == moves::EN_PASSANT_CAPTURE;
     
-        self.current_game_state |= captured_ptype << 8;
+        self.current_game_state |= (captured_ptype as u32) << 8;
         if captured_ptype != 0 && !is_en_passant {
             self.zobrist_key ^= self.zobrist.pieces_array[move_to as usize][opponent_color_idx as usize][captured_ptype as usize];
             self.get_piece_list_mut(captured_ptype, opponent_color_idx).remove_piece(move_to);
         }
     
-        if move_ptype == piece::KING {
+        if move_ptype == Piece::KING {
             self.king_square[color_to_move_idx as usize] = move_to;
             new_castle_state &= if self.white_to_move { WHITE_CASTLE_MASK } else { BLACK_CASTLE_MASK }
         } else {
@@ -151,52 +151,52 @@ impl Board {
         if is_promotion {
             let promotion_type = match move_flag {
                 moves::QUEEN_PROMOTION => {
-                    self.get_piece_list_mut(piece::QUEEN, color_to_move_idx).add_piece(move_to);
-                    piece::QUEEN
+                    self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).add_piece(move_to);
+                    Piece::QUEEN
                 },
                 moves::ROOK_PROMOTION => {
-                    self.get_piece_list_mut(piece::ROOK, color_to_move_idx).add_piece(move_to);
-                    piece::ROOK
+                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).add_piece(move_to);
+                    Piece::ROOK
                 },
                 moves::BISHOP_PROMOTION => {
-                    self.get_piece_list_mut(piece::BISHOP, color_to_move_idx).add_piece(move_to);
-                    piece::BISHOP
+                    self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).add_piece(move_to);
+                    Piece::BISHOP
                 },
                 moves::KNIGHT_PROMOTION => {
-                    self.get_piece_list_mut(piece::KNIGHT, color_to_move_idx).add_piece(move_to);
-                    piece::KNIGHT
+                    self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).add_piece(move_to);
+                    Piece::KNIGHT
                 },
-                _ => piece::NONE
+                _ => Piece::NONE
             };
-            piece_on_target_sqr = promotion_type | self.color_to_move;
-            self.get_piece_list_mut(piece::PAWN, color_to_move_idx).remove_piece(move_to);
+            piece_on_target_sqr = Piece::new(promotion_type | self.color_to_move);
+            self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).remove_piece(move_to);
         } else {
             match move_flag {
                 moves::EN_PASSANT_CAPTURE => {
-                    let ep_pawn_sqr = move_to + (if self.color_to_move == piece::WHITE { self.square.len() as u32 - 8 } else { 8 });
-                    self.current_game_state |= self.square[ep_pawn_sqr as usize] << 8;
-                    self.square[ep_pawn_sqr as usize] = 0;
-                    self.get_piece_list_mut(piece::PAWN, opponent_color_idx).remove_piece(ep_pawn_sqr);
-                    self.zobrist_key ^= self.zobrist.pieces_array[ep_pawn_sqr as usize][opponent_color_idx as usize][piece::PAWN as usize];
+                    let ep_pawn_sqr = move_to + (if self.color_to_move == Piece::WHITE { self.square.len() as u32 - 8 } else { 8 });
+                    self.current_game_state |= (self.square[ep_pawn_sqr as usize].value() as u32) << 8;
+                    self.square[ep_pawn_sqr as usize] = Piece::NULL;
+                    self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).remove_piece(ep_pawn_sqr);
+                    self.zobrist_key ^= self.zobrist.pieces_array[ep_pawn_sqr as usize][opponent_color_idx as usize][Piece::PAWN as usize];
                 },
                 moves::CASTLING => {
                     let kingside = move_to == representation::G1 || move_to == representation::G8;
                     let castle_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2};
                     let castle_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
     
-                    self.square[castle_rook_from_idx as usize] = piece::NONE;
-                    self.square[castle_rook_to_idx as usize] = piece::ROOK | self.color_to_move;
+                    self.square[castle_rook_from_idx as usize] = Piece::NULL;
+                    self.square[castle_rook_to_idx as usize] = Piece::new(Piece::ROOK | self.color_to_move);
     
-                    self.get_piece_list_mut(piece::ROOK, color_to_move_idx).move_piece(castle_rook_from_idx, castle_rook_to_idx);
-                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_from_idx as usize][color_to_move_idx as usize][piece::ROOK as usize];
-                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_to_idx as usize][self.color_to_move_idx as usize][piece::ROOK as usize];
+                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castle_rook_from_idx, castle_rook_to_idx);
+                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_from_idx as usize][color_to_move_idx as usize][Piece::ROOK as usize];
+                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_to_idx as usize][self.color_to_move_idx as usize][Piece::ROOK as usize];
                 },
                 _ => ()
             }
         }
     
         self.square[move_to as usize] = piece_on_target_sqr;
-        self.square[move_from as usize] = 0;
+        self.square[move_from as usize] = Piece::NULL;
     
         if move_flag == moves::PAWN_TWO_FORWARD {
             let file = representation::file_idx(move_from) + 1;
@@ -219,7 +219,7 @@ impl Board {
     
         self.zobrist_key ^= self.zobrist.side_to_move;
         self.zobrist_key ^= self.zobrist.pieces_array[move_from as usize][self.color_to_move_idx as usize][move_ptype as usize];
-        self.zobrist_key ^= self.zobrist.pieces_array[move_to as usize][self.color_to_move_idx as usize][piece::piece_type(piece_on_target_sqr) as usize];
+        self.zobrist_key ^= self.zobrist.pieces_array[move_to as usize][self.color_to_move_idx as usize][piece_on_target_sqr.piece_type() as usize];
     
         if old_en_passant_file != 0 {
             self.zobrist_key ^= self.zobrist.en_passant_file[old_en_passant_file as usize];
@@ -235,14 +235,14 @@ impl Board {
         self.game_state_history.push(self_current_game_state);
     
         self.white_to_move = !self.white_to_move;
-        self.color_to_move = if self.white_to_move { piece::WHITE } else { piece::BLACK };
-        self.opponent_color = if self.white_to_move { piece::BLACK } else { piece::WHITE };
+        self.color_to_move = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
+        self.opponent_color = if self.white_to_move { Piece::BLACK } else { Piece::WHITE };
         self.color_to_move_idx = 1 - self.color_to_move_idx;
         self.plycount += 1;
         self.fifty_move_counter += 1;
     
         if !in_search {
-            if move_ptype == piece::PAWN || captured_ptype != piece::NONE {
+            if move_ptype == Piece::PAWN || captured_ptype != Piece::NONE {
                 self.repeat_position_history.clear();
                 self.fifty_move_counter = 0;
             } else {
@@ -256,14 +256,14 @@ impl Board {
         let color_to_move_idx = self.color_to_move_idx;
 
         let opponent_color_idx = self.color_to_move_idx;
-        let undoing_white_move = opponent_color_idx == piece::WHITE;
+        let undoing_white_move = opponent_color_idx == Board::WHITE_INDEX;
         self.color_to_move = self.opponent_color;
-        self.opponent_color = if undoing_white_move { piece::BLACK } else { piece::WHITE };
+        self.opponent_color = if undoing_white_move { Piece::BLACK } else { Piece::WHITE };
         self.color_to_move_idx = 1 - self.color_to_move_idx;
         self.white_to_move = !self.white_to_move;
     
         let original_castle_state = self.current_game_state & 0b1111;
-        let captured_ptype = (self.current_game_state >> 8) & 63;
+        let captured_ptype = ((self.current_game_state >> 8) & 63) as u8;
         let captured_piece = if captured_ptype == 0 { 0 } else { captured_ptype | self.opponent_color };
     
         let move_from = mov.start();
@@ -272,8 +272,8 @@ impl Board {
         let is_en_passant = move_flags == moves::EN_PASSANT_CAPTURE;
         let is_promotion = mov.is_promotion();
     
-        let to_sqr_ptype = piece::piece_type(self.square[move_to as usize]);
-        let move_ptype = if is_promotion { piece::PAWN } else { to_sqr_ptype };
+        let to_sqr_ptype = self.square[move_to as usize].piece_type();
+        let move_ptype = if is_promotion { Piece::PAWN } else { to_sqr_ptype };
     
         self.zobrist_key ^= self.zobrist.side_to_move;
         self.zobrist_key ^= self.zobrist.pieces_array[move_from as usize][self.color_to_move_idx as usize][move_ptype as usize];
@@ -287,49 +287,49 @@ impl Board {
             self.zobrist_key ^= self.zobrist.pieces_array[move_to as usize][opponent_color_idx as usize][captured_ptype as usize];
             self.get_piece_list_mut(captured_ptype, opponent_color_idx).add_piece(move_to);
         }
-        if move_ptype == piece::KING {
+        if move_ptype == Piece::KING {
             self.king_square[color_to_move_idx as usize] = move_from;
         } else if !is_promotion {
             self.get_piece_list_mut(move_ptype, color_to_move_idx).move_piece(move_to, move_from);
         }
     
-        self.square[move_from as usize] = move_ptype | self.color_to_move;
-        self.square[move_to as usize] = captured_piece;
+        self.square[move_from as usize] = Piece::new(move_ptype | self.color_to_move);
+        self.square[move_to as usize] = Piece::new(captured_piece);
     
         if is_promotion {
-            self.get_piece_list_mut(piece::PAWN, color_to_move_idx).add_piece(move_from);
+            self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).add_piece(move_from);
             match move_flags {
                 moves::QUEEN_PROMOTION => {
-                    self.get_piece_list_mut(piece::QUEEN, color_to_move_idx).remove_piece(move_to);
+                    self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).remove_piece(move_to);
                 },
                 moves::KNIGHT_PROMOTION => {
-                    self.get_piece_list_mut(piece::KNIGHT, color_to_move_idx).remove_piece(move_to);
+                    self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).remove_piece(move_to);
                 },
                 moves::ROOK_PROMOTION => {
-                    self.get_piece_list_mut(piece::ROOK, color_to_move_idx).remove_piece(move_to);
+                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).remove_piece(move_to);
                 },
                 moves::BISHOP_PROMOTION => {
-                    self.get_piece_list_mut(piece::BISHOP, color_to_move_idx).remove_piece(move_to);
+                    self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).remove_piece(move_to);
                 },
                 _ => ()
             }
         } else if is_en_passant {
-            let ep_idx = move_to + (if self.color_to_move == piece::WHITE { self.square.len() as u32 - 8 } else { 8 });
-            self.square[move_to as usize] = 0;
-            self.square[ep_idx as usize] = captured_piece;
-            self.get_piece_list_mut(piece::PAWN, opponent_color_idx).add_piece(ep_idx);
-            self.zobrist_key ^= self.zobrist.pieces_array[ep_idx as usize][opponent_color_idx as usize][piece::PAWN as usize];
+            let ep_idx = move_to + (if self.color_to_move == Piece::WHITE { self.square.len() as u32 - 8 } else { 8 });
+            self.square[move_to as usize] = Piece::NULL;
+            self.square[ep_idx as usize] = Piece::new(captured_piece);
+            self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).add_piece(ep_idx);
+            self.zobrist_key ^= self.zobrist.pieces_array[ep_idx as usize][opponent_color_idx as usize][Piece::PAWN as usize];
         } else if move_flags == moves::CASTLING {
             let kingside = move_to == 6 || move_to == 62;
             let castling_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2 };
             let castling_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
     
-            self.square[castling_rook_from_idx as usize] = 0;
-            self.square[castling_rook_to_idx as usize] = piece::ROOK | self.color_to_move;
+            self.square[castling_rook_from_idx as usize] = Piece::NULL;
+            self.square[castling_rook_to_idx as usize] = Piece::new(Piece::ROOK | self.color_to_move);
             
-            self.get_piece_list_mut(piece::ROOK, color_to_move_idx).move_piece(castling_rook_to_idx, castling_rook_from_idx);
-            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_from_idx as usize][color_to_move_idx as usize][piece::ROOK as usize];
-            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_to_idx as usize][self.color_to_move_idx as usize][piece::ROOK as usize];
+            self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castling_rook_to_idx, castling_rook_from_idx);
+            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_from_idx as usize][color_to_move_idx as usize][Piece::ROOK as usize];
+            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_to_idx as usize][self.color_to_move_idx as usize][Piece::ROOK as usize];
         }
     
         self.game_state_history.pop();
@@ -358,32 +358,32 @@ impl Board {
         };
 
         for sqr_idx in 0u32..64u32 {
-            let piece = loaded_pos.squares[sqr_idx as usize];
+            let piece = Piece::new(loaded_pos.squares[sqr_idx as usize]);
             self.square[sqr_idx as usize] = piece;
     
-            if piece != piece::NONE {
-                let ptype = piece::piece_type(piece);
-                let pcolor_idx = if piece::is_color(piece, piece::WHITE) { WHITE_INDEX } else { BLACK_INDEX };
-                if piece::is_sliding_piece(piece) {
-                    if ptype == piece::QUEEN {
-                        self.get_piece_list_mut(piece::QUEEN, pcolor_idx).add_piece(sqr_idx);
-                    } else if ptype == piece::ROOK {
-                        self.get_piece_list_mut(piece::ROOK, pcolor_idx).add_piece(sqr_idx);
-                    } else if ptype == piece::BISHOP {
-                        self.get_piece_list_mut(piece::BISHOP, pcolor_idx).add_piece(sqr_idx);
+            if piece.piece_type() != Piece::NONE {
+                let ptype = piece.piece_type();
+                let pcolor_idx = if piece.is_color(Piece::WHITE) { Board::WHITE_INDEX } else { Board::BLACK_INDEX };
+                if piece.is_sliding_piece() {
+                    if ptype == Piece::QUEEN {
+                        self.get_piece_list_mut(Piece::QUEEN, pcolor_idx).add_piece(sqr_idx);
+                    } else if ptype == Piece::ROOK {
+                        self.get_piece_list_mut(Piece::ROOK, pcolor_idx).add_piece(sqr_idx);
+                    } else if ptype == Piece::BISHOP {
+                        self.get_piece_list_mut(Piece::BISHOP, pcolor_idx).add_piece(sqr_idx);
                     }
-                } else if ptype == piece::KNIGHT {
-                    self.get_piece_list_mut(piece::KNIGHT, pcolor_idx).add_piece(sqr_idx);
-                } else if ptype == piece::PAWN {
-                    self.get_piece_list_mut(piece::PAWN, pcolor_idx).add_piece(sqr_idx);
-                } else if ptype == piece::KING {
+                } else if ptype == Piece::KNIGHT {
+                    self.get_piece_list_mut(Piece::KNIGHT, pcolor_idx).add_piece(sqr_idx);
+                } else if ptype == Piece::PAWN {
+                    self.get_piece_list_mut(Piece::PAWN, pcolor_idx).add_piece(sqr_idx);
+                } else if ptype == Piece::KING {
                     self.king_square[pcolor_idx as usize] = sqr_idx;
                 }
             }
         }
     
         self.white_to_move = loaded_pos.white_to_move;
-        self.color_to_move = if self.white_to_move { piece::WHITE } else { piece::BLACK };
+        self.color_to_move = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
         self.opponent_color = !self.color_to_move;
         self.color_to_move_idx = if self.white_to_move { 0 } else { 1 };
     
@@ -410,7 +410,7 @@ pub fn spawn_main_board(
     let knights = vec![PieceList::new(10), PieceList::new(10)];
     let pawns = vec![PieceList::new(8), PieceList::new(8)];
     let mut board = Board {
-        square: [0; 64],
+        square: [Piece::NULL; 64],
         white_to_move: true,
         color_to_move: 0,
         opponent_color: 0,
@@ -430,63 +430,23 @@ pub fn spawn_main_board(
         all_pieces: vec![
             empty_piece_list.clone(),
             empty_piece_list.clone(),
-            pawns[WHITE_INDEX as usize].clone(),
-            knights[WHITE_INDEX as usize].clone(),
+            pawns[Board::WHITE_INDEX as usize].clone(),
+            knights[Board::WHITE_INDEX as usize].clone(),
             empty_piece_list.clone(),
-            bishops[WHITE_INDEX as usize].clone(),
-            rooks[WHITE_INDEX as usize].clone(),
-            queens[WHITE_INDEX as usize].clone(),
+            bishops[Board::WHITE_INDEX as usize].clone(),
+            rooks[Board::WHITE_INDEX as usize].clone(),
+            queens[Board::WHITE_INDEX as usize].clone(),
             empty_piece_list.clone(),
             empty_piece_list.clone(),
-            pawns[BLACK_INDEX as usize].clone(),
-            knights[BLACK_INDEX as usize].clone(),
+            pawns[Board::BLACK_INDEX as usize].clone(),
+            knights[Board::BLACK_INDEX as usize].clone(),
             empty_piece_list,
-            bishops[BLACK_INDEX as usize].clone(),
-            rooks[BLACK_INDEX as usize].clone(),
-            queens[BLACK_INDEX as usize].clone(),
+            bishops[Board::BLACK_INDEX as usize].clone(),
+            rooks[Board::BLACK_INDEX as usize].clone(),
+            queens[Board::BLACK_INDEX as usize].clone(),
         ],
     };
 
-    for sqr_idx in 0u32..64u32 {
-        let piece = loaded_pos.squares[sqr_idx as usize];
-        board.square[sqr_idx as usize] = piece;
-
-        if piece != piece::NONE {
-            let ptype = piece::piece_type(piece);
-            let pcolor_idx = if piece::is_color(piece, piece::WHITE) { WHITE_INDEX } else { BLACK_INDEX };
-            if piece::is_sliding_piece(piece) {
-                if ptype == piece::QUEEN {
-                    board.get_piece_list_mut(piece::QUEEN, pcolor_idx).add_piece(sqr_idx);
-                } else if ptype == piece::ROOK {
-                    board.get_piece_list_mut(piece::ROOK, pcolor_idx).add_piece(sqr_idx);
-                } else if ptype == piece::BISHOP {
-                    board.get_piece_list_mut(piece::BISHOP, pcolor_idx).add_piece(sqr_idx);
-                }
-            } else if ptype == piece::KNIGHT {
-                board.get_piece_list_mut(piece::KNIGHT, pcolor_idx).add_piece(sqr_idx);
-            } else if ptype == piece::PAWN {
-                board.get_piece_list_mut(piece::PAWN, pcolor_idx).add_piece(sqr_idx);
-            } else if ptype == piece::KING {
-                board.king_square[pcolor_idx as usize] = sqr_idx;
-            } else {
-            }
-        }
-    }
-
-    board.white_to_move = loaded_pos.white_to_move;
-    board.color_to_move = if board.white_to_move { piece::WHITE } else { piece::BLACK };
-    board.opponent_color = !board.color_to_move;
-    board.color_to_move_idx = if board.white_to_move { 0 } else { 1 };
-
-    let white_castle = (if loaded_pos.white_castle_kingside { 1 << 0 } else { 0 }) | (if loaded_pos.white_castle_queenside { 1 << 1 } else { 0 });
-    let black_castle = (if loaded_pos.black_castle_kingside { 1 << 2 } else { 0 }) | (if loaded_pos.black_castle_queenside { 1 << 3 } else { 0 });
-    let ep_state = loaded_pos.ep_file << 4;
-    let initial_game_state = white_castle | black_castle | ep_state;
-    board.game_state_history.push(initial_game_state);
-    board.current_game_state = initial_game_state;
-    board.plycount = loaded_pos.ply_count;
-    let board_clone = board.clone();
-    board.zobrist_key = board.zobrist.calc_zobrist_key(board_clone);
-
+    board.load_position(None);
     commands.insert_resource(board);
 }

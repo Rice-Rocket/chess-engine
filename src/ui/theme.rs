@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::board::piece;
+use crate::board::piece::*;
 
 
 #[derive(Clone, Copy, PartialEq)]
@@ -63,18 +63,18 @@ pub struct PieceTheme {
 }
 
 impl PieceTheme {
-    pub fn get_piece_sprite(&self, piece_value: u32) -> Option<Handle<Image>> {
+    pub fn get_piece_sprite(&self, piece: Piece) -> Option<Handle<Image>> {
         let white_pieces = self.white_pieces.as_ref().unwrap();
         let black_pieces = self.black_pieces.as_ref().unwrap();
-        let piece_sprites = if piece::is_color(piece_value, piece::WHITE) { white_pieces } else { black_pieces };
+        let piece_sprites = if piece.is_color(Piece::WHITE) { white_pieces } else { black_pieces };
 
-        return match piece::piece_type(piece_value) {
-            piece::PAWN => Some(piece_sprites.pawn.clone()),
-            piece::ROOK => Some(piece_sprites.rook.clone()),
-            piece::KNIGHT => Some(piece_sprites.knight.clone()),
-            piece::BISHOP => Some(piece_sprites.bishop.clone()),
-            piece::QUEEN => Some(piece_sprites.queen.clone()),
-            piece::KING => Some(piece_sprites.king.clone()),
+        return match piece.piece_type() {
+            Piece::PAWN => Some(piece_sprites.pawn.clone()),
+            Piece::ROOK => Some(piece_sprites.rook.clone()),
+            Piece::KNIGHT => Some(piece_sprites.knight.clone()),
+            Piece::BISHOP => Some(piece_sprites.bishop.clone()),
+            Piece::QUEEN => Some(piece_sprites.queen.clone()),
+            Piece::KING => Some(piece_sprites.king.clone()),
             _ => None
         };
     }

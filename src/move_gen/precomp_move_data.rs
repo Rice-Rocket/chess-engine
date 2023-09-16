@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::{
-    board::board::{WHITE_INDEX, BLACK_INDEX},
+    board::board::Board,
     game::representation::coord_from_idx,
 };
 
@@ -113,21 +113,21 @@ impl Default for PrecomputedMoveData {
             if x > 0 {
                 if y < 7 {
                     pawn_captures_white.push(sqr_idx + 7);
-                    pawn_bitboard[WHITE_INDEX as usize] |= 1u64 << (sqr_idx + 7);
+                    pawn_bitboard[Board::WHITE_INDEX] |= 1u64 << (sqr_idx + 7);
                 }
                 if y > 0 {
                     pawn_captures_black.push(sqr_idx - 9);
-                    pawn_bitboard[BLACK_INDEX as usize] |= 1u64 << (sqr_idx - 9);
+                    pawn_bitboard[Board::BLACK_INDEX] |= 1u64 << (sqr_idx - 9);
                 }
             }
             if x < 7 {
                 if y < 7 {
                     pawn_captures_white.push(sqr_idx + 9);
-                    pawn_bitboard[WHITE_INDEX as usize] |= 1u64 << (sqr_idx + 9);
+                    pawn_bitboard[Board::WHITE_INDEX] |= 1u64 << (sqr_idx + 9);
                 }
                 if y > 0 {
                     pawn_captures_black.push(sqr_idx - 7);
-                    pawn_bitboard[BLACK_INDEX as usize] |= 1u64 << (sqr_idx - 7);
+                    pawn_bitboard[Board::BLACK_INDEX] |= 1u64 << (sqr_idx - 7);
                 }
             }
 

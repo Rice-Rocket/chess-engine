@@ -4,8 +4,8 @@ use std::path::Path;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::collections::VecDeque;
-use super::board::{BLACK_INDEX, WHITE_INDEX, Board};
-use super::piece;
+use super::board::Board;
+use super::piece::*;
 
 const SEED: u64 = 2361912;
 const RAND_NUMS_FILENAME: &str = "assets/logic/random_numbers.txt";
@@ -66,8 +66,8 @@ impl Zobrist {
 
         for square_idx in 0..64 {
             for piece_idx in 0..8 {
-                default.pieces_array[square_idx][WHITE_INDEX as usize][piece_idx] = rand_nums.pop_front().unwrap();
-                default.pieces_array[square_idx][BLACK_INDEX as usize][piece_idx] = rand_nums.pop_front().unwrap();
+                default.pieces_array[square_idx][Board::WHITE_INDEX][piece_idx] = rand_nums.pop_front().unwrap();
+                default.pieces_array[square_idx][Board::BLACK_INDEX][piece_idx] = rand_nums.pop_front().unwrap();
             }
         }
         for i in 0..16 {
@@ -84,10 +84,10 @@ impl Zobrist {
         let mut zobrist_key: u64 = 0;
         
         for sqr_idx in 0..64 {
-            if board.square[sqr_idx as usize] != 0 {
-                let ptype = piece::piece_type(board.square[sqr_idx as usize]);
-                let pcolor = piece::color(board.square[sqr_idx as usize]);
-                zobrist_key ^= self.pieces_array[sqr_idx as usize][if pcolor == piece::WHITE { WHITE_INDEX as usize } else { BLACK_INDEX as usize }][ptype as usize];
+            if board.square[sqr_idx as usize] != Piece::NULL {
+                let ptype = board.square[sqr_idx as usize].piece_type();
+                let pcolor = board.square[sqr_idx as usize].color();
+                zobrist_key ^= self.pieces_array[sqr_idx as usize][if pcolor == Piece::WHITE { Board::WHITE_INDEX } else { Board::BLACK_INDEX }][ptype as usize];
             }
         }
 
@@ -95,7 +95,7 @@ impl Zobrist {
         if ep_idx != -1 {
             zobrist_key ^= self.en_passant_file[ep_idx as usize];
         }
-        if board.color_to_move == piece::BLACK {
+        if board.color_to_move == Piece::BLACK {
             zobrist_key ^= self.side_to_move;
         }
         zobrist_key ^= self.castling_rights[(board.current_game_state & 0b1111) as usize];
