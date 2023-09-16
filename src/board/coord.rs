@@ -1,4 +1,4 @@
-use crate::game_logic::representation::square_name_from_coord;
+use crate::game::representation::square_name_from_coord;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Coord {

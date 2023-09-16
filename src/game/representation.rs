@@ -1,4 +1,4 @@
-use super::coord;
+use crate::board::coord::Coord;
 
 pub const FILE_NAMES: &str = "abcdefgh";
 pub const RANK_NAMES: &str = "12345678";
@@ -33,8 +33,8 @@ pub fn idx_from_coord(file_idx: u32, rank_idx: u32) -> u32 {
     rank_idx * 8 + file_idx
 }
 
-pub fn coord_from_idx(square: u32) -> coord::Coord {
-    coord::Coord::new(file_idx(square), rank_idx(square))
+pub fn coord_from_idx(square: u32) -> Coord {
+    Coord::new(file_idx(square), rank_idx(square))
 }
 
 pub fn light_square(file_idx: u32, rank_idx: u32) -> bool {

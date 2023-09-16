@@ -1,8 +1,12 @@
 use bevy::prelude::*;
 
-use crate::ui::menu::GameType;
+use crate::{
+    ui::menu::GameType,
+    game::manager::PlayerType,
+    game::human_player::HumanPlayer,
+    board::piece::{WHITE, BLACK},
+};
 
-use super::{manager::PlayerType, human_player::HumanPlayer, piece::{WHITE, BLACK}};
 
 #[derive(Component)]
 pub struct Player {

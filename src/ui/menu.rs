@@ -1,16 +1,6 @@
 use bevy::prelude::*;
+use crate::{AppState, game::manager::PlayerType};
 
-use crate::game_logic::manager::PlayerType;
-
-
-#[derive(States, Debug, Hash, Eq, PartialEq, Clone, Copy, Default)]
-pub enum AppState {
-    #[default]
-    MainMenu,
-    LoadGameLogic,
-    LoadUI,
-    InGame,
-}
 
 #[derive(Component)]
 pub struct GameType {
@@ -178,7 +168,7 @@ pub fn update_menu_buttons(
                     },
                 }
 
-                commands.insert_resource(NextState(Some(AppState::LoadGameLogic)));
+                commands.insert_resource(NextState(Some(AppState::LoadPrecomp)));
             },
             Interaction::Hovered => {
                 if button_data.anim_time < 1.0 {

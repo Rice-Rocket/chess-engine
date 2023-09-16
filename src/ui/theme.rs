@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::game_logic::piece;
+use crate::board::piece;
 
 
 #[derive(Clone, Copy, PartialEq)]

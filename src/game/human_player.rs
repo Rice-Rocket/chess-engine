@@ -1,9 +1,16 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::{ui::{board::{BoardUITransform, BoardUIResetPiecePosition, BoardSetSquareColor, BoardUI, BoardResetSquareColors}, theme::SquareColorTypes}, game_logic::representation::coord_from_idx};
-
-use super::{moves::Move, coord::Coord, representation::idx_from_coord, piece::is_color, board::{Board, MainBoard, BoardMakeMove}, player::Player, pseudo_legal_moves::PseudoLegalMoveGenerator};
-
+use crate::{
+    ui::{board::{BoardUITransform, BoardUIResetPiecePosition, BoardSetSquareColor, BoardUI, BoardResetSquareColors}, theme::SquareColorTypes}, 
+    game::representation::{idx_from_coord, coord_from_idx},
+    board::moves::Move,
+    board::coord::Coord,
+    board::piece::is_color,
+    board::board::Board,
+    game::player::Player,
+    move_gen::pseudo_legal_moves::PseudoLegalMoveGenerator,
+    game::manager::BoardMakeMove,
+};
 
 
 #[derive(PartialEq)]
@@ -34,7 +41,7 @@ pub fn handle_player_input(
     mut player_query: Query<(&mut HumanPlayer, &Player)>,
     buttons: Res<Input<MouseButton>>,
     board_transform: Res<BoardUITransform>,
-    board_query: Query<&Board, With<MainBoard>>,
+    board: Res<Board>,
     mut reset_piece_position_evw: EventWriter<BoardUIResetPiecePosition>,
     mut make_move_evw: EventWriter<BoardMakeMove>,
     mut set_sqr_color_evw: EventWriter<BoardSetSquareColor>,
@@ -43,62 +50,60 @@ pub fn handle_player_input(
     pseudo_move_gen: Res<PseudoLegalMoveGenerator>,
 ) {
     if let Some(mpos) = window_query.single().cursor_position() {
-        if let Ok(board) = board_query.get_single() {
-            for (mut player, player_data) in player_query.iter_mut() {
-                if player_data.team != board.color_to_move { continue };
-                if player.current_state == PlayerInputState::None {
-                    handle_piece_selection(
-                        &buttons,
-                        &board_transform,
-                        board,
+        for (mut player, player_data) in player_query.iter_mut() {
+            if player_data.team != board.color_to_move { continue };
+            if player.current_state == PlayerInputState::None {
+                handle_piece_selection(
+                    &buttons,
+                    &board_transform,
+                    &board,
+                    &mut player,
+                    mpos,
+                    &mut set_sqr_color_evw,
+                    &mut board_ui,
+                    &pseudo_move_gen,
+                );
+            } else if player.current_state == PlayerInputState::DraggingPiece {
+                if buttons.just_released(MouseButton::Left) {
+                    board_ui.dragged_piece = None;
+                    handle_piece_placement(
                         &mut player,
+                        &board_transform,
+                        &buttons,
+                        &mut reset_piece_position_evw,
+                        &board,
                         mpos,
+                        &mut make_move_evw,
                         &mut set_sqr_color_evw,
+                        &mut reset_sqr_color_evw,
                         &mut board_ui,
                         &pseudo_move_gen,
                     );
-                } else if player.current_state == PlayerInputState::DraggingPiece {
-                    if buttons.just_released(MouseButton::Left) {
-                        board_ui.dragged_piece = None;
-                        handle_piece_placement(
-                            &mut player,
-                            &board_transform,
-                            &buttons,
-                            &mut reset_piece_position_evw,
-                            &board,
-                            mpos,
-                            &mut make_move_evw,
-                            &mut set_sqr_color_evw,
-                            &mut reset_sqr_color_evw,
-                            &mut board_ui,
-                            &pseudo_move_gen,
-                        );
-                    }
-                } else if player.current_state == PlayerInputState::PieceSelected {
-                    if buttons.just_pressed(MouseButton::Left) {
-                        handle_piece_placement(
-                            &mut player,
-                            &board_transform,
-                            &buttons,
-                            &mut reset_piece_position_evw,
-                            &board,
-                            mpos,
-                            &mut make_move_evw,
-                            &mut set_sqr_color_evw,
-                            &mut reset_sqr_color_evw,
-                            &mut board_ui,
-                            &pseudo_move_gen,
-                        );
-                    }
                 }
-
-                if buttons.just_pressed(MouseButton::Right) {
-                    cancel_piece_selection(
+            } else if player.current_state == PlayerInputState::PieceSelected {
+                if buttons.just_pressed(MouseButton::Left) {
+                    handle_piece_placement(
                         &mut player,
+                        &board_transform,
+                        &buttons,
                         &mut reset_piece_position_evw,
+                        &board,
+                        mpos,
+                        &mut make_move_evw,
+                        &mut set_sqr_color_evw,
                         &mut reset_sqr_color_evw,
-                    )
+                        &mut board_ui,
+                        &pseudo_move_gen,
+                    );
                 }
+            }
+
+            if buttons.just_pressed(MouseButton::Right) {
+                cancel_piece_selection(
+                    &mut player,
+                    &mut reset_piece_position_evw,
+                    &mut reset_sqr_color_evw,
+                )
             }
         }
     }
@@ -107,7 +112,7 @@ pub fn handle_player_input(
 pub fn handle_piece_selection(
     buttons: &Res<Input<MouseButton>>,
     board_transform: &Res<BoardUITransform>,
-    board: &Board,
+    board: &Res<Board>,
     player: &mut Mut<HumanPlayer>,
     mpos: Vec2,
     set_sqr_color_evw: &mut EventWriter<BoardSetSquareColor>,
@@ -164,7 +169,7 @@ pub fn handle_piece_placement(
     board_transform: &Res<BoardUITransform>,
     buttons: &Res<Input<MouseButton>>,
     mut reset_piece_position_evw: &mut EventWriter<BoardUIResetPiecePosition>,
-    board: &Board,
+    board: &Res<Board>,
     mpos: Vec2,
     mut make_move_evw: &mut EventWriter<BoardMakeMove>,
     mut set_sqr_color_evw: &mut EventWriter<BoardSetSquareColor>,
@@ -221,6 +226,5 @@ pub fn player_make_move(
 ) {
     make_move_evw.send(BoardMakeMove {
         mov, 
-        in_search: false,
     });
 }

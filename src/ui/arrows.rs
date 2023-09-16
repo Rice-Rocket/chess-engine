@@ -7,10 +7,10 @@ use bevy::{
         mesh::Indices
     }};
 
-use crate::game_logic::coord::Coord;
-
-use super::board::BoardUITransform;
-
+use crate::{
+    board::coord::*,
+    ui::board::BoardUITransform,
+};
 
 const ARROW_COLOR_1: Color = Color::rgba(0.96, 0.68, 0.19, 0.6);
 const ARROW_COLOR_2: Color = Color::rgba(0.96, 0.24, 0.24, 0.6);

@@ -1,6 +1,11 @@
 use bevy::prelude::*;
-
-use super::{moves::{Move, CASTLING, PAWN_TWO_FORWARD, EN_PASSANT_CAPTURE, QUEEN_PROMOTION, ROOK_PROMOTION, KNIGHT_PROMOTION, BISHOP_PROMOTION}, board::{Board, WHITE_INDEX, BLACK_INDEX, BoardMakeMove, MainBoard}, piece::{NONE, WHITE, BLACK, QUEEN, ROOK, BISHOP, is_color, piece_type, is_bishop_or_queen, is_rook_or_queen, KNIGHT, PAWN}, precomp_move_data::PrecomputedMoveData, representation::{self, rank_idx}};
+use crate::{
+    board::moves::{Move, CASTLING, PAWN_TWO_FORWARD, EN_PASSANT_CAPTURE, QUEEN_PROMOTION, ROOK_PROMOTION, KNIGHT_PROMOTION, BISHOP_PROMOTION},
+    board::board::{Board, WHITE_INDEX, BLACK_INDEX},
+    board::piece::{WHITE, BLACK, NONE, QUEEN, ROOK, BISHOP, KNIGHT, PAWN, is_color, piece_type, is_bishop_or_queen, is_rook_or_queen},
+    move_gen::precomp_move_data::PrecomputedMoveData,
+    game::representation::{self, rank_idx},
+};
 
 
 #[derive(Resource)]
@@ -18,7 +23,7 @@ pub struct PseudoLegalMoveGenerator {
 }
 
 impl PseudoLegalMoveGenerator {
-    pub fn generate_moves(&mut self, board: &Board, precomp: &Res<PrecomputedMoveData>) {
+    pub fn generate_moves(&mut self, board: &Res<Board>, precomp: &Res<PrecomputedMoveData>) {
         self.init(board);
         self.gen_king_moves(board, precomp);
         self.gen_sliding_moves(board, precomp);
@@ -242,20 +247,6 @@ impl PseudoLegalMoveGenerator {
     }
 }
 
-
-pub fn generate_pseudo_legal_moves(
-    mut pseudo_move_generator: ResMut<PseudoLegalMoveGenerator>,
-    mut make_move_evr: EventReader<BoardMakeMove>,
-    board_query: Query<&Board, With<MainBoard>>,
-    precomp_data: Res<PrecomputedMoveData>,
-) {
-    if let Ok(board) = board_query.get_single() {
-        for _ in make_move_evr.iter() {
-            pseudo_move_generator.generate_moves(&board, &precomp_data);
-        }
-    }
-}
-
 impl Default for PseudoLegalMoveGenerator {
     fn default() -> Self {
         PseudoLegalMoveGenerator {
@@ -271,3 +262,20 @@ impl Default for PseudoLegalMoveGenerator {
         }
     }
 }
+
+pub fn spawn_pseudo_move_gen(
+    mut commands: Commands,
+) {
+    commands.insert_resource(PseudoLegalMoveGenerator::default());
+}
+
+// pub fn generate_pseudo_legal_moves(
+//     mut pseudo_move_generator: ResMut<PseudoLegalMoveGenerator>,
+//     mut make_move_evr: EventReader<BoardMakeMove>,
+//     board: Res<Board>,
+//     precomp_data: Res<PrecomputedMoveData>,
+// ) {
+//     for _ in make_move_evr.iter() {
+//         pseudo_move_generator.generate_moves(&board, &precomp_data);
+//     }
+// }

@@ -1,4 +1,4 @@
-use crate::game_logic::representation::square_name_from_idx;
+use crate::game::representation::square_name_from_idx;
 
 use super::piece;
 

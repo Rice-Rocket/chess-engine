@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-
-use super::{board::{WHITE_INDEX, BLACK_INDEX}, representation::coord_from_idx};
+use crate::{
+    board::board::{WHITE_INDEX, BLACK_INDEX},
+    game::representation::coord_from_idx,
+};
 
 
 #[derive(Resource)]
@@ -201,4 +203,10 @@ impl Default for PrecomputedMoveData {
             center_manhattan_distance,
         }
     }
+}
+
+pub fn spawn_precomp(
+    mut commands: Commands,
+) {
+    commands.insert_resource(PrecomputedMoveData::default());
 }
