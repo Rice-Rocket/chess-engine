@@ -22,8 +22,15 @@ pub mod zobrist;
 use board::*;
 use player::*;
 use human_player::*;
+use precomp_move_data::*;
 
 use crate::ui::menu::AppState;
+
+pub fn spawn_game_logic_resources(
+    mut commands: Commands,
+) {
+    commands.insert_resource(PrecomputedMoveData::default());
+}
 
 pub fn finish_load_game_logic(
     mut commands: Commands,
@@ -39,6 +46,7 @@ impl Plugin for GameLogicPlugin {
             .add_event::<BoardMakeMove>()
 
             .add_systems(OnEnter(AppState::LoadGameLogic), (
+                spawn_game_logic_resources,
                 spawn_main_board,
                 spawn_players,
                 finish_load_game_logic,

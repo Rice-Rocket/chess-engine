@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{player::Player, moves::Move};
+use super::moves::Move;
 
 pub enum GameResult {
     Playing,
