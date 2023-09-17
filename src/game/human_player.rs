@@ -2,7 +2,6 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     ui::{board::{BoardUITransform, BoardUIResetPiecePosition, BoardSetSquareColor, BoardUI, BoardResetSquareColors}, theme::SquareColorTypes}, 
-    game::representation::{idx_from_coord, coord_from_idx},
     board::moves::Move,
     board::coord::Coord,
     board::piece::*,
@@ -122,23 +121,22 @@ pub fn handle_piece_selection(
     if buttons.just_pressed(MouseButton::Left) {
         if let Some(piece_sqr) = board_transform.get_hovered_square(mpos) {
             player.selected_piece_sqr = piece_sqr;
-            let idx = idx_from_coord(piece_sqr.file_idx, piece_sqr.rank_idx);
+            let idx = piece_sqr.index();
             if board.square[idx as usize].is_color(board.color_to_move) {
                 println!("Highlight legal moves");
                 for legal_move in pseudo_move_gen.moves.iter() {
-                    if coord_from_idx(legal_move.start()) == player.selected_piece_sqr {
-                        println!("{:?}", legal_move);
+                    if legal_move.start() == player.selected_piece_sqr {
                         set_sqr_color_evw.send(BoardSetSquareColor {
                             color: SquareColorTypes::Legal,
-                            rank: coord_from_idx(legal_move.target()).rank_idx,
-                            file: coord_from_idx(legal_move.target()).file_idx,
+                            rank: legal_move.target().rank(),
+                            file: legal_move.target().file(),
                         })
                     }
                 }
                 set_sqr_color_evw.send(BoardSetSquareColor {
                     color: SquareColorTypes::Selected,
-                    rank: player.selected_piece_sqr.rank_idx,
-                    file: player.selected_piece_sqr.file_idx,
+                    rank: player.selected_piece_sqr.rank(),
+                    file: player.selected_piece_sqr.file(),
                 });
                 board_ui.dragged_piece = Some(player.selected_piece_sqr);
                 player.current_state = PlayerInputState::DraggingPiece;
@@ -158,8 +156,8 @@ pub fn cancel_piece_selection(
             color: None,
         });
         reset_piece_position_evw.send(BoardUIResetPiecePosition {
-            origin_file: player.selected_piece_sqr.file_idx,
-            origin_rank: player.selected_piece_sqr.rank_idx,
+            origin_file: player.selected_piece_sqr.file(),
+            origin_rank: player.selected_piece_sqr.rank(),
         });
     }
 }
@@ -180,8 +178,8 @@ pub fn handle_piece_placement(
     if let Some(target_sqr) = board_transform.get_hovered_square(mpos) {
         if target_sqr.is_eq(player.selected_piece_sqr) {
             reset_piece_position_evw.send(BoardUIResetPiecePosition {
-                origin_file: target_sqr.file_idx,
-                origin_rank: target_sqr.rank_idx,
+                origin_file: target_sqr.file(),
+                origin_rank: target_sqr.rank(),
             });
             if player.current_state == PlayerInputState::DraggingPiece {
                 player.current_state = PlayerInputState::PieceSelected;
@@ -192,7 +190,7 @@ pub fn handle_piece_placement(
                 });
             }
         } else {
-            let target_idx = idx_from_coord(target_sqr.file_idx, target_sqr.rank_idx);
+            let target_idx = target_sqr.square();
             if board.square[target_idx as usize].is_color(board.color_to_move) && board.square[target_idx as usize] != Piece::NULL {
                 cancel_piece_selection(&mut player, &mut reset_piece_position_evw, &mut reset_sqr_color_evw);
                 handle_piece_selection(
@@ -207,7 +205,7 @@ pub fn handle_piece_placement(
                 );
             } else {
                 player_make_move(
-                    Move::from_start_end(idx_from_coord(player.selected_piece_sqr.file_idx, player.selected_piece_sqr.rank_idx), target_idx), 
+                    Move::from_start_end(player.selected_piece_sqr.square(), target_idx), 
                     &mut make_move_evw
                 );
                 cancel_piece_selection(&mut player, &mut reset_piece_position_evw, &mut reset_sqr_color_evw)

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::{
     board::board::Board,
-    game::representation::coord_from_idx,
+    board::coord::*,
 };
 
 
@@ -10,9 +10,9 @@ pub struct PrecomputedMoveData {
     pub direction_offsets: [i32; 8],
     pub num_sqrs_to_edge: [[i32; 8]; 64],
     
-    pub knight_moves: [Vec<u8>; 64],
-    pub king_moves: [Vec<u8>; 64],
-    pub pawn_attack_dirs: [[u8; 2]; 2],
+    pub knight_moves: [Vec<Coord>; 64],
+    pub king_moves: [Vec<Coord>; 64],
+    pub pawn_attack_dirs: [[Coord; 2]; 2],
 
     pub pawn_attacks_white: [Vec<i32>; 64],
     pub pawn_attacks_black: [Vec<i32>; 64],
@@ -46,13 +46,13 @@ impl Default for PrecomputedMoveData {
         let mut pawn_attacks_white: [Vec<i32>; 64] = std::array::from_fn(|_| vec![]);
         let mut pawn_attacks_black: [Vec<i32>; 64] = std::array::from_fn(|_| vec![]);
         let mut num_sqrs_to_edge: [[i32; 8]; 64] = [[0; 8]; 64]; // index with [square][direction]
-        let mut knight_moves: [Vec<u8>; 64] = std::array::from_fn(|_| vec![]);
-        let mut king_moves: [Vec<u8>; 64] = std::array::from_fn(|_| vec![]);
+        let mut knight_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
+        let mut king_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         
         let mut rook_moves: [u64; 64] = [0; 64];
         let mut bishop_moves: [u64; 64] = [0; 64];
         let mut queen_moves: [u64; 64] = [0; 64];
-        let pawn_attack_dirs: [[u8; 2]; 2] = [[4, 6], [7, 5]]; // index with [color index]
+        let pawn_attack_dirs: [[Coord; 2]; 2] = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]]; // index with [color index]
         
         let direction_offsets: [i32; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
         let all_knight_jumps: [i32; 8] = [15, 17, -17, -15, 10, -6, 6, -10];
@@ -86,7 +86,7 @@ impl Default for PrecomputedMoveData {
                     let knight_sqr_x = knight_jump_sqr - knight_sqr_y * 8;
                     let max_coord_move_dst = (x - knight_sqr_x).abs().max((y - knight_sqr_y).abs());
                     if max_coord_move_dst == 2 {
-                        legal_knight_jumps.push(knight_jump_sqr as u8);
+                        legal_knight_jumps.push(Coord::from_idx(knight_jump_sqr as u8));
                         *knight_bitboard |= 1u64 << knight_jump_sqr
                     }
                 }
@@ -101,7 +101,7 @@ impl Default for PrecomputedMoveData {
                     let king_sqr_x = king_move_sqr - king_sqr_y * 8;
                     let max_coord_move_dst = (x - king_sqr_x).abs().max((y - king_sqr_y).abs());
                     if max_coord_move_dst == 1 {
-                        legal_king_moves.push(king_move_sqr as u8);
+                        legal_king_moves.push(Coord::from_idx(king_move_sqr as u8));
                         *king_bitboard |= 1u64 << king_move_sqr;
                     }
                 }
@@ -170,14 +170,14 @@ impl Default for PrecomputedMoveData {
         let mut king_distance: [[u32; 64]; 64] = [[0; 64]; 64];
         let mut center_manhattan_distance: [u32; 64] = [0; 64];
         for sqr_a in 0..64 {
-            let coord_a = coord_from_idx(sqr_a);
-            let file_center_dst = (3 - coord_a.file_idx as i32).max(coord_a.file_idx as i32 - 4) as u32;
-            let rank_center_dst = (3 - coord_a.rank_idx as i32).max(coord_a.rank_idx as i32 - 4) as u32;
+            let coord_a = Coord::from_idx(sqr_a);
+            let file_center_dst = (3 - coord_a.file() as i32).max(coord_a.file() as i32 - 4) as u32;
+            let rank_center_dst = (3 - coord_a.rank() as i32).max(coord_a.rank() as i32 - 4) as u32;
             center_manhattan_distance[sqr_a as usize] = file_center_dst + rank_center_dst;
             for sqr_b in 0..64 {
-                let coord_b = coord_from_idx(sqr_b);
-                let file_dst = (coord_a.file_idx as i32 - coord_b.file_idx as i32).abs();
-                let rank_dst = (coord_a.rank_idx as i32 - coord_b.rank_idx as i32).abs();
+                let coord_b = Coord::from_idx(sqr_b);
+                let file_dst = (coord_a.file() as i32 - coord_b.file() as i32).abs();
+                let rank_dst = (coord_a.rank() as i32 - coord_b.rank() as i32).abs();
                 manhattan_distance[sqr_a as usize][sqr_b as usize] = (file_dst + rank_dst) as u32;
                 king_distance[sqr_a as usize][sqr_b as usize] = file_dst.max(rank_dst) as u32;
             }
