@@ -40,20 +40,20 @@ pub struct BoardUITransform {
 }
 
 impl BoardUITransform {
-    pub fn x_pos(&self, file: u8) -> f32 {
+    pub fn x_pos(&self, file: i8) -> f32 {
         file as f32 * self.sqr_size + self.x_offset + self.sqr_size / 2.0
     }
-    pub fn y_pos(&self, rank: u8) -> f32 {
+    pub fn y_pos(&self, rank: i8) -> f32 {
         rank as f32 * self.sqr_size + SIDE_PADDING + self.sqr_size / 2.0
     }
     pub fn pos_from_coord(&self, coord: Coord) -> Vec2 {
         Vec2::new(self.x_pos(coord.file()), self.y_pos(coord.rank()))
     }
     pub fn get_hovered_square(&self, mouse: Vec2) -> Option<Coord> {
-        let file = ((mouse.x - self.x_offset) / self.sqr_size) as i32;
-        let rank = ((mouse.y - SIDE_PADDING) / self.sqr_size) as i32;
+        let file = ((mouse.x - self.x_offset) / self.sqr_size) as i8;
+        let rank = ((mouse.y - SIDE_PADDING) / self.sqr_size) as i8;
         return match file >= 0 && file < 8 && rank >= 0 && rank < 8 {
-            true => Some(Coord::new(file as u8, 7 - rank as u8)),
+            true => Some(Coord::new(file, 7 - rank)),
             false => None
         }
     }
@@ -71,28 +71,28 @@ impl Default for BoardUITransform {
 #[derive(Component)]
 pub struct BoardUISquare {
     pub color: SquareColorTypes,
-    pub rank: u8,
-    pub file: u8,
+    pub rank: i8,
+    pub file: i8,
 }
 
 #[derive(Component)]
 pub struct BoardUIPiece {
     pub piece: Piece,
-    pub file: u8,
-    pub rank: u8,
+    pub file: i8,
+    pub rank: i8,
 }
 
 #[derive(Event)]
 pub struct BoardUIResetPiecePosition {
-    pub origin_file: u8,
-    pub origin_rank: u8,
+    pub origin_file: i8,
+    pub origin_rank: i8,
 }
 
 #[derive(Event)]
 pub struct BoardSetSquareColor {
     pub color: SquareColorTypes,
-    pub rank: u8,
-    pub file: u8,
+    pub rank: i8,
+    pub file: i8,
 }
 
 #[derive(Event)]

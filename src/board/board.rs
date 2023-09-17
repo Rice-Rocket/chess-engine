@@ -357,7 +357,7 @@ impl Board {
             None => fen::position_from_fen(String::from(fen::START_FEN))
         };
 
-        for sqr_idx in 0u8..64u8 {
+        for sqr_idx in 0i8..64i8 {
             let sqr = Coord::from_idx(sqr_idx);
             let piece = Piece::new(loaded_pos.squares[sqr.index()]);
             self.square[sqr.index()] = piece;

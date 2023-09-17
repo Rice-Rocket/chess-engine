@@ -7,16 +7,16 @@ use crate::{
 
 #[derive(Resource)]
 pub struct PrecomputedMoveData {
-    pub direction_offsets: [i32; 8],
-    pub num_sqrs_to_edge: [[i32; 8]; 64],
+    pub direction_offsets: [i8; 8],
+    pub num_sqrs_to_edge: [[i8; 8]; 64],
     
     pub knight_moves: [Vec<Coord>; 64],
     pub king_moves: [Vec<Coord>; 64],
     pub pawn_attack_dirs: [[Coord; 2]; 2],
 
-    pub pawn_attacks_white: [Vec<i32>; 64],
-    pub pawn_attacks_black: [Vec<i32>; 64],
-    pub direction_lookup: [i32; 127],
+    pub pawn_attacks_white: [Vec<i8>; 64],
+    pub pawn_attacks_black: [Vec<i8>; 64],
+    pub direction_lookup: [i8; 127],
 
     pub king_attack_bitboards: [u64; 64],
     pub knight_attack_bitboards: [u64; 64],
@@ -43,9 +43,9 @@ impl PrecomputedMoveData {
 
 impl Default for PrecomputedMoveData {
     fn default() -> Self {
-        let mut pawn_attacks_white: [Vec<i32>; 64] = std::array::from_fn(|_| vec![]);
-        let mut pawn_attacks_black: [Vec<i32>; 64] = std::array::from_fn(|_| vec![]);
-        let mut num_sqrs_to_edge: [[i32; 8]; 64] = [[0; 8]; 64]; // index with [square][direction]
+        let mut pawn_attacks_white: [Vec<i8>; 64] = std::array::from_fn(|_| vec![]);
+        let mut pawn_attacks_black: [Vec<i8>; 64] = std::array::from_fn(|_| vec![]);
+        let mut num_sqrs_to_edge: [[i8; 8]; 64] = [[0; 8]; 64]; // index with [square][direction]
         let mut knight_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         let mut king_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         
@@ -54,8 +54,8 @@ impl Default for PrecomputedMoveData {
         let mut queen_moves: [u64; 64] = [0; 64];
         let pawn_attack_dirs: [[Coord; 2]; 2] = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]]; // index with [color index]
         
-        let direction_offsets: [i32; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
-        let all_knight_jumps: [i32; 8] = [15, 17, -17, -15, 10, -6, 6, -10];
+        let direction_offsets: [i8; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
+        let all_knight_jumps: [i8; 8] = [15, 17, -17, -15, 10, -6, 6, -10];
         let mut king_attack_bitboards: [u64; 64] = [0; 64];
         let mut knight_attack_bitboards: [u64; 64] = [0; 64];
         let mut pawn_attack_bitboards: [[u64; 2]; 64] = [[0; 2]; 64]; // index with [square][color index]
@@ -86,7 +86,7 @@ impl Default for PrecomputedMoveData {
                     let knight_sqr_x = knight_jump_sqr - knight_sqr_y * 8;
                     let max_coord_move_dst = (x - knight_sqr_x).abs().max((y - knight_sqr_y).abs());
                     if max_coord_move_dst == 2 {
-                        legal_knight_jumps.push(Coord::from_idx(knight_jump_sqr as u8));
+                        legal_knight_jumps.push(Coord::from_idx(knight_jump_sqr));
                         *knight_bitboard |= 1u64 << knight_jump_sqr
                     }
                 }
@@ -101,7 +101,7 @@ impl Default for PrecomputedMoveData {
                     let king_sqr_x = king_move_sqr - king_sqr_y * 8;
                     let max_coord_move_dst = (x - king_sqr_x).abs().max((y - king_sqr_y).abs());
                     if max_coord_move_dst == 1 {
-                        legal_king_moves.push(Coord::from_idx(king_move_sqr as u8));
+                        legal_king_moves.push(Coord::from_idx(king_move_sqr));
                         *king_bitboard |= 1u64 << king_move_sqr;
                     }
                 }
@@ -150,8 +150,8 @@ impl Default for PrecomputedMoveData {
             queen_moves[sqr_idx as usize] = rook_moves[sqr_idx as usize] | bishop_moves[sqr_idx as usize];
         }
 
-        let mut direction_lookup: [i32; 127] = [0; 127];
-        for i in 0i32..127i32 {
+        let mut direction_lookup: [i8; 127] = [0; 127];
+        for i in 0i8..127i8 {
             let offset = i - 63;
             let abs_offset = offset.abs();
             let mut abs_dir = 1;

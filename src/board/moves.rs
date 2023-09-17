@@ -38,12 +38,12 @@ impl Move {
             val
         }
     }
-    pub fn from_start_end(start: u8, target: u8) -> Self {
+    pub fn from_start_end(start: i8, target: i8) -> Self {
         Self {
             val: (start as u16) | ((target as u16) << 6),
         }
     }
-    pub fn from_start_end_flagged(start: u8, target: u8, flag: u8) -> Self {
+    pub fn from_start_end_flagged(start: i8, target: i8, flag: u8) -> Self {
         Self {
             val: (start as u16) | ((target as u16) << 6) | ((flag as u16) << 12),
         }
@@ -51,11 +51,11 @@ impl Move {
     pub fn same_move(a: Self, b: Self) -> bool {
         a.val == b.val
     }
-    pub fn start_idx(&self) -> u8 {
-        (self.val & START_SQUARE_MASK) as u8
+    pub fn start_idx(&self) -> i8 {
+        (self.val & START_SQUARE_MASK) as i8
     }
-    pub fn target_idx(&self) -> u8 {
-        ((self.val & TARGET_SQUARE_MASK) >> 6) as u8
+    pub fn target_idx(&self) -> i8 {
+        ((self.val & TARGET_SQUARE_MASK) >> 6) as i8
     }
     pub fn start(&self) -> Coord {
         Coord::from_idx(self.start_idx())
