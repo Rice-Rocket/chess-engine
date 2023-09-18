@@ -59,7 +59,7 @@ impl MoveGenerator {
         self.init(board, precomp, bbutils, magic);
         self.gen_king_moves(board, bbutils);
 
-        BitBoardUtils::print_bitboard("", &precomp.dir_ray_mask[10][6]);
+        BitBoardUtils::print_bitboard("", &self.pin_rays);
 
         if !self.in_double_check {
             self.gen_sliding_moves(board, magic, precomp);

@@ -11,13 +11,13 @@ pub struct Piece {
 }
 
 impl Piece {
-    pub const NONE: u8 = 0;
-    pub const PAWN: u8 = 1;
-    pub const KNIGHT: u8 = 2;
-    pub const BISHOP: u8 = 3;
-    pub const ROOK: u8 = 4;
-    pub const QUEEN: u8 = 5;
-    pub const KING: u8 = 6;
+    pub const NONE: u8 = 0;   // 000
+    pub const PAWN: u8 = 1;   // 001
+    pub const KNIGHT: u8 = 2; // 010
+    pub const BISHOP: u8 = 3; // 011
+    pub const ROOK: u8 = 4;   // 100
+    pub const QUEEN: u8 = 5;  // 101
+    pub const KING: u8 = 6;   // 110
 
     pub const WHITE: u8 = 0;
     pub const BLACK: u8 = 8;
@@ -66,10 +66,10 @@ impl Piece {
         return self.val & TYPE_MASK;
     }
     pub fn is_rook_or_queen(self) -> bool {
-        return (self.val & 0b110) == 0b110;
+        return self.piece_type() == Self::QUEEN || self.piece_type() == Self::ROOK;
     }
     pub fn is_bishop_or_queen(self) -> bool {
-        return (self.val & 0b101) == 0b101;
+        return self.piece_type() == Self::QUEEN || self.piece_type() == Self::BISHOP;
     }
     pub fn is_sliding_piece(self) -> bool {
         return (self.val & 0b100) != 0;
