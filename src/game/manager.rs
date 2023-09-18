@@ -31,6 +31,7 @@ pub struct GameManager {
     pub black_player_type: PlayerType,
     pub game_result: GameResult,
     pub game_moves: Vec<Move>,
+    executed_board_move: Option<Move>,
 }
 
 impl GameManager {
@@ -117,6 +118,7 @@ pub fn spawn_game_manager(
             black_player_type: game_type.black,
             game_result: GameResult::Playing,
             game_moves: Vec::new(),
+            executed_board_move: None,
         });
     }
 }
@@ -125,16 +127,17 @@ pub fn execute_board_move(
     mut make_move_evr: EventReader<BoardMakeMove>,
     mut board: ResMut<Board>,
     zobrist: Res<Zobrist>,
+    mut manager: ResMut<GameManager>,
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
         board.make_move(mov, false, &zobrist);
+        manager.executed_board_move = Some(mov);
     }
 }
 
 pub fn on_make_move(
     mut commands: Commands,
-    mut make_move_evr: EventReader<BoardMakeMove>,
     mut move_gen: ResMut<MoveGenerator>,
     board: Res<Board>,
     precomp: Res<PrecomputedMoveData>,
@@ -143,14 +146,14 @@ pub fn on_make_move(
     mut manager: ResMut<GameManager>,
     mut stats: ResMut<CalcStatistics>,
 ) {
-    for make_move_event in make_move_evr.iter() {
-        let mov = make_move_event.mov;
+    if let Some(mov) = manager.executed_board_move {
         let time_start = SystemTime::now();
         move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
-        let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_nanos();
-        stats.move_gen_time = (move_gen_time as f32) / 1000000.0;
+        let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_micros();
+        stats.move_gen_time = move_gen_time as f32;
+    
         manager.game_moves.push(mov);
-
+    
         match manager.gen_game_result(&board, &move_gen.moves, move_gen.in_check()) {
             GameResult::None => (),
             GameResult::Playing => (),
@@ -164,5 +167,6 @@ pub fn on_make_move(
             GameResult::WhiteTimeout => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
             GameResult::BlackTimeout => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
         }
+        manager.executed_board_move = None;
     }
 }

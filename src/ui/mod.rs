@@ -73,6 +73,9 @@ impl Plugin for UIPlugin {
                 drag_piece,
                 update_board_ui_transform,
                 update_menu_stats,
-            ).run_if(in_state(AppState::InGame)));
+            ).run_if(in_state(AppState::InGame)))
+            
+            .add_systems(OnEnter(AppState::GameOver), spawn_game_over_splash)
+            .add_systems(OnExit(AppState::GameOver), despawn_game_over_splash);
     }
 }
