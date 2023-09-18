@@ -175,14 +175,14 @@ pub fn update_pieces(
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
-        // ! TODO: MAKE UI UPDATE PROPERLY FOR CASTLING
         let start = mov.start();
         let target = mov.target();
         let captured_sqr = if mov.move_flag() == Move::EN_PASSANT_CAPTURE {
             Coord::new(target.file(), start.rank()) } else { target };
+        let (mut found_start, mut found_end) = (false, false);
         for (mut piece, piece_entity, mut transform) in pieces_query.iter_mut() {
             let piece_coord = Coord::new(piece.file, piece.rank);
-            if piece_coord.is_eq(start) {
+            if piece_coord == start {
                 let x_pos = board_transform.x_pos(target.file());
                 let y_pos = board_transform.y_pos(target.rank());
                 if !mov.is_promotion() {
@@ -208,8 +208,28 @@ pub fn update_pieces(
                         ));
                     }
                 }
-            } else if piece_coord.is_eq(captured_sqr) {
+                found_start = true;
+            } else if piece_coord == captured_sqr {
                 commands.entity(piece_entity).despawn();
+                found_end = true;
+            }
+            if found_start && found_end { break; }
+        }
+
+        if mov.move_flag() == Move::CASTLING {
+            let kingside = target == Coord::G1 || target == Coord::G8;
+            let castling_rook_from = if kingside { target + 1 } else { target - 2 };
+            let castling_rook_to = if kingside { target - 1 } else { target + 1 };
+            for (mut piece, _, mut transform) in pieces_query.iter_mut() {
+                let piece_coord = Coord::new(piece.file, piece.rank);
+                if piece_coord == castling_rook_from {
+                    let x_pos = board_transform.x_pos(castling_rook_to.file());
+                    let y_pos = board_transform.y_pos(castling_rook_to.rank());
+                    piece.file = castling_rook_to.file();
+                    piece.rank = castling_rook_to.rank();
+                    transform.translation = Vec3::new(x_pos, y_pos, 0.0);
+                    break;
+                }
             }
         }
     }
