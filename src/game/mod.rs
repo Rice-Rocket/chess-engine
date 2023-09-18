@@ -28,6 +28,7 @@ impl Plugin for GamePlugin {
                 spawn_players,
                 finalize,
             ).chain())
+            .add_systems(OnEnter(AppState::InGame), initialize_game)
             .add_systems(Update, (
                 handle_player_input,
                 on_make_move,

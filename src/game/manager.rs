@@ -31,6 +31,16 @@ pub struct BoardMakeMove {
     pub mov: Move
 }
 
+pub fn initialize_game(
+    mut move_gen: ResMut<MoveGenerator>,
+    board: Res<Board>,
+    precomp: Res<PrecomputedMoveData>,
+    bbutils: Res<BitBoardUtils>,
+    magic: Res<MagicBitBoards>,
+) {
+    move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
+}
+
 pub fn on_make_move(
     mut make_move_evr: EventReader<BoardMakeMove>,
     mut move_gen: ResMut<MoveGenerator>,

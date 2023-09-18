@@ -47,6 +47,7 @@ pub fn handle_player_input(
     mut reset_sqr_color_evw: EventWriter<BoardResetSquareColors>,
     mut board_ui: ResMut<BoardUI>,
     move_gen: Res<MoveGenerator>,
+    keyboard: Res<Input<KeyCode>>,
 ) {
     if let Some(mpos) = window_query.single().cursor_position() {
         for (mut player, player_data) in player_query.iter_mut() {
@@ -77,6 +78,7 @@ pub fn handle_player_input(
                         &mut reset_sqr_color_evw,
                         &mut board_ui,
                         &move_gen,
+                        &keyboard,
                     );
                 }
             } else if player.current_state == PlayerInputState::PieceSelected {
@@ -93,6 +95,7 @@ pub fn handle_player_input(
                         &mut reset_sqr_color_evw,
                         &mut board_ui,
                         &move_gen,
+                        &keyboard,
                     );
                 }
             }
@@ -174,6 +177,7 @@ pub fn handle_piece_placement(
     mut reset_sqr_color_evw: &mut EventWriter<BoardResetSquareColors>,
     mut board_ui: &mut ResMut<BoardUI>,
     move_gen: &Res<MoveGenerator>,
+    keyboard: &Res<Input<KeyCode>>,
 ) {
     if let Some(target_sqr) = board_transform.get_hovered_square(mpos) {
         if target_sqr.is_eq(player.selected_piece_sqr) {
@@ -204,9 +208,15 @@ pub fn handle_piece_placement(
                     move_gen
                 );
             } else {
+                let selected_sqr = player.selected_piece_sqr.square();
                 player_make_move(
-                    Move::from_start_end(player.selected_piece_sqr.square(), target_idx), 
-                    &mut make_move_evw
+                    &mut player,
+                    &mut reset_piece_position_evw,
+                    &mut reset_sqr_color_evw,
+                    Move::from_start_end(selected_sqr, target_idx), 
+                    &move_gen,
+                    &keyboard,
+                    &mut make_move_evw,
                 );
                 cancel_piece_selection(&mut player, &mut reset_piece_position_evw, &mut reset_sqr_color_evw)
             }
@@ -217,10 +227,40 @@ pub fn handle_piece_placement(
 }
 
 pub fn player_make_move(
+    player: &mut Mut<HumanPlayer>,
+    reset_piece_position_evw: &mut EventWriter<BoardUIResetPiecePosition>,
+    reset_sqr_color_evw: &mut EventWriter<BoardResetSquareColors>,
     mov: Move,
+    move_gen: &Res<MoveGenerator>,
+    keyboard: &Res<Input<KeyCode>>,
     make_move_evw: &mut EventWriter<BoardMakeMove>,
 ) {
-    make_move_evw.send(BoardMakeMove {
-        mov, 
-    });
+    let mut move_is_legal = false;
+    let mut chosen_move = Move::NULL;
+
+    let wants_knight_prom = keyboard.pressed(KeyCode::ShiftLeft);
+    let legal_moves = &move_gen.moves;  
+    for legal_move in legal_moves.iter() {
+        if legal_move.start() == mov.start() && legal_move.target() == mov.target() {
+            if legal_move.is_promotion() {
+                if legal_move.move_flag() == Move::QUEEN_PROMOTION && wants_knight_prom {
+                    continue;
+                }
+                if legal_move.move_flag() != Move::QUEEN_PROMOTION && !wants_knight_prom {
+                    continue;
+                }
+            }
+            move_is_legal = true;
+            chosen_move = *legal_move;
+            break;
+        }
+    }
+
+    if move_is_legal {
+        make_move_evw.send(BoardMakeMove {
+            mov: chosen_move, 
+        });
+    } else {
+        cancel_piece_selection(player, reset_piece_position_evw, reset_sqr_color_evw)
+    }
 }

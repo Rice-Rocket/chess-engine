@@ -72,7 +72,7 @@ impl Piece {
         return self.piece_type() == Self::QUEEN || self.piece_type() == Self::BISHOP;
     }
     pub fn is_sliding_piece(self) -> bool {
-        return (self.val & 0b100) != 0;
+        return self.is_bishop_or_queen() || self.piece_type() == Self::ROOK;
     }
     pub fn index(self) -> usize {
         self.val as usize

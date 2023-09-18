@@ -59,7 +59,7 @@ impl MoveGenerator {
         self.init(board, precomp, bbutils, magic);
         self.gen_king_moves(board, bbutils);
 
-        BitBoardUtils::print_bitboard("", &self.pin_rays);
+        // BitBoardUtils::print_bitboard("", &self.pin_rays);
 
         if !self.in_double_check {
             self.gen_sliding_moves(board, magic, precomp);
@@ -307,7 +307,7 @@ impl MoveGenerator {
                 let target_sqr = BitBoardUtils::pop_lsb(&mut double_push) as i8;
                 let start_sqr = target_sqr - push_offset * 2;
                 if !self.is_pinned(Coord::from_idx(start_sqr)) || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()] {
-                    self.moves.push(Move::from_start_end(start_sqr, target_sqr));
+                    self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::PAWN_TWO_FORWARD));
                 }
             }
         }
