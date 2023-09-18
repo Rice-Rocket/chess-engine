@@ -22,9 +22,10 @@ pub struct LoadedPositionInfo {
     pub white_castle_queenside: bool,
     pub black_castle_kingside: bool,
     pub black_castle_queenside: bool,
-    pub ep_file: u32,
+    pub ep_file: i8,
     pub white_to_move: bool,
-    pub ply_count: u32,
+    pub fifty_move_ply_count: u8,
+    pub move_count: u32,
 }
 
 impl LoadedPositionInfo {
@@ -37,7 +38,8 @@ impl LoadedPositionInfo {
             black_castle_queenside: true,
             ep_file: 0,
             white_to_move: true,
-            ply_count: 0
+            fifty_move_ply_count: 0,
+            move_count: 0
         }
     }
 }
@@ -76,12 +78,16 @@ pub fn position_from_fen(fen: String) -> LoadedPositionInfo {
     if sections.len() > 3 {
         let en_passant_filename = sections[3].chars().nth(0).unwrap();
         if representation::FILE_NAMES.contains(en_passant_filename) {
-            loaded_pos_info.ep_file = representation::FILE_NAMES.chars().position(|f| f == en_passant_filename).unwrap() as u32 + 1;
+            loaded_pos_info.ep_file = representation::FILE_NAMES.chars().position(|f| f == en_passant_filename).unwrap() as i8 + 1;
         }
     }
 
     if sections.len() > 4 {
-        loaded_pos_info.ply_count = sections[4].parse().unwrap();
+        loaded_pos_info.fifty_move_ply_count = sections[4].parse().unwrap();
+    }
+
+    if sections.len() > 5 {
+        loaded_pos_info.move_count = sections[5].parse().unwrap();
     }
     return loaded_pos_info;
 }

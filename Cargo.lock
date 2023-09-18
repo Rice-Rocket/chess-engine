@@ -1180,6 +1180,7 @@ name = "chess-ai"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "iyes_progress",
  "rand",
 ]
 
@@ -1917,6 +1918,17 @@ name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
+
+[[package]]
+name = "iyes_progress"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3f093e3b8f18730767ecf5b60c455b4f6b806d3c79ae2a31ca89d285718d635"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_utils",
+]
 
 [[package]]
 name = "jni"

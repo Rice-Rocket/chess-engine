@@ -6,7 +6,6 @@ use crate::{
     board::board::Board,
     game::manager::BoardMakeMove,
     board::piece::*,
-    game::representation,
     ui::*,
 };
 

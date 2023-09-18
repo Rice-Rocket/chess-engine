@@ -7,7 +7,11 @@ use crate::{
 
 #[derive(Resource)]
 pub struct PrecomputedMoveData {
+    pub align_mask: [[u64; 64]; 64],
+    pub dir_ray_mask: [[u64; 8]; 64],
+    
     pub direction_offsets: [i8; 8],
+    pub dir_offsets_2d: [Coord; 8],
     pub num_sqrs_to_edge: [[i8; 8]; 64],
     
     pub knight_moves: [Vec<Coord>; 64],
@@ -55,6 +59,11 @@ impl Default for PrecomputedMoveData {
         let pawn_attack_dirs: [[Coord; 2]; 2] = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]]; // index with [color index]
         
         let direction_offsets: [i8; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
+        let dir_offsets_2d: [Coord; 8] = [
+            Coord::new(0, 1), Coord::new(0, -1),
+            Coord::new(-1, 0), Coord::new(1, 0),
+            Coord::new(-1, 1), Coord::new(1, -1),
+            Coord::new(1, 1), Coord::new(-1, -1)];
         let all_knight_jumps: [i8; 8] = [15, 17, -17, -15, 10, -6, 6, -10];
         let mut king_attack_bitboards: [u64; 64] = [0; 64];
         let mut knight_attack_bitboards: [u64; 64] = [0; 64];
@@ -183,8 +192,40 @@ impl Default for PrecomputedMoveData {
             }
         };
 
+        let mut align_mask: [[u64; 64]; 64] = [[0; 64]; 64];
+        for sqr_a in 0..64 {
+            for sqr_b in 0..64 {
+                let ca = Coord::from_idx(sqr_a);
+                let cb = Coord::from_idx(sqr_b);
+                let delta = ca.delta(cb);
+                let dir = Coord::new(delta.file().signum(), delta.rank().signum());
+                for i in -8..8 {
+                    let c = ca + dir * i;
+                    if c.is_valid() {
+                        align_mask[ca.index()][cb.index()] |= 1 << c.index();
+                    }
+                }
+            }
+        }
+
+        let mut dir_ray_mask: [[u64; 8]; 64] = [[0; 8]; 64];
+        for dir_idx in 0..dir_offsets_2d.len() {
+            for sqr_idx in 0..64 {
+                let sqr = Coord::from_idx(sqr_idx);
+                for i in 0..8 {
+                    let c = sqr + dir_offsets_2d[dir_idx] * i;
+                    if c.is_valid() {
+                        dir_ray_mask[sqr.index()][dir_idx] |= 1 << c.index();
+                    }
+                }
+            }
+        }
+
         PrecomputedMoveData {
+            align_mask,
+            dir_ray_mask,
             direction_offsets,
+            dir_offsets_2d,
             num_sqrs_to_edge,
             knight_moves,
             king_moves,

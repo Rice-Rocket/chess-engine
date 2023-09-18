@@ -7,7 +7,7 @@ use crate::{
     board::piece::*,
     board::board::Board,
     game::player::Player,
-    move_gen::pseudo_legal_moves::PseudoLegalMoveGenerator,
+    move_gen::move_generator::MoveGenerator,
     game::manager::BoardMakeMove,
 };
 
@@ -46,11 +46,11 @@ pub fn handle_player_input(
     mut set_sqr_color_evw: EventWriter<BoardSetSquareColor>,
     mut reset_sqr_color_evw: EventWriter<BoardResetSquareColors>,
     mut board_ui: ResMut<BoardUI>,
-    pseudo_move_gen: Res<PseudoLegalMoveGenerator>,
+    move_gen: Res<MoveGenerator>,
 ) {
     if let Some(mpos) = window_query.single().cursor_position() {
         for (mut player, player_data) in player_query.iter_mut() {
-            if player_data.team != board.color_to_move { continue };
+            if player_data.team != board.move_color { continue };
             if player.current_state == PlayerInputState::None {
                 handle_piece_selection(
                     &buttons,
@@ -60,7 +60,7 @@ pub fn handle_player_input(
                     mpos,
                     &mut set_sqr_color_evw,
                     &mut board_ui,
-                    &pseudo_move_gen,
+                    &move_gen,
                 );
             } else if player.current_state == PlayerInputState::DraggingPiece {
                 if buttons.just_released(MouseButton::Left) {
@@ -76,7 +76,7 @@ pub fn handle_player_input(
                         &mut set_sqr_color_evw,
                         &mut reset_sqr_color_evw,
                         &mut board_ui,
-                        &pseudo_move_gen,
+                        &move_gen,
                     );
                 }
             } else if player.current_state == PlayerInputState::PieceSelected {
@@ -92,7 +92,7 @@ pub fn handle_player_input(
                         &mut set_sqr_color_evw,
                         &mut reset_sqr_color_evw,
                         &mut board_ui,
-                        &pseudo_move_gen,
+                        &move_gen,
                     );
                 }
             }
@@ -116,15 +116,15 @@ pub fn handle_piece_selection(
     mpos: Vec2,
     set_sqr_color_evw: &mut EventWriter<BoardSetSquareColor>,
     board_ui: &mut ResMut<BoardUI>,
-    pseudo_move_gen: &Res<PseudoLegalMoveGenerator>,
+    move_gen: &Res<MoveGenerator>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         if let Some(piece_sqr) = board_transform.get_hovered_square(mpos) {
             player.selected_piece_sqr = piece_sqr;
             let idx = piece_sqr.index();
-            if board.square[idx as usize].is_color(board.color_to_move) {
-                println!("Highlight legal moves");
-                for legal_move in pseudo_move_gen.moves.iter() {
+            if board.square[idx as usize].is_color(board.move_color) {
+                // println!("Highlight legal moves");
+                for legal_move in move_gen.moves.iter() {
                     if legal_move.start() == player.selected_piece_sqr {
                         set_sqr_color_evw.send(BoardSetSquareColor {
                             color: SquareColorTypes::Legal,
@@ -173,7 +173,7 @@ pub fn handle_piece_placement(
     mut set_sqr_color_evw: &mut EventWriter<BoardSetSquareColor>,
     mut reset_sqr_color_evw: &mut EventWriter<BoardResetSquareColors>,
     mut board_ui: &mut ResMut<BoardUI>,
-    pseudo_move_gen: &Res<PseudoLegalMoveGenerator>,
+    move_gen: &Res<MoveGenerator>,
 ) {
     if let Some(target_sqr) = board_transform.get_hovered_square(mpos) {
         if target_sqr.is_eq(player.selected_piece_sqr) {
@@ -191,7 +191,7 @@ pub fn handle_piece_placement(
             }
         } else {
             let target_idx = target_sqr.square();
-            if board.square[target_idx as usize].is_color(board.color_to_move) && board.square[target_idx as usize] != Piece::NULL {
+            if board.square[target_idx as usize].is_color(board.move_color) && board.square[target_idx as usize] != Piece::NULL {
                 cancel_piece_selection(&mut player, &mut reset_piece_position_evw, &mut reset_sqr_color_evw);
                 handle_piece_selection(
                     &buttons,
@@ -201,7 +201,7 @@ pub fn handle_piece_placement(
                     mpos,
                     &mut set_sqr_color_evw,
                     &mut board_ui,
-                    pseudo_move_gen
+                    move_gen
                 );
             } else {
                 player_make_move(

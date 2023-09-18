@@ -1,43 +1,41 @@
 use bevy::prelude::*;
 use super::{
-    piece::{self, Piece}, piece_list::PieceList,
-    moves::{self, Move}, zobrist::Zobrist, coord::Coord
+    piece::Piece, piece_list::PieceList,
+    moves::{self, Move}, zobrist::Zobrist, coord::Coord, game_state::GameState,
 };
-use crate::{
-    game::representation,
-    fen,
-};
+use crate::fen;
+use crate::move_gen::bitboard::utils::*;
 
 
-const WHITE_CASTLE_KINGSIDE_MASK: u32 = 0b1111111111111110;
-const WHITE_CASTLE_QUEENSIDE_MASK: u32 = 0b1111111111111101;
-const BLACK_CASTLE_KINGSIDE_MASK: u32 = 0b1111111111111011;
-const BLACK_CASTLE_QUEENSIDE_MASK: u32 = 0b1111111111110111;
-
-const WHITE_CASTLE_MASK: u32 = WHITE_CASTLE_KINGSIDE_MASK & WHITE_CASTLE_QUEENSIDE_MASK;
-const BLACK_CASTLE_MASK: u32 = BLACK_CASTLE_KINGSIDE_MASK & BLACK_CASTLE_QUEENSIDE_MASK;
-
-
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct Board {
     pub square: [Piece; 64],
+    pub king_square: [Coord; 2],
+
+    pub piece_bitboards: [u64; Piece::MAX_PIECE_INDEX as usize + 1],
+    pub color_bitboards: [u64; 2],
+    pub all_pieces_bitboard: u64,
+    pub friendly_orthogonal_sliders: u64,
+    pub friendly_diagonal_sliders: u64,
+    pub enemy_orthogonal_sliders: u64,
+    pub enemy_diagonal_sliders: u64,
+
+    pub total_pieces_no_pawns_kings: usize,
+    all_pieces: Vec<PieceList>,
+    game_state_history: Vec<GameState>,
+    cached_in_check_val: bool,
+    has_cached_in_check_val: bool,
+
     pub white_to_move: bool,
-    pub color_to_move: u8,
+    pub move_color: u8,
     pub opponent_color: u8,
-    pub color_to_move_idx: usize,
-
-    game_state_history: Vec<u32>, 
-    pub current_game_state: u32,
-
-    pub plycount: u32,
-    pub fifty_move_counter: u32,
-
-    pub zobrist_key: u64,
-    pub zobrist: Zobrist,
+    pub move_color_idx: usize,
+    pub opponent_color_idx: usize,
     pub repeat_position_history: Vec<u64>,
 
-    pub king_square: [Coord; 2],
-    all_pieces: Vec<PieceList>,
+    pub plycount: usize,
+    pub current_state: GameState, 
+    pub move_log: Vec<Move>,
 }
 
 impl Default for Board {
@@ -47,43 +45,57 @@ impl Default for Board {
         let rooks = vec![PieceList::new(10); 2];
         let bishops = vec![PieceList::new(10); 2];
         let queens = vec![PieceList::new(9); 2];
+        let kings = vec![PieceList::new(1); 2];
         let empty_list = PieceList::new(0);
         Self {
             square: [Piece::NULL; 64],
-            white_to_move: true,
-            color_to_move: Piece::WHITE,
-            opponent_color: Piece::BLACK,
-            color_to_move_idx: Board::WHITE_INDEX,
-
-            game_state_history: Vec::new(),
-            current_game_state: 0,
-
-            plycount: 0,
-            fifty_move_counter: 0,
-
-            zobrist_key: 0,
-            zobrist: Zobrist::new(),
-            repeat_position_history: Vec::new(),
-
             king_square: [Coord::NULL; 2],
+
+            piece_bitboards: [0; Piece::MAX_PIECE_INDEX as usize + 1],
+            color_bitboards: [0; 2],
+            all_pieces_bitboard: 0,
+            friendly_orthogonal_sliders: 0,
+            friendly_diagonal_sliders: 0,
+            enemy_orthogonal_sliders: 0,
+            enemy_diagonal_sliders: 0,
+
+            total_pieces_no_pawns_kings: 0,
             all_pieces: vec![
                 empty_list.clone(),
+				pawns[Board::WHITE_INDEX].clone(),
+				knights[Board::WHITE_INDEX].clone(),
+				bishops[Board::WHITE_INDEX].clone(),
+				rooks[Board::WHITE_INDEX].clone(),
+				queens[Board::WHITE_INDEX].clone(),
+                kings[Board::WHITE_INDEX].clone(),
 				empty_list.clone(),
-				pawns[Board::WHITE_INDEX as usize].clone(),
-				knights[Board::WHITE_INDEX as usize].clone(),
-				empty_list.clone(),
-				bishops[Board::WHITE_INDEX as usize].clone(),
-				rooks[Board::WHITE_INDEX as usize].clone(),
-				queens[Board::WHITE_INDEX as usize].clone(),
-				empty_list.clone(),
-				empty_list.clone(),
-				pawns[Board::BLACK_INDEX as usize].clone(),
-				knights[Board::BLACK_INDEX as usize].clone(),
-				empty_list,
-				bishops[Board::BLACK_INDEX as usize].clone(),
-				rooks[Board::BLACK_INDEX as usize].clone(),
-				queens[Board::BLACK_INDEX as usize].clone(),
+				pawns[Board::BLACK_INDEX].clone(),
+				knights[Board::BLACK_INDEX].clone(),
+				bishops[Board::BLACK_INDEX].clone(),
+				rooks[Board::BLACK_INDEX].clone(),
+				queens[Board::BLACK_INDEX].clone(),
+                kings[Board::BLACK_INDEX].clone(),
             ],
+            game_state_history: Vec::with_capacity(64),
+            cached_in_check_val: false,
+            has_cached_in_check_val: false,
+
+            white_to_move: true,
+            move_color: Piece::WHITE,
+            opponent_color: Piece::BLACK,
+            move_color_idx: Board::WHITE_INDEX,
+            opponent_color_idx: Board::BLACK_INDEX,
+            repeat_position_history: Vec::with_capacity(64),
+            
+            plycount: 0,
+            current_state: GameState {
+                captured_ptype: 0,
+                en_passant_file: 0,
+                castling_rights: 0,
+                fifty_move_counter: 0,
+                zobrist_key: 0,
+            },
+            move_log: Vec::new(),
         }
     }
 }
@@ -93,10 +105,10 @@ impl Board {
     pub const BLACK_INDEX: usize = 1;
 
     pub fn get_piece_list(&self, ptype: u8, color_idx: usize) -> &PieceList {
-        return &self.all_pieces[color_idx * 8 + ptype as usize];
+        return &self.all_pieces[color_idx * 7 + ptype as usize];
     }
     pub fn get_piece_list_mut(&mut self, ptype: u8, color_idx: usize) -> &mut PieceList {
-        return &mut self.all_pieces[color_idx * 8 + ptype as usize];
+        return &mut self.all_pieces[color_idx * 7 + ptype as usize];
     }
 }
 
@@ -106,252 +118,297 @@ pub struct BoardUnmakeMove {
     pub in_search: bool,
 }
 
-#[derive(Event)]
-pub struct BoardLoadPosition {
-    fen_str: Option<String>,
-}
+// #[derive(Event)]
+// pub struct BoardLoadPosition {
+//     fen_str: Option<String>,
+// }
 
 
 impl Board {
-    pub fn make_move(&mut self, mov: Move, in_search: bool) {
-        let color_to_move_idx = self.color_to_move_idx;
-
-        let old_en_passant_file = (self.current_game_state >> 4) & 15;
-        let original_castle_state = self.current_game_state & 15;
-        let mut new_castle_state = original_castle_state;
-        self.current_game_state = 0;
-    
-        let opponent_color_idx: usize = 1 - self.color_to_move_idx;
-        let move_from = mov.start();
-        let move_to = mov.target();
-    
-        let captured_ptype = self.square[move_to.index()].piece_type();
-        let move_piece = self.square[move_from.index()];
-        let move_ptype = move_piece.piece_type();
-    
+    pub fn make_move(&mut self, mov: Move, in_search: bool, zobrist: &Res<Zobrist>) {
+        let start_sqr = mov.start();
+        let target_sqr = mov.target();
         let move_flag = mov.move_flag();
         let is_promotion: bool = mov.is_promotion();
         let is_en_passant: bool = move_flag == Move::EN_PASSANT_CAPTURE;
     
-        self.current_game_state |= (captured_ptype as u32) << 8;
-        if captured_ptype != 0 && !is_en_passant {
-            self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][opponent_color_idx as usize][captured_ptype as usize];
-            self.get_piece_list_mut(captured_ptype, opponent_color_idx).remove_piece(move_to);
-        }
-    
-        if move_ptype == Piece::KING {
-            self.king_square[color_to_move_idx as usize] = move_to;
-            new_castle_state &= if self.white_to_move { WHITE_CASTLE_MASK } else { BLACK_CASTLE_MASK }
-        } else {
-            self.get_piece_list_mut(move_ptype, color_to_move_idx).move_piece(move_from, move_to);
-        }
-    
-        let mut piece_on_target_sqr = move_piece;
-    
-        if is_promotion {
-            let promotion_type = match move_flag {
-                Move::QUEEN_PROMOTION => {
-                    self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).add_piece(move_to);
-                    Piece::QUEEN
-                },
-                Move::ROOK_PROMOTION => {
-                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).add_piece(move_to);
-                    Piece::ROOK
-                },
-                Move::BISHOP_PROMOTION => {
-                    self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).add_piece(move_to);
-                    Piece::BISHOP
-                },
-                Move::KNIGHT_PROMOTION => {
-                    self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).add_piece(move_to);
-                    Piece::KNIGHT
-                },
-                _ => Piece::NONE
-            };
-            piece_on_target_sqr = Piece::new(promotion_type | self.color_to_move);
-            self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).remove_piece(move_to);
-        } else {
-            match move_flag {
-                Move::EN_PASSANT_CAPTURE => {
-                    let ep_pawn_sqr = move_to + (if self.color_to_move == Piece::WHITE { 56 } else { 8 });
-                    self.current_game_state |= (self.square[ep_pawn_sqr.index()].value() as u32) << 8;
-                    self.square[ep_pawn_sqr.index()] = Piece::NULL;
-                    self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).remove_piece(ep_pawn_sqr);
-                    self.zobrist_key ^= self.zobrist.pieces_array[ep_pawn_sqr.index()][opponent_color_idx as usize][Piece::PAWN as usize];
-                },
-                Move::CASTLING => {
-                    let kingside = move_to == Coord::G1 || move_to == Coord::G8;
-                    let castle_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2};
-                    let castle_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
-    
-                    self.square[castle_rook_from_idx.index()] = Piece::NULL;
-                    self.square[castle_rook_to_idx.index()] = Piece::new(Piece::ROOK | self.color_to_move);
-    
-                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castle_rook_from_idx, castle_rook_to_idx);
-                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_from_idx.index()][color_to_move_idx as usize][Piece::ROOK as usize];
-                    self.zobrist_key ^= self.zobrist.pieces_array[castle_rook_to_idx.index()][self.color_to_move_idx as usize][Piece::ROOK as usize];
-                },
-                _ => ()
-            }
-        }
-    
-        self.square[move_to.index()] = piece_on_target_sqr;
-        self.square[move_from.index()] = Piece::NULL;
-    
-        if move_flag == Move::PAWN_TWO_FORWARD {
-            let file = move_from.file() + 1;
-            self.current_game_state |= (file as u32) << 4;
-            self.zobrist_key ^= self.zobrist.en_passant_file[file as usize];
-        }
-        
-        if original_castle_state != 0 {
-            if move_to == Coord::H1 || move_from == Coord::H1 {
-                new_castle_state &= WHITE_CASTLE_KINGSIDE_MASK;
-            } else if move_to == Coord::A1 || move_from == Coord::A1 {
-                new_castle_state &= WHITE_CASTLE_QUEENSIDE_MASK;
-            }
-            if move_to == Coord::H8 || move_from == Coord::H8 {
-                new_castle_state &= BLACK_CASTLE_KINGSIDE_MASK;
-            } else if move_to == Coord::A8 || move_from == Coord::A8 {
-                new_castle_state &= BLACK_CASTLE_QUEENSIDE_MASK;
-            }
-        }
-    
-        self.zobrist_key ^= self.zobrist.side_to_move;
-        self.zobrist_key ^= self.zobrist.pieces_array[move_from.index()][self.color_to_move_idx as usize][move_ptype as usize];
-        self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][self.color_to_move_idx as usize][piece_on_target_sqr.piece_type() as usize];
-    
-        if old_en_passant_file != 0 {
-            self.zobrist_key ^= self.zobrist.en_passant_file[old_en_passant_file as usize];
-        }
-        if new_castle_state != original_castle_state {
-            self.zobrist_key ^= self.zobrist.castling_rights[original_castle_state as usize];
-            self.zobrist_key ^= self.zobrist.castling_rights[new_castle_state as usize];
-        }
-    
-        self.current_game_state |= new_castle_state;
-        self.current_game_state |= self.fifty_move_counter << 14;
-        let self_current_game_state = self.current_game_state;
-        self.game_state_history.push(self_current_game_state);
-    
-        self.white_to_move = !self.white_to_move;
-        self.color_to_move = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
-        self.opponent_color = if self.white_to_move { Piece::BLACK } else { Piece::WHITE };
-        self.color_to_move_idx = 1 - self.color_to_move_idx;
-        self.plycount += 1;
-        self.fifty_move_counter += 1;
-    
-        if !in_search {
-            if move_ptype == Piece::PAWN || captured_ptype != Piece::NONE {
-                self.repeat_position_history.clear();
-                self.fifty_move_counter = 0;
-            } else {
-                let board_zobrist_key = self.zobrist_key;
-                self.repeat_position_history.push(board_zobrist_key);
-            }
-        }
-    }
-    
-    pub fn unmake_move(&mut self, mov: Move, in_search: bool) {
-        let color_to_move_idx = self.color_to_move_idx;
+        let moved_piece = self.square[start_sqr.index()];
+        let moved_ptype = moved_piece.piece_type();
+        let captured_piece = if is_en_passant { Piece::new(Piece::PAWN | self.opponent_color) } else { self.square[target_sqr.index()] };
+        let captured_ptype = captured_piece.piece_type();
 
-        let opponent_color_idx = self.color_to_move_idx;
-        let undoing_white_move = opponent_color_idx == Board::WHITE_INDEX;
-        self.color_to_move = self.opponent_color;
-        self.opponent_color = if undoing_white_move { Piece::BLACK } else { Piece::WHITE };
-        self.color_to_move_idx = 1 - self.color_to_move_idx;
-        self.white_to_move = !self.white_to_move;
-    
-        let original_castle_state = self.current_game_state & 0b1111;
-        let captured_ptype = ((self.current_game_state >> 8) & 63) as u8;
-        let captured_piece = if captured_ptype == 0 { 0 } else { captured_ptype | self.opponent_color };
-    
-        let move_from = mov.start();
-        let move_to = mov.target();
-        let move_flags = mov.move_flag();
-        let is_en_passant = move_flags == Move::EN_PASSANT_CAPTURE;
-        let is_promotion = mov.is_promotion();
-    
-        let to_sqr_ptype = self.square[move_to.index()].piece_type();
-        let move_ptype = if is_promotion { Piece::PAWN } else { to_sqr_ptype };
-    
-        self.zobrist_key ^= self.zobrist.side_to_move;
-        self.zobrist_key ^= self.zobrist.pieces_array[move_from.index()][self.color_to_move_idx as usize][move_ptype as usize];
-        self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][self.color_to_move_idx as usize][to_sqr_ptype as usize];
-    
-        let old_en_passant_file = (self.current_game_state >> 4) & 15;
-        if old_en_passant_file != 0 {
-            self.zobrist_key ^= self.zobrist.en_passant_file[old_en_passant_file as usize];
-        }
-        if captured_ptype != 0 && !is_en_passant {
-            self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][opponent_color_idx as usize][captured_ptype as usize];
-            self.get_piece_list_mut(captured_ptype, opponent_color_idx).add_piece(move_to);
-        }
-        if move_ptype == Piece::KING {
-            self.king_square[color_to_move_idx as usize] = move_from;
-        } else if !is_promotion {
-            self.get_piece_list_mut(move_ptype, color_to_move_idx).move_piece(move_to, move_from);
-        }
-    
-        self.square[move_from.index()] = Piece::new(move_ptype | self.color_to_move);
-        self.square[move_to.index()] = Piece::new(captured_piece);
-    
-        if is_promotion {
-            self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).add_piece(move_from);
-            match move_flags {
-                Move::QUEEN_PROMOTION => {
-                    self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).remove_piece(move_to);
-                },
-                Move::KNIGHT_PROMOTION => {
-                    self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).remove_piece(move_to);
-                },
-                Move::ROOK_PROMOTION => {
-                    self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).remove_piece(move_to);
-                },
-                Move::BISHOP_PROMOTION => {
-                    self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).remove_piece(move_to);
-                },
-                _ => ()
+        let prev_castle_state = self.current_state.castling_rights;
+        let prev_en_passant_file = self.current_state.en_passant_file;
+        let mut new_zobrist_key = self.current_state.zobrist_key;
+        let mut new_castling_rights = self.current_state.castling_rights;
+        let mut new_en_passant_file = 0;
+
+        self.move_piece(moved_piece, start_sqr, target_sqr);
+
+        if captured_ptype != Piece::NONE {
+            let mut capture_sqr = target_sqr;
+            if is_en_passant {
+                capture_sqr = target_sqr + if self.white_to_move { -8 } else { 8 };
+                self.square[capture_sqr.index()] = Piece::NULL;
             }
-        } else if is_en_passant {
-            let ep_idx = move_to + (if self.color_to_move == Piece::WHITE { 56 } else { 8 });
-            self.square[move_to.index()] = Piece::NULL;
-            self.square[ep_idx.index()] = Piece::new(captured_piece);
-            self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).add_piece(ep_idx);
-            self.zobrist_key ^= self.zobrist.pieces_array[ep_idx.index()][opponent_color_idx as usize][Piece::PAWN as usize];
-        } else if move_flags == Move::CASTLING {
-            let kingside = move_to.index() == 6 || move_to.index() == 62;
-            let castling_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2 };
-            let castling_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
-    
-            self.square[castling_rook_from_idx.index()] = Piece::NULL;
-            self.square[castling_rook_to_idx.index()] = Piece::new(Piece::ROOK | self.color_to_move);
-            
-            self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castling_rook_to_idx, castling_rook_from_idx);
-            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_from_idx.index()][color_to_move_idx as usize][Piece::ROOK as usize];
-            self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_to_idx.index()][self.color_to_move_idx as usize][Piece::ROOK as usize];
+            if captured_ptype != Piece::PAWN {
+                self.total_pieces_no_pawns_kings -= 1;
+            }
+
+            self.get_piece_list_mut(captured_ptype, self.opponent_color_idx).remove_piece(capture_sqr);
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[captured_piece.index()], capture_sqr.square());
+            BitBoardUtils::toggle_square(&mut self.color_bitboards[self.opponent_color_idx], capture_sqr.square());
+            new_zobrist_key ^= zobrist.pieces_array[capture_sqr.index()][captured_piece.index()];
         }
-    
-        self.game_state_history.pop();
-        self.current_game_state = self.game_state_history.get(self.game_state_history.len() - 1).unwrap().clone();
-    
-        self.fifty_move_counter = (self.current_game_state & 0b11111111111111111111111111111111) >> 14;
-        let new_en_passant_file = (self.current_game_state >> 4) & 15;
-        if new_en_passant_file != 0 {
-            self.zobrist_key = self.zobrist.en_passant_file[new_en_passant_file as usize];
+
+        if moved_ptype == Piece::KING {
+            self.king_square[self.move_color_idx] = target_sqr;
+            new_castling_rights &= if self.white_to_move { 0b1100 } else { 0b0011 };
+            if move_flag == Move::CASTLING {
+                let rook_piece = Piece::new(Piece::ROOK | self.move_color);
+                let kingside = target_sqr == Coord::G1 || target_sqr == Coord::G8;
+                let castling_rook_from = if kingside { target_sqr + 1 } else { target_sqr - 2 };
+                let castling_rook_to = if kingside { target_sqr - 1 } else { target_sqr + 1 };
+
+                BitBoardUtils::toggle_squares(&mut self.piece_bitboards[rook_piece.index()], castling_rook_from.square(), castling_rook_to.square());
+                BitBoardUtils::toggle_squares(&mut self.color_bitboards[self.move_color_idx], castling_rook_from.square(), castling_rook_to.square());
+                self.get_piece_list_mut(Piece::ROOK, self.move_color_idx).move_piece(castling_rook_from, castling_rook_to);
+                self.square[castling_rook_from.index()] = Piece::NULL;
+                self.square[castling_rook_to.index()] = rook_piece;
+                
+                new_zobrist_key ^= zobrist.pieces_array[castling_rook_from.index()][rook_piece.index()];
+                new_zobrist_key ^= zobrist.pieces_array[castling_rook_to.index()][rook_piece.index()];
+            }
         }
-        let new_castle_state = self.current_game_state & 0b1111;
-        if new_castle_state != original_castle_state {
-            self.zobrist_key ^= self.zobrist.castling_rights[original_castle_state as usize];
-            self.zobrist_key ^= self.zobrist.castling_rights[new_castle_state as usize];
+        if is_promotion {
+            self.total_pieces_no_pawns_kings += 1;
+            let prom_ptype = match move_flag {
+                Move::QUEEN_PROMOTION => Piece::QUEEN,
+                Move::ROOK_PROMOTION => Piece::ROOK,
+                Move::KNIGHT_PROMOTION => Piece::KNIGHT,
+                Move::BISHOP_PROMOTION => Piece::BISHOP,
+                _ => Piece::NONE,
+            };
+            let prom_piece = Piece::new(prom_ptype | self.move_color);
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[moved_piece.index()], target_sqr.square());
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[prom_piece.index()], target_sqr.square());
+            self.get_piece_list_mut(moved_ptype, self.move_color_idx).remove_piece(target_sqr);
+            self.get_piece_list_mut(prom_ptype, self.move_color_idx).add_piece(target_sqr);
+            self.square[target_sqr.index()] = prom_piece;
         }
-        self.plycount -= 1;
-        if !in_search && self.repeat_position_history.len() > 0 {
-            self.repeat_position_history.pop();
+
+        if move_flag == Move::PAWN_TWO_FORWARD {
+            let file = start_sqr.file() + 1;
+            new_en_passant_file = file;
+            new_zobrist_key ^= zobrist.en_passant_file[file as usize];
+        }
+
+        if prev_castle_state != 0 {
+            if target_sqr == Coord::H1 || start_sqr == Coord::H1 {
+                new_castling_rights &= GameState::CLEAR_WHITE_KINGSIDE_MASK;
+            } else if target_sqr == Coord::A1 || start_sqr == Coord::A1 {
+                new_castling_rights &= GameState::CLEAR_WHITE_QUEENSIDE_MASK;
+            } else if target_sqr == Coord::H8 || start_sqr == Coord::H8 {
+                new_castling_rights &= GameState::CLEAR_BLACK_KINGSIDE_MASK;
+            } else if target_sqr == Coord::A8 || start_sqr == Coord::A8 {
+                new_castling_rights &= GameState::CLEAR_BLACK_QUEENSIDE_MASK;
+            }
+        }
+
+        new_zobrist_key ^= zobrist.side_to_move;
+        new_zobrist_key ^= zobrist.pieces_array[start_sqr.index()][moved_piece.index()];
+        new_zobrist_key ^= zobrist.pieces_array[target_sqr.index()][self.square[target_sqr.index()].index()];
+        new_zobrist_key ^= zobrist.en_passant_file[prev_en_passant_file as usize];
+
+        if new_castling_rights != prev_castle_state {
+            new_zobrist_key ^= zobrist.castling_rights[prev_castle_state as usize];
+            new_zobrist_key ^= zobrist.castling_rights[new_castling_rights as usize];
+        }
+
+        self.white_to_move = !self.white_to_move;
+        self.move_color = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
+        self.opponent_color = if self.white_to_move { Piece::BLACK } else { Piece::WHITE };
+        self.move_color_idx = 1 - self.move_color_idx;
+        self.opponent_color_idx = 1 - self.opponent_color_idx;
+        self.plycount += 1;
+        let mut new_fifty_move_counter = self.current_state.fifty_move_counter + 1;
+
+        self.all_pieces_bitboard = self.color_bitboards[Board::WHITE_INDEX] | self.color_bitboards[Board::BLACK_INDEX];
+        self.update_slider_bitboards();
+
+        if moved_ptype == Piece::PAWN || captured_ptype != Piece::NONE {
+            if !in_search {
+                self.repeat_position_history.clear();
+            }
+            new_fifty_move_counter = 0;
+        }
+
+        let new_state = GameState {
+            captured_ptype, 
+            en_passant_file: new_en_passant_file,
+            castling_rights: new_castling_rights,
+            fifty_move_counter: new_fifty_move_counter,
+            zobrist_key: new_zobrist_key,
+        };
+        self.game_state_history.push(new_state);
+        self.current_state = new_state;
+        self.has_cached_in_check_val = false;
+        if !in_search {
+            self.repeat_position_history.push(new_state.zobrist_key);
+            self.move_log.push(mov);
         }
     }
     
-    pub fn load_position(&mut self, fen_str: Option<String>) {
+    // pub fn unmake_move(&mut self, mov: Move, in_search: bool) {
+    //     let color_to_move_idx = self.color_to_move_idx;
+
+    //     let opponent_color_idx = self.color_to_move_idx;
+    //     let undoing_white_move = opponent_color_idx == Board::WHITE_INDEX;
+    //     self.color_to_move = self.opponent_color;
+    //     self.opponent_color = if undoing_white_move { Piece::BLACK } else { Piece::WHITE };
+    //     self.color_to_move_idx = 1 - self.color_to_move_idx;
+    //     self.white_to_move = !self.white_to_move;
+    
+    //     let original_castle_state = self.current_game_state & 0b1111;
+    //     let captured_ptype = ((self.current_game_state >> 8) & 63) as u8;
+    //     let captured_piece = if captured_ptype == 0 { 0 } else { captured_ptype | self.opponent_color };
+    
+    //     let move_from = mov.start();
+    //     let move_to = mov.target();
+    //     let move_flags = mov.move_flag();
+    //     let is_en_passant = move_flags == Move::EN_PASSANT_CAPTURE;
+    //     let is_promotion = mov.is_promotion();
+    
+    //     let to_sqr_ptype = self.square[move_to.index()].piece_type();
+    //     let move_ptype = if is_promotion { Piece::PAWN } else { to_sqr_ptype };
+    
+    //     self.zobrist_key ^= self.zobrist.side_to_move;
+    //     self.zobrist_key ^= self.zobrist.pieces_array[move_from.index()][self.color_to_move_idx as usize][move_ptype as usize];
+    //     self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][self.color_to_move_idx as usize][to_sqr_ptype as usize];
+    
+    //     let old_en_passant_file = (self.current_game_state >> 4) & 15;
+    //     if old_en_passant_file != 0 {
+    //         self.zobrist_key ^= self.zobrist.en_passant_file[old_en_passant_file as usize];
+    //     }
+    //     if captured_ptype != 0 && !is_en_passant {
+    //         self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][opponent_color_idx as usize][captured_ptype as usize];
+    //         self.get_piece_list_mut(captured_ptype, opponent_color_idx).add_piece(move_to);
+    //     }
+    //     if move_ptype == Piece::KING {
+    //         self.king_square[color_to_move_idx as usize] = move_from;
+    //     } else if !is_promotion {
+    //         self.get_piece_list_mut(move_ptype, color_to_move_idx).move_piece(move_to, move_from);
+    //     }
+    
+    //     self.square[move_from.index()] = Piece::new(move_ptype | self.color_to_move);
+    //     self.square[move_to.index()] = Piece::new(captured_piece);
+    
+    //     if is_promotion {
+    //         self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).add_piece(move_from);
+    //         match move_flags {
+    //             Move::QUEEN_PROMOTION => {
+    //                 self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).remove_piece(move_to);
+    //             },
+    //             Move::KNIGHT_PROMOTION => {
+    //                 self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).remove_piece(move_to);
+    //             },
+    //             Move::ROOK_PROMOTION => {
+    //                 self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).remove_piece(move_to);
+    //             },
+    //             Move::BISHOP_PROMOTION => {
+    //                 self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).remove_piece(move_to);
+    //             },
+    //             _ => ()
+    //         }
+    //     } else if is_en_passant {
+    //         let ep_idx = move_to + (if self.color_to_move == Piece::WHITE { 56 } else { 8 });
+    //         self.square[move_to.index()] = Piece::NULL;
+    //         self.square[ep_idx.index()] = Piece::new(captured_piece);
+    //         self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).add_piece(ep_idx);
+    //         self.zobrist_key ^= self.zobrist.pieces_array[ep_idx.index()][opponent_color_idx as usize][Piece::PAWN as usize];
+    //     } else if move_flags == Move::CASTLING {
+    //         let kingside = move_to.index() == 6 || move_to.index() == 62;
+    //         let castling_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2 };
+    //         let castling_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
+    
+    //         self.square[castling_rook_from_idx.index()] = Piece::NULL;
+    //         self.square[castling_rook_to_idx.index()] = Piece::new(Piece::ROOK | self.color_to_move);
+            
+    //         self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castling_rook_to_idx, castling_rook_from_idx);
+    //         self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_from_idx.index()][color_to_move_idx as usize][Piece::ROOK as usize];
+    //         self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_to_idx.index()][self.color_to_move_idx as usize][Piece::ROOK as usize];
+    //     }
+    
+    //     self.game_state_history.pop();
+    //     self.current_game_state = self.game_state_history.get(self.game_state_history.len() - 1).unwrap().clone();
+    
+    //     self.fifty_move_counter = (self.current_game_state & 0b11111111111111111111111111111111) >> 14;
+    //     let new_en_passant_file = (self.current_game_state >> 4) & 15;
+    //     if new_en_passant_file != 0 {
+    //         self.zobrist_key = self.zobrist.en_passant_file[new_en_passant_file as usize];
+    //     }
+    //     let new_castle_state = self.current_game_state & 0b1111;
+    //     if new_castle_state != original_castle_state {
+    //         self.zobrist_key ^= self.zobrist.castling_rights[original_castle_state as usize];
+    //         self.zobrist_key ^= self.zobrist.castling_rights[new_castle_state as usize];
+    //     }
+    //     self.plycount -= 1;
+    //     if !in_search && self.repeat_position_history.len() > 0 {
+    //         self.repeat_position_history.pop();
+    //     }
+    // }
+
+    pub fn make_null_move(&mut self, zobrist: &Res<Zobrist>) {
+        self.white_to_move = !self.white_to_move;
+        self.plycount += 1;
+        
+        let mut new_zobrist_key = self.current_state.zobrist_key;
+        new_zobrist_key ^= zobrist.side_to_move;
+        new_zobrist_key ^= zobrist.en_passant_file[self.current_state.en_passant_file as usize];
+
+        let new_state = GameState {
+            captured_ptype: Piece::NONE,
+            en_passant_file: 0,
+            castling_rights: self.current_state.castling_rights,
+            fifty_move_counter: self.current_state.fifty_move_counter + 1,
+            zobrist_key: new_zobrist_key,
+        };
+        self.current_state = new_state;
+        self.game_state_history.push(new_state);
+        self.update_slider_bitboards();
+        self.has_cached_in_check_val = true;
+        self.cached_in_check_val = false;
+    }
+
+    pub fn unmake_null_move(&mut self) {
+        self.white_to_move = !self.white_to_move;
+        self.plycount -= 1;
+        self.game_state_history.pop();
+        self.current_state = self.game_state_history[self.game_state_history.len() - 1];
+        self.update_slider_bitboards();
+        self.has_cached_in_check_val = true;
+        self.cached_in_check_val = false;
+    }
+
+    // pub fn in_check(&mut self) {
+    //     if self.has_cached_in_check_val {
+    //         return self.cached_in_check_val;
+    //     }
+    //     self.cached_in_check_val = self.calc_in_check_state();
+    //     self.has_cached_in_check_val = true;
+    //     return self.cached_in_check_val;
+    // }
+
+    // pub fn calc_in_check_state(&mut self) {
+    //     let king_sqr = self.king_square[self.move_color_idx];
+    //     let blockers = self.all_pieces_bitboard;
+
+    //     if self.enemy_orthogonal_sliders != 0 {
+    //         let rook_attacks = 
+    //     }
+    // }
+    
+    pub fn load_position(&mut self, fen_str: Option<String>, zobrist: &mut ResMut<Zobrist>) {
         let loaded_pos = match fen_str {
             Some(str) => fen::position_from_fen(str),
             None => fen::position_from_fen(String::from(fen::START_FEN))
@@ -360,94 +417,78 @@ impl Board {
         for sqr_idx in 0i8..64i8 {
             let sqr = Coord::from_idx(sqr_idx);
             let piece = Piece::new(loaded_pos.squares[sqr.index()]);
+            let ptype = piece.piece_type();
+            let color_idx = if piece.is_color(Piece::WHITE) { Board::WHITE_INDEX } else { Board::BLACK_INDEX };
             self.square[sqr.index()] = piece;
     
-            if piece.piece_type() != Piece::NONE {
-                let ptype = piece.piece_type();
-                let pcolor_idx = if piece.is_color(Piece::WHITE) { Board::WHITE_INDEX } else { Board::BLACK_INDEX };
-                if piece.is_sliding_piece() {
-                    if ptype == Piece::QUEEN {
-                        self.get_piece_list_mut(Piece::QUEEN, pcolor_idx).add_piece(sqr);
-                    } else if ptype == Piece::ROOK {
-                        self.get_piece_list_mut(Piece::ROOK, pcolor_idx).add_piece(sqr);
-                    } else if ptype == Piece::BISHOP {
-                        self.get_piece_list_mut(Piece::BISHOP, pcolor_idx).add_piece(sqr);
-                    }
-                } else if ptype == Piece::KNIGHT {
-                    self.get_piece_list_mut(Piece::KNIGHT, pcolor_idx).add_piece(sqr);
-                } else if ptype == Piece::PAWN {
-                    self.get_piece_list_mut(Piece::PAWN, pcolor_idx).add_piece(sqr);
-                } else if ptype == Piece::KING {
-                    self.king_square[pcolor_idx as usize] = sqr;
+            if ptype != Piece::NONE {
+                BitBoardUtils::set_square(&mut self.piece_bitboards[piece.index()], sqr_idx);
+                BitBoardUtils::set_square(&mut self.color_bitboards[color_idx], sqr_idx);
+                if ptype == Piece::KING {
+                    self.king_square[color_idx] = sqr;
+                } else {
+                    self.get_piece_list_mut(ptype, color_idx).add_piece(sqr);
                 }
+                self.total_pieces_no_pawns_kings += if ptype == Piece::KING || ptype == Piece::PAWN { 0 } else { 1 };
             }
         }
     
         self.white_to_move = loaded_pos.white_to_move;
-        self.color_to_move = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
-        self.opponent_color = !self.color_to_move;
-        self.color_to_move_idx = if self.white_to_move { 0 } else { 1 };
+        self.move_color = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
+        self.opponent_color = if self.white_to_move { Piece::BLACK } else { Piece::WHITE };
+        self.move_color_idx = if self.white_to_move { 0 } else { 1 };
+        self.opponent_color_idx = 1 - self.move_color_idx;
+
+        self.all_pieces_bitboard = self.color_bitboards[Board::WHITE_INDEX] | self.color_bitboards[Board::BLACK_INDEX];
+        self.update_slider_bitboards();
     
         let white_castle = (if loaded_pos.white_castle_kingside { 1 << 0 } else { 0 }) | (if loaded_pos.white_castle_queenside { 1 << 1 } else { 0 });
         let black_castle = (if loaded_pos.black_castle_kingside { 1 << 2 } else { 0 }) | (if loaded_pos.black_castle_queenside { 1 << 3 } else { 0 });
-        let ep_state = loaded_pos.ep_file << 4;
-        let initial_game_state = white_castle | black_castle | ep_state;
-        self.game_state_history.push(initial_game_state);
-        self.current_game_state = initial_game_state;
-        self.plycount = loaded_pos.ply_count;
-        let board_clone = self.clone();
-        self.zobrist_key = self.zobrist.calc_zobrist_key(board_clone);
+        let castling_rights = white_castle | black_castle;
+
+        self.plycount = (loaded_pos.move_count as usize - 1) * 2 + (if self.white_to_move { 0 } else { 1 });
+        self.current_state = GameState {
+            captured_ptype: Piece::NONE,
+            en_passant_file: loaded_pos.ep_file,
+            castling_rights,
+            fifty_move_counter: loaded_pos.fifty_move_ply_count,
+            zobrist_key: 0
+        };
+        let zobrist_key = zobrist.calc_zobrist_key(self);
+        self.current_state.zobrist_key = zobrist_key;
+        self.repeat_position_history.push(zobrist_key);
+        self.game_state_history.push(self.current_state);
+    }
+
+    fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {
+        BitBoardUtils::toggle_squares(&mut self.piece_bitboards[piece.index()], start.square(), target.square());
+        BitBoardUtils::toggle_squares(&mut self.color_bitboards[piece.color_index()], start.square(), target.square());
+
+        self.get_piece_list_mut(piece.piece_type(), piece.color_index()).move_piece(start, target);
+        self.square[start.index()] = Piece::NULL;
+        self.square[target.index()] = piece;
+    }
+    fn update_slider_bitboards(&mut self) {
+        let friendly_rook = Piece::new(Piece::ROOK | self.move_color);
+        let friendly_queen = Piece::new(Piece::QUEEN | self.move_color);
+        let friendly_bishop = Piece::new(Piece::BISHOP | self.move_color);
+        self.friendly_orthogonal_sliders = self.piece_bitboards[friendly_rook.index()] | self.piece_bitboards[friendly_queen.index()];
+        self.friendly_diagonal_sliders = self.piece_bitboards[friendly_bishop.index()] | self.piece_bitboards[friendly_queen.index()];
+
+        let enemy_rook = Piece::new(Piece::ROOK | self.opponent_color);
+        let enemy_queen = Piece::new(Piece::QUEEN | self.opponent_color);
+        let enemy_bishop = Piece::new(Piece::BISHOP | self.opponent_color);
+        self.enemy_orthogonal_sliders = self.piece_bitboards[enemy_rook.index()] | self.piece_bitboards[enemy_queen.index()];
+        self.enemy_diagonal_sliders = self.piece_bitboards[enemy_bishop.index()] | self.piece_bitboards[enemy_queen.index()];
     }
 }
 
 pub fn spawn_main_board(
     mut commands: Commands,
+    mut zobrist: ResMut<Zobrist>,
 ) {
-    let loaded_pos = fen::position_from_fen(String::from(fen::START_FEN));
-    let empty_piece_list = PieceList::new(0);
-    let rooks = vec![PieceList::new(10), PieceList::new(10)];
-    let bishops = vec![PieceList::new(10), PieceList::new(10)];
-    let queens = vec![PieceList::new(9), PieceList::new(9)];
-    let knights = vec![PieceList::new(10), PieceList::new(10)];
-    let pawns = vec![PieceList::new(8), PieceList::new(8)];
-    let mut board = Board {
-        square: [Piece::NULL; 64],
-        white_to_move: true,
-        color_to_move: 0,
-        opponent_color: 0,
-        color_to_move_idx: 0,
+    let mut board = Board::default();
 
-        game_state_history: Vec::new(), 
-        current_game_state: 0,
-
-        plycount: 0,
-        fifty_move_counter: 0,
-
-        zobrist_key: 0,
-        zobrist: Zobrist::new(),
-        repeat_position_history: Vec::new(),
-
-        king_square: [Coord::NULL; 2],
-        all_pieces: vec![
-            empty_piece_list.clone(),
-            empty_piece_list.clone(),
-            pawns[Board::WHITE_INDEX as usize].clone(),
-            knights[Board::WHITE_INDEX as usize].clone(),
-            empty_piece_list.clone(),
-            bishops[Board::WHITE_INDEX as usize].clone(),
-            rooks[Board::WHITE_INDEX as usize].clone(),
-            queens[Board::WHITE_INDEX as usize].clone(),
-            empty_piece_list.clone(),
-            empty_piece_list.clone(),
-            pawns[Board::BLACK_INDEX as usize].clone(),
-            knights[Board::BLACK_INDEX as usize].clone(),
-            empty_piece_list,
-            bishops[Board::BLACK_INDEX as usize].clone(),
-            rooks[Board::BLACK_INDEX as usize].clone(),
-            queens[Board::BLACK_INDEX as usize].clone(),
-        ],
-    };
-
-    board.load_position(None);
+    board.load_position(None, &mut zobrist);
     commands.insert_resource(board);
 }

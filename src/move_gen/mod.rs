@@ -1,16 +1,20 @@
 pub mod move_generator;
 pub mod precomp_move_data;
-pub mod pseudo_legal_moves;
+pub mod bitboard;
+pub mod magics;
 
 use bevy::prelude::*;
 use crate::state::AppState;
 use precomp_move_data::*;
-use pseudo_legal_moves::*;
+use bitboard::utils::*;
+use bitboard::precomp_bits::*;
+use magics::*;
+use move_generator::*;
 
 fn finalize_precomp(
     mut commands: Commands,
 ) {
-    commands.insert_resource(NextState(Some(AppState::LoadBoard)))
+    commands.insert_resource(NextState(Some(AppState::LoadZobrist)))
 }
 
 fn finalize_move_gen(
@@ -26,10 +30,13 @@ impl Plugin for MoveGenPlugin {
         app
             .add_systems(OnEnter(AppState::LoadPrecomp), (
                 spawn_precomp,
+                spawn_bitboard_utils,
                 finalize_precomp,
             ).chain())
             .add_systems(OnEnter(AppState::LoadMoveGen), (
-                spawn_pseudo_move_gen,
+                spawn_magic_bitboards,
+                spawn_precomp_bits,
+                spawn_movegen,
                 finalize_move_gen,
             ).chain())
         ;

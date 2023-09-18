@@ -6,6 +6,7 @@ pub enum AppState {
     #[default]
     MainMenu,
     LoadPrecomp,
+    LoadZobrist,
     LoadBoard,
     LoadMoveGen,
     LoadGame,
