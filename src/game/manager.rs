@@ -1,8 +1,12 @@
+use std::time::SystemTime;
+
 use bevy::prelude::*;
 
-use crate::{board::{moves::Move, board::Board, zobrist::Zobrist}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}};
+use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ui::{main_menu::GameType, ingame_menu::CalcStatistics}, state::AppState};
 
+#[derive(Clone, Copy)]
 pub enum GameResult {
+    None,
     Playing,
     WhiteIsMated,
     BlackIsMated,
@@ -10,20 +14,81 @@ pub enum GameResult {
     Repetition,
     FiftyMoveRule,
     InsufficientMaterial,
+    DrawByArbiter,
+    WhiteTimeout,
+    BlackTimeout
 }
 
+#[derive(Clone, Copy)]
 pub enum PlayerType {
     Human, AI
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 pub struct GameManager {
-    pub load_custom_position: bool,
-    pub custom_position: String,
+    pub custom_position: Option<String>,
     pub white_player_type: PlayerType,
     pub black_player_type: PlayerType,
     pub game_result: GameResult,
     pub game_moves: Vec<Move>,
+}
+
+impl GameManager {
+    // Regenerates and returns game result given board and legal moves
+    pub fn gen_game_result(&mut self, board: &Res<Board>, moves: &Vec<Move>, in_check: bool) -> GameResult {
+        if moves.len() == 0 {
+            if in_check {
+                self.game_result = if board.white_to_move { GameResult::WhiteIsMated } else { GameResult::BlackIsMated };
+                return self.game_result;
+            }
+            self.game_result = GameResult::Stalemate;
+            return self.game_result;
+        }
+        if board.current_state.fifty_move_counter >= 100 {
+            self.game_result = GameResult::FiftyMoveRule;
+            return self.game_result;
+        }
+        let mut rep_count = 0;
+        for position in board.repeat_position_history.iter() {
+            if *position == board.current_state.zobrist_key {
+                rep_count += 1;
+            };
+            if rep_count >= 3 {
+                self.game_result = GameResult::Repetition;
+                return self.game_result;
+            };
+        };
+        if self.insufficient_material(board) {
+            self.game_result = GameResult::InsufficientMaterial;
+            return self.game_result;
+        }
+        self.game_result = GameResult::Playing;
+        return self.game_result;
+    }
+    fn insufficient_material(&self, board: &Res<Board>) -> bool {
+        if board.friendly_orthogonal_sliders != 0 || board.enemy_orthogonal_sliders != 0 {
+            return false;
+        };
+        if board.get_piece_list(Piece::PAWN, Board::WHITE_INDEX).count() > 0 || 
+            board.get_piece_list(Piece::PAWN, Board::BLACK_INDEX).count() > 0 {
+                return false;
+        };
+
+        let n_white_bishops = board.get_piece_list(Piece::BISHOP, Board::WHITE_INDEX).count();
+        let n_black_bishops = board.get_piece_list(Piece::BISHOP, Board::BLACK_INDEX).count();
+        let n_white_knights = board.get_piece_list(Piece::KNIGHT, Board::WHITE_INDEX).count();
+        let n_black_knights = board.get_piece_list(Piece::KNIGHT, Board::BLACK_INDEX).count();
+        let n_white_minors = n_white_bishops + n_white_knights;
+        let n_black_minors = n_black_bishops + n_black_knights;
+
+        if n_white_minors == 0 && n_black_minors == 0 {
+            return true;
+        };
+        if (n_white_minors == 1 && n_black_minors == 0) || (n_white_minors == 0 && n_black_minors == 1) {
+            return true;
+        };
+        return false;
+    }
 }
 
 #[derive(Event)]
@@ -41,19 +106,63 @@ pub fn initialize_game(
     move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
 }
 
-pub fn on_make_move(
+pub fn spawn_game_manager(
+    mut commands: Commands,
+    game_type_query: Query<&GameType>,
+) {
+    if let Ok(game_type) = game_type_query.get_single() {
+        commands.insert_resource(GameManager {
+            custom_position: None,
+            white_player_type: game_type.white,
+            black_player_type: game_type.black,
+            game_result: GameResult::Playing,
+            game_moves: Vec::new(),
+        });
+    }
+}
+
+pub fn execute_board_move(
     mut make_move_evr: EventReader<BoardMakeMove>,
-    mut move_gen: ResMut<MoveGenerator>,
     mut board: ResMut<Board>,
-    precomp: Res<PrecomputedMoveData>,
-    bbutils: Res<BitBoardUtils>,
-    magic: Res<MagicBitBoards>,
     zobrist: Res<Zobrist>,
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
         board.make_move(mov, false, &zobrist);
-        move_gen.generate_moves(&board.into(), &precomp, &bbutils, &magic, false);
-        break;
+    }
+}
+
+pub fn on_make_move(
+    mut commands: Commands,
+    mut make_move_evr: EventReader<BoardMakeMove>,
+    mut move_gen: ResMut<MoveGenerator>,
+    board: Res<Board>,
+    precomp: Res<PrecomputedMoveData>,
+    bbutils: Res<BitBoardUtils>,
+    magic: Res<MagicBitBoards>,
+    mut manager: ResMut<GameManager>,
+    mut stats: ResMut<CalcStatistics>,
+) {
+    for make_move_event in make_move_evr.iter() {
+        let mov = make_move_event.mov;
+        let time_start = SystemTime::now();
+        move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
+        let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_nanos();
+        stats.move_gen_time = (move_gen_time as f32) / 1000000.0;
+        manager.game_moves.push(mov);
+
+        match manager.gen_game_result(&board, &move_gen.moves, move_gen.in_check()) {
+            GameResult::None => (),
+            GameResult::Playing => (),
+            GameResult::WhiteIsMated => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::BlackIsMated => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::Stalemate => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::Repetition => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::FiftyMoveRule => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::InsufficientMaterial => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::DrawByArbiter => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::WhiteTimeout => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+            GameResult::BlackTimeout => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
+        }
     }
 }

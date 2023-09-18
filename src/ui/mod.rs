@@ -2,13 +2,15 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 pub mod board;
 pub mod theme;
-pub mod menu;
+pub mod main_menu;
 pub mod arrows;
+pub mod ingame_menu;
 
 use board::*;
 use theme::*;
-use menu::*;
+use main_menu::*;
 use arrows::*;
+use ingame_menu::*;
 
 use crate::AppState;
 
@@ -43,6 +45,7 @@ impl Plugin for UIPlugin {
             .init_resource::<PieceTheme>()
             .init_resource::<BoardUITransform>()
             .init_resource::<BoardUI>()
+            .init_resource::<CalcStatistics>()
             .add_event::<BoardUIResetPiecePosition>()
             .add_event::<BoardSetSquareColor>()
             .add_event::<BoardResetSquareColors>()
@@ -56,6 +59,7 @@ impl Plugin for UIPlugin {
                 init_piece_theme,
                 spawn_board_ui,
                 spawn_arrow_drawer,
+                spawn_calc_stats,
                 finish_load_ui,
             ).chain())
             
@@ -67,6 +71,8 @@ impl Plugin for UIPlugin {
                 update_board_ui,
                 update_arrows,
                 drag_piece,
+                update_board_ui_transform,
+                update_menu_stats,
             ).run_if(in_state(AppState::InGame)));
     }
 }

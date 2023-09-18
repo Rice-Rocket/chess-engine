@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    ui::menu::GameType,
+    ui::main_menu::GameType,
     game::manager::PlayerType,
     game::human_player::HumanPlayer,
     board::piece::*,

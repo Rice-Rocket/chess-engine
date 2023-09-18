@@ -12,6 +12,7 @@ pub enum AppState {
     LoadGame,
     LoadUI,
     InGame,
+    GameOver,
 }
 
 

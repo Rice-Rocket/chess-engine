@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::{PrimaryWindow, WindowResized}};
 
 use crate::{
     board::moves::Move,
@@ -106,6 +106,16 @@ pub fn init_board_ui_transform(
     let window = window_query.get_single().unwrap();
     board_transform.sqr_size = (window.height() - SIDE_PADDING * 2.0) / 8.0;
     board_transform.x_offset = window.width() / 2.0 - window.height() / 2.0 + SIDE_PADDING;
+}
+
+pub fn update_board_ui_transform(
+    mut board_transform: ResMut<BoardUITransform>,
+    mut window_resize_evr: EventReader<WindowResized>,
+) {
+    for window_resize in window_resize_evr.iter() {
+        board_transform.sqr_size = (window_resize.height - SIDE_PADDING * 2.0) / 8.0;
+        board_transform.x_offset = window_resize.width / 2.0 - window_resize.height / 2.0 + SIDE_PADDING;
+    }
 }
 
 pub fn spawn_board_ui(
