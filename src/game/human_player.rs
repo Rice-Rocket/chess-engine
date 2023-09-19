@@ -11,6 +11,8 @@ use crate::{
     game::manager::BoardMakeMove,
 };
 
+use super::manager::GameManager;
+
 
 #[derive(PartialEq)]
 pub enum PlayerInputState {
@@ -48,10 +50,11 @@ pub fn handle_player_input(
     mut board_ui: ResMut<BoardUI>,
     move_gen: Res<MoveGenerator>,
     keyboard: Res<Input<KeyCode>>,
+    manager: Res<GameManager>,
 ) {
     if let Some(mpos) = window_query.single().cursor_position() {
         for (mut player, player_data) in player_query.iter_mut() {
-            if player_data.team != board.move_color { continue };
+            if player_data.team != manager.move_color { continue };
             if player.current_state == PlayerInputState::None {
                 handle_piece_selection(
                     &buttons,

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::manager::{GameManager, GameResult};
+use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::piece::Piece};
 
 #[derive(Component)]
 pub struct StatMenuParentNode {}
@@ -27,10 +27,32 @@ impl MenuStatistic {
     pub const COLOR_6: Color = Color::rgb(0.49, 0.24, 0.81);
 }
 
+pub enum MatchManagerStatistic {
+    GameNumber,
+    Player1Stats(AIVersion),
+    Player2Stats(AIVersion),
+    MaxThinkTime,
+    MaxGameLength,
+}
+
+impl MatchManagerStatistic {
+    pub const DEFAULT_COLOR: Color = Color::rgb(0.95, 0.95, 0.95);
+    pub const MATCH_MANAGER_TITLE_COLOR: Color = Color::rgb(0.97, 0.26, 0.26);
+    pub const MATCH_MANAGER_SUBTITLE_COLOR: Color = Color::rgb(0.12, 0.89, 0.23);
+}
+
 #[derive(Component)]
 pub struct StatMenuText {
     pub stat: MenuStatistic,
 }
+
+#[derive(Component)]
+pub struct MatchManagerText {
+    pub stat: MatchManagerStatistic,
+}
+
+#[derive(Component)]
+pub struct MatchManagerStartButton {}
 
 #[derive(Resource)]
 pub struct CalcStatistics {
@@ -49,7 +71,11 @@ impl Default for CalcStatistics {
 pub fn spawn_calc_stats(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    manager: Res<GameManager>,
 ) {
+    if manager.white_player_type == PlayerType::AI && manager.black_player_type == PlayerType::AI {
+        return;
+    }
     commands.spawn((NodeBundle {
         style: Style {
             width: Val::Percent(100.0),
@@ -68,11 +94,14 @@ pub fn spawn_calc_stats(
             parent.spawn((TextBundle::from_section(
                 "Move gen time: N/A",
                 TextStyle {
-                    font: asset_server.load("ui/font/Monaco.ttf"),
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                     font_size: 15.0,
                     color: MenuStatistic::MOVE_GEN_TIME_COLOR,
                 }
             ), StatMenuText { stat: MenuStatistic::MoveGenTime }));
+            if manager.white_player_type != manager.black_player_type {
+                // spawn other stats
+            }
         });
 }
 
@@ -92,6 +121,7 @@ pub fn spawn_game_over_splash(
     asset_server: Res<AssetServer>,
     game_manager: Res<GameManager>,
 ) {
+    // let 
     let (title_text, subtitle_text) = match game_manager.game_result {
         GameResult::None => ("", ""),
         GameResult::Playing => ("", ""),
@@ -124,7 +154,7 @@ pub fn spawn_game_over_splash(
             parent.spawn(TextBundle::from_section(
                 title_text,
                 TextStyle {
-                    font: asset_server.load("ui/font/Monaco.ttf"),
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                     font_size: 40.0,
                     color: GameOverSplash::TITLE_COLOR,
                 }
@@ -134,7 +164,7 @@ pub fn spawn_game_over_splash(
             parent.spawn(TextBundle::from_section(
                 subtitle_text,
                 TextStyle {
-                    font: asset_server.load("ui/font/Monaco.ttf"),
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                     font_size: 20.0,
                     color: GameOverSplash::SUBTITLE_COLOR,
                 }
@@ -149,4 +179,222 @@ pub fn despawn_game_over_splash(
     for game_over_splash_entity in game_over_splash_query.iter() {
         commands.entity(game_over_splash_entity).despawn();
     }
+}
+
+pub fn spawn_ai_vs_ai_menu(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    ai_player_query: Query<(&AIPlayer, &Player)>,    
+) {
+    let mut parent_node = commands.spawn((NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0),
+            align_items: AlignItems::FlexStart,
+            justify_content: JustifyContent::FlexStart,
+            flex_direction: FlexDirection::Column,
+            padding: UiRect {
+                left: Val::Percent(1.0),
+                top: Val::Percent(1.0),
+                ..default()
+            },
+            ..default()
+        },
+        ..default()
+    }, StatMenuParentNode {}));
+    parent_node.with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "Match Manager",
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Bold.ttf"),
+                font_size: 30.0,
+                color: MatchManagerStatistic::MATCH_MANAGER_TITLE_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(2.0),
+                ..default()
+            },
+            ..default()
+        }));
+    });
+    
+    let (mut p1_version, mut p1_team) = (AIVersion::V0, Piece::WHITE);
+    let mut p2_version = AIVersion::V0;
+    for (i, (ai_player, player)) in ai_player_query.iter().enumerate() {
+        if i == 0 {
+            p1_version = ai_player.version;
+            p1_team = player.team;
+        } else {
+            p2_version = ai_player.version;
+        }
+    }
+
+    parent_node.with_children(|parent| {
+        parent.spawn(TextBundle::from_sections([
+            TextSection::new(
+                format!("{}", p1_version.label()),
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Bold.ttf"),
+                    font_size: 20.0,
+                    color: MatchManagerStatistic::MATCH_MANAGER_SUBTITLE_COLOR,
+                },
+            ),
+            TextSection::new(
+                "  vs  ",
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                    font_size: 20.0,
+                    color: GameOverSplash::SUBTITLE_COLOR,
+                },
+            ),
+            TextSection::new(
+                format!("{}", p2_version.label()),
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Bold.ttf"),
+                    font_size: 20.0,
+                    color: MatchManagerStatistic::MATCH_MANAGER_SUBTITLE_COLOR,
+                },
+            ),
+        ]).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(5.0),
+                ..default()
+            },
+            ..default()
+        }));
+
+        parent.spawn((TextBundle::from_section(
+            "Game Number: 0 / 1000",
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(2.0),
+                ..default()
+            },
+            ..default()
+        }), MatchManagerText { stat: MatchManagerStatistic::GameNumber }));
+        parent.spawn((TextBundle::from_section(
+            format!("{} | Wins: 0  Losses: 0  Draws: 0", p1_version.label()),
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(2.0),
+                ..default()
+            },
+            ..default()
+        }), MatchManagerText { stat: MatchManagerStatistic::Player1Stats(p1_version) }));
+        parent.spawn((TextBundle::from_section(
+            format!("{} | Wins: 0  Losses: 0  Draws: 0", p2_version.label()),
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(5.0),
+                ..default()
+            },
+            ..default()
+        }), MatchManagerText { stat: MatchManagerStatistic::Player2Stats(p2_version) }));
+
+        parent.spawn(TextBundle::from_section(
+            "Settings",
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(2.0),
+                ..default()
+            },
+            ..default()
+        }));
+        parent.spawn((TextBundle::from_section(
+            "Max Think Time: 100 ms",
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(2.0),
+                ..default()
+            },
+            ..default()
+        }), MatchManagerText { stat: MatchManagerStatistic::MaxThinkTime }));
+        parent.spawn((TextBundle::from_section(
+            "Max Game Length: 100 moves",
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 20.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            padding: UiRect {
+                bottom: Val::Percent(5.0),
+                ..default()
+            },
+            ..default()
+        }), MatchManagerText { stat: MatchManagerStatistic::MaxGameLength }));
+
+        parent.spawn((ButtonBundle {
+            style: Style {
+                width: Val::Percent(30.0),
+                height: Val::Percent(5.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgb(0.95, 0.95, 0.95)),
+            ..default()
+        }, MatchManagerStartButton {})).with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Start Match",
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                    font_size: 30.0,
+                    color: Color::rgb(0.4, 0.4, 0.4),
+                }
+            ));
+        });
+
+        parent.spawn(TextBundle::from_section(
+            format!("Black: {}", if p1_team == Piece::BLACK { p1_version.label() } else { p2_version.label() }),
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 25.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            bottom: Val::Percent(43.0),
+            left: Val::Percent(43.0),
+            width: Val::Percent(30.0),
+            ..default()
+        }));
+        parent.spawn(TextBundle::from_section(
+            format!("White: {}", if p1_team == Piece::WHITE { p1_version.label() } else { p2_version.label() }),
+            TextStyle {
+                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                font_size: 25.0,
+                color: MatchManagerStatistic::DEFAULT_COLOR,
+            }
+        ).with_style(Style {
+            top: Val::Percent(47.0),
+            left: Val::Percent(43.0),
+            width: Val::Percent(30.0),
+            ..default()
+        }));
+    });
 }

@@ -1,12 +1,6 @@
 use bevy::prelude::*;
-use crate::{AppState, game::manager::PlayerType};
+use crate::{AppState, state::AppMode};
 
-
-#[derive(Component)]
-pub struct GameType {
-    pub white: PlayerType,
-    pub black: PlayerType,
-}
 
 
 const BUTTON_COLOR: Color = Color::rgb(0.95, 0.93, 0.9);
@@ -16,6 +10,7 @@ const BUTTON_REST_LENGTH: f32 = 300.0;
 const BUTTON_HOVER_LENGTH: f32 = 450.0;
 const BUTTON_STRETCH_TIME_SECS: f32 = 0.25;
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum MainMenuButtonLabel {
     HumanVsHuman,
     HumanVsAI,
@@ -69,7 +64,7 @@ pub fn spawn_main_menu(
                     parent.spawn(TextBundle::from_section(
                         "Human vs Human",
                         TextStyle {
-                            font: asset_server.load("ui/font/Monaco.ttf"),
+                            font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                             font_size: 30.0,
                             color: BUTTON_TEXT_COLOR
                         }
@@ -93,7 +88,7 @@ pub fn spawn_main_menu(
                     parent.spawn(TextBundle::from_section(
                         "Human vs AI",
                         TextStyle {
-                            font: asset_server.load("ui/font/Monaco.ttf"),
+                            font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                             font_size: 30.0,
                             color: BUTTON_TEXT_COLOR
                         }
@@ -117,7 +112,7 @@ pub fn spawn_main_menu(
                     parent.spawn(TextBundle::from_section(
                         "AI vs AI",
                         TextStyle {
-                            font: asset_server.load("ui/font/Monaco.ttf"),
+                            font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                             font_size: 30.0,
                             color: BUTTON_TEXT_COLOR
                         }
@@ -148,25 +143,10 @@ pub fn update_menu_buttons(
                 }
 
                 match button_data.label {
-                    MainMenuButtonLabel::HumanVsHuman => {
-                        commands.spawn(GameType {
-                            white: PlayerType::Human,
-                            black: PlayerType::Human,
-                        });
-                    },
-                    MainMenuButtonLabel::HumanVsAI => {
-                        commands.spawn(GameType {
-                            white: PlayerType::Human,
-                            black: PlayerType::AI,
-                        });
-                    },
-                    MainMenuButtonLabel::AIVsAI => {
-                        commands.spawn(GameType {
-                            white: PlayerType::AI,
-                            black: PlayerType::AI,
-                        });
-                    },
-                }
+                    MainMenuButtonLabel::HumanVsHuman => { commands.insert_resource(NextState(Some(AppMode::GameHumanHuman))); },
+                    MainMenuButtonLabel::HumanVsAI => { commands.insert_resource(NextState(Some(AppMode::GameHumanAI))); },
+                    MainMenuButtonLabel::AIVsAI => { commands.insert_resource(NextState(Some(AppMode::GameAIAI))); },
+                };
 
                 commands.insert_resource(NextState(Some(AppState::LoadPrecomp)));
             },

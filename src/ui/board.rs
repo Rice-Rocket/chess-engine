@@ -11,7 +11,7 @@ use crate::{
 
 const PIECE_DEPTH: f32 = 0.1;
 const PIECE_DRAG_DEPTH: f32 = 0.2;
-const SIDE_PADDING: f32 = 20.0;
+const SIDE_PADDING: f32 = 50.0;
 
 #[derive(Resource)]
 pub struct BoardUI {
@@ -102,19 +102,29 @@ pub struct BoardResetSquareColors {
 pub fn init_board_ui_transform(
     mut board_transform: ResMut<BoardUITransform>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    app_mode: Res<State<AppMode>>,
 ) {
     let window = window_query.get_single().unwrap();
     board_transform.sqr_size = (window.height() - SIDE_PADDING * 2.0) / 8.0;
-    board_transform.x_offset = window.width() / 2.0 - window.height() / 2.0 + SIDE_PADDING;
+    if app_mode.clone() == AppMode::GameAIAI {
+        board_transform.x_offset = window.width() - window.height();
+    } else {
+        board_transform.x_offset = window.width() / 2.0 - window.height() / 2.0 + SIDE_PADDING;
+    }
 }
 
 pub fn update_board_ui_transform(
     mut board_transform: ResMut<BoardUITransform>,
     mut window_resize_evr: EventReader<WindowResized>,
+    app_mode: Res<State<AppMode>>,
 ) {
     for window_resize in window_resize_evr.iter() {
         board_transform.sqr_size = (window_resize.height - SIDE_PADDING * 2.0) / 8.0;
-        board_transform.x_offset = window_resize.width / 2.0 - window_resize.height / 2.0 + SIDE_PADDING;
+        if app_mode.clone() == AppMode::GameAIAI {
+            board_transform.x_offset = window_resize.width - window_resize.height - SIDE_PADDING;
+        } else {
+            board_transform.x_offset = window_resize.width / 2.0 - window_resize.height / 2.0 + SIDE_PADDING;
+        }
     }
 }
 
@@ -123,7 +133,7 @@ pub fn spawn_board_ui(
     board_theme: Res<BoardTheme>,
     board_transform: Res<BoardUITransform>,
     piece_theme: Res<PieceTheme>,
-    board: Res<Board>
+    board: Res<Board>,
 ) {
     for rank in 0..8 {
         for file in 0..8 {
@@ -171,6 +181,40 @@ pub fn spawn_board_ui(
             //         piece_component
             //     ));
             // }
+        }
+    }
+}
+
+pub fn reset_board_pieces(
+    mut commands: Commands,
+    pieces_query: Query<Entity, With<BoardUIPiece>>,
+    board_transform: Res<BoardUITransform>,
+    board: Res<Board>,
+    piece_theme: Res<PieceTheme>,
+) {
+    for piece in pieces_query.iter() {
+        commands.entity(piece).despawn();
+    }
+    for rank in 0..8 {
+        for file in 0..8 {
+            let sqr = Coord::new(file, rank);
+            let x_pos = board_transform.x_pos(file);
+            let y_pos = board_transform.y_pos(rank);
+            let piece_component = BoardUIPiece {
+                piece: board.square[sqr.index()],
+                rank, file
+            };
+            if let Some(sprite) = piece_theme.get_piece_sprite(piece_component.piece) {
+                commands.spawn((
+                    SpriteBundle {
+                        transform: Transform::from_xyz(x_pos, y_pos, PIECE_DEPTH),
+                        texture: sprite,
+                        visibility: Visibility::Visible,
+                        ..default()
+                    },
+                    piece_component
+                ));
+            }
         }
     }
 }
@@ -279,6 +323,27 @@ pub fn update_board_ui(
         });
         board_ui.last_made_move = Some(make_move_event.mov);
     };
+}
+
+pub fn update_board_ui_on_resize(
+    board_transform: Res<BoardUITransform>,
+    mut squares_query: Query<(&mut Transform, &mut Sprite, &BoardUISquare), Without<BoardUIPiece>>,
+    mut pieces_query: Query<(&mut Transform, &BoardUIPiece), Without<BoardUISquare>>,
+    mut window_resize_evr: EventReader<WindowResized>,
+) {
+    for _window_resize_event in window_resize_evr.iter() {
+        for (mut transform, mut sprite, square) in squares_query.iter_mut() {
+            let x_pos = board_transform.x_pos(square.file);
+            let y_pos = board_transform.y_pos(square.rank);
+            sprite.custom_size = Some(Vec2::new(board_transform.sqr_size, board_transform.sqr_size));
+            transform.translation = Vec3::new(x_pos, y_pos, 0.0);
+        }
+        for (mut transform, piece) in pieces_query.iter_mut() {
+            let x_pos = board_transform.x_pos(piece.file);
+            let y_pos = board_transform.y_pos(piece.rank);
+            transform.translation = Vec3::new(x_pos, y_pos, PIECE_DEPTH);
+        }
+    }
 }
 
 pub fn reset_piece_position(

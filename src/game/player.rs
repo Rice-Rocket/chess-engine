@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 
 use crate::{
-    ui::main_menu::GameType,
     game::manager::PlayerType,
     game::human_player::HumanPlayer,
-    board::piece::*,
+    board::piece::*, ai::ai_player::AIPlayer, state::AppMode,
 };
 
 
@@ -15,16 +14,20 @@ pub struct Player {
 
 pub fn spawn_players(
     mut commands: Commands,
-    game_type_query: Query<&GameType>
+    app_mode: Res<State<AppMode>>
 ) {
-    if let Ok(game_type) = game_type_query.get_single() {
-        match game_type.white {
-            PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::WHITE })); },
-            PlayerType::AI => (),
-        }
-        match game_type.black {
-            PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::BLACK })); },
-            PlayerType::AI => (),
-        }
+    let (white, black) = match app_mode.clone() {
+        AppMode::GameHumanHuman => (PlayerType::Human, PlayerType::Human),
+        AppMode::GameHumanAI => (PlayerType::Human, PlayerType::AI),
+        AppMode::GameAIAI => (PlayerType::AI, PlayerType::AI),
+        AppMode::None => (PlayerType::Human, PlayerType::Human),
+    };
+    match white {
+        PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::WHITE })); },
+        PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::WHITE })); },
+    }
+    match black {
+        PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::BLACK })); },
+        PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::BLACK })); },
     }
 }

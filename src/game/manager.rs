@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 
-use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ui::{main_menu::GameType, ingame_menu::CalcStatistics}, state::AppState};
+use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ui::ingame_menu::CalcStatistics, state::{AppState, AppMode}};
 
 #[derive(Clone, Copy)]
 pub enum GameResult {
@@ -19,7 +19,7 @@ pub enum GameResult {
     BlackTimeout
 }
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum PlayerType {
     Human, AI
 }
@@ -31,6 +31,7 @@ pub struct GameManager {
     pub black_player_type: PlayerType,
     pub game_result: GameResult,
     pub game_moves: Vec<Move>,
+    pub move_color: u8,
     executed_board_move: Option<Move>,
 }
 
@@ -97,6 +98,9 @@ pub struct BoardMakeMove {
     pub mov: Move
 }
 
+#[derive(Event)]
+pub struct ProcessedMove {}
+
 pub fn initialize_game(
     mut move_gen: ResMut<MoveGenerator>,
     board: Res<Board>,
@@ -109,18 +113,23 @@ pub fn initialize_game(
 
 pub fn spawn_game_manager(
     mut commands: Commands,
-    game_type_query: Query<&GameType>,
+    app_mode: Res<State<AppMode>>,
 ) {
-    if let Ok(game_type) = game_type_query.get_single() {
-        commands.insert_resource(GameManager {
-            custom_position: None,
-            white_player_type: game_type.white,
-            black_player_type: game_type.black,
-            game_result: GameResult::Playing,
-            game_moves: Vec::new(),
-            executed_board_move: None,
-        });
-    }
+    let (white, black) = match app_mode.clone() {
+        AppMode::GameHumanHuman => (PlayerType::Human, PlayerType::Human),
+        AppMode::GameHumanAI => (PlayerType::Human, PlayerType::AI),
+        AppMode::GameAIAI => (PlayerType::AI, PlayerType::AI),
+        AppMode::None => (PlayerType::Human, PlayerType::Human),
+    };
+    commands.insert_resource(GameManager {
+        custom_position: None,
+        white_player_type: white,
+        black_player_type: black,
+        game_result: GameResult::Playing,
+        game_moves: Vec::new(),
+        move_color: if app_mode.clone() == AppMode::GameAIAI { 255 } else { Piece::WHITE },
+        executed_board_move: None,
+    });
 }
 
 pub fn execute_board_move(
@@ -131,6 +140,7 @@ pub fn execute_board_move(
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
+        println!("start: {}, piece: {:?}, val: {}", mov.start().square(), board.square[mov.start().index()], mov.value());
         board.make_move(mov, false, &zobrist);
         manager.executed_board_move = Some(mov);
     }
@@ -138,6 +148,7 @@ pub fn execute_board_move(
 
 pub fn on_make_move(
     mut commands: Commands,
+    mut processed_move_evw: EventWriter<ProcessedMove>,
     mut move_gen: ResMut<MoveGenerator>,
     board: Res<Board>,
     precomp: Res<PrecomputedMoveData>,
@@ -149,6 +160,7 @@ pub fn on_make_move(
     if let Some(mov) = manager.executed_board_move {
         let time_start = SystemTime::now();
         move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
+        println!("generated moves");
         let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_micros();
         stats.move_gen_time = move_gen_time as f32;
     
@@ -168,5 +180,17 @@ pub fn on_make_move(
             GameResult::BlackTimeout => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
         }
         manager.executed_board_move = None;
+        processed_move_evw.send(ProcessedMove {});
     }
 }
+
+pub fn advance_turn(
+    mut manager: ResMut<GameManager>,
+    mut processed_move_evr: EventReader<ProcessedMove>,
+    board: Res<Board>,
+) {
+    for _event in processed_move_evr.iter() {
+        manager.move_color = board.move_color;
+    }
+}
+

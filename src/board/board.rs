@@ -408,7 +408,8 @@ impl Board {
     //     }
     // }
     
-    pub fn load_position(&mut self, fen_str: Option<String>, zobrist: &mut ResMut<Zobrist>) {
+    pub fn load_position(&mut self, fen_str: Option<String>, zobrist: &mut Zobrist) {
+        *self = Self::default();
         let loaded_pos = match fen_str {
             Some(str) => fen::position_from_fen(str),
             None => fen::position_from_fen(String::from(fen::START_FEN))

@@ -11,6 +11,7 @@ pub enum AppState {
     LoadMoveGen,
     LoadGame,
     LoadUI,
+    LoadAI,
     InGame,
     GameOver,
 }
@@ -19,6 +20,7 @@ pub enum AppState {
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone, Copy, Default)]
 pub enum AppMode {
     #[default]
+    None,
     GameHumanHuman,
     GameHumanAI,
     GameAIAI,

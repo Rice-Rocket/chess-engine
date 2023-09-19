@@ -12,7 +12,7 @@ use main_menu::*;
 use arrows::*;
 use ingame_menu::*;
 
-use crate::AppState;
+use crate::{AppState, state::AppMode};
 
 pub fn spawn_camera(
     mut commands: Commands,
@@ -30,8 +30,13 @@ pub fn spawn_camera(
 
 pub fn finish_load_ui(
     mut commands: Commands,
+    app_mode: Res<State<AppMode>>,
 ) {
-    commands.insert_resource(NextState(Some(AppState::InGame)));
+    if app_mode.clone() != AppMode::GameHumanHuman {
+        commands.insert_resource(NextState(Some(AppState::LoadAI)));
+    } else {
+        commands.insert_resource(NextState(Some(AppState::InGame)));
+    }
 }
 
 
@@ -62,6 +67,10 @@ impl Plugin for UIPlugin {
                 spawn_calc_stats,
                 finish_load_ui,
             ).chain())
+
+            .add_systems(OnEnter(AppState::LoadUI), (
+                spawn_ai_vs_ai_menu,
+            ).run_if(in_state(AppMode::GameAIAI)))
             
             .add_systems(Update, (
                 update_pieces,
@@ -72,10 +81,14 @@ impl Plugin for UIPlugin {
                 update_arrows,
                 drag_piece,
                 update_board_ui_transform,
+                update_board_ui_on_resize.after(update_board_ui_transform),
                 update_menu_stats,
             ).run_if(in_state(AppState::InGame)))
             
-            .add_systems(OnEnter(AppState::GameOver), spawn_game_over_splash)
-            .add_systems(OnExit(AppState::GameOver), despawn_game_over_splash);
+            .add_systems(OnEnter(AppState::GameOver), spawn_game_over_splash.run_if(in_state(AppMode::GameHumanHuman).or_else(in_state(AppMode::GameHumanAI))))
+            .add_systems(OnExit(AppState::GameOver), (
+                despawn_game_over_splash,
+                reset_board_pieces
+            ));
     }
 }

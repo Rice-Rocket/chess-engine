@@ -52,14 +52,14 @@ pub struct MoveGenerator {
 }
 
 impl MoveGenerator {
-    pub fn generate_moves(&mut self, board: &Res<Board>, precomp: &Res<PrecomputedMoveData>, bbutils: &Res<BitBoardUtils>, magic: &Res<MagicBitBoards>, captures_only: bool) {
+    pub fn generate_moves(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards, captures_only: bool) {
         self.moves.clear();
         self.gen_quiet_moves = !captures_only;
 
+        // ! TODO: FIX MOVE GENERATOR SOMETIMES GENERATING NULL MOVES
+
         self.init(board, precomp, bbutils, magic);
         self.gen_king_moves(board, bbutils);
-
-        // BitBoardUtils::print_bitboard("", &self.pin_rays);
 
         if !self.in_double_check {
             self.gen_sliding_moves(board, magic, precomp);
@@ -71,7 +71,7 @@ impl MoveGenerator {
         self.in_check
     }
     
-    fn init(&mut self, board: &Res<Board>, precomp: &Res<PrecomputedMoveData>, bbutils: &Res<BitBoardUtils>, magic: &Res<MagicBitBoards>) {
+    fn init(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards) {
         self.in_check = false;
         self.in_double_check = false;
         self.check_ray_bitmask = 0;
@@ -93,7 +93,7 @@ impl MoveGenerator {
 
         self.calc_attack_data(board, precomp, bbutils, magic);
     }
-    fn calc_attack_data(&mut self, board: &Res<Board>, precomp: &Res<PrecomputedMoveData>, bbutils: &Res<BitBoardUtils>, magic: &Res<MagicBitBoards>) {
+    fn calc_attack_data(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards) {
         self.gen_sliding_attack_map(board, magic);
         let mut start_dir_idx = 0;
         let mut end_dir_idx = 8;
@@ -177,12 +177,12 @@ impl MoveGenerator {
             self.check_ray_bitmask = u64::MAX;
         }
     }
-    fn gen_sliding_attack_map(&mut self, board: &Res<Board>, magic: &Res<MagicBitBoards>) {
+    fn gen_sliding_attack_map(&mut self, board: &Board, magic: &MagicBitBoards) {
         self.enemy_sliding_attack_map = 0;
         self.update_slide_attack(board, magic, board.enemy_orthogonal_sliders, true);
         self.update_slide_attack(board, magic, board.enemy_diagonal_sliders, false);
     }
-    fn update_slide_attack(&mut self, board: &Res<Board>, magic: &Res<MagicBitBoards>, mut piece_board: u64, ortho: bool) {
+    fn update_slide_attack(&mut self, board: &Board, magic: &MagicBitBoards, mut piece_board: u64, ortho: bool) {
         let blockers = board.all_pieces_bitboard & !(1 << self.friendly_king_sqr.square());
         while piece_board != 0 {
             let start = Coord::from_idx(BitBoardUtils::pop_lsb(&mut piece_board) as i8);
@@ -194,7 +194,7 @@ impl MoveGenerator {
         ((self.pin_rays >> sqr.index()) & 1) != 0
     }
 
-    fn gen_king_moves(&mut self, board: &Res<Board>, bbutils: &Res<BitBoardUtils>) {
+    fn gen_king_moves(&mut self, board: &Board, bbutils: &BitBoardUtils) {
         let legal_mask = !(self.enemy_attack_map | self.friendly_pieces);
         let mut king_moves = bbutils.king_moves[self.friendly_king_sqr.index()] & legal_mask & self.move_type_mask;
         while king_moves != 0 {
@@ -221,7 +221,7 @@ impl MoveGenerator {
             }
         }
     }
-    fn gen_sliding_moves(&mut self, board: &Res<Board>, magic: &Res<MagicBitBoards>, precomp: &Res<PrecomputedMoveData>) {
+    fn gen_sliding_moves(&mut self, board: &Board, magic: &MagicBitBoards, precomp: &PrecomputedMoveData) {
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
         let mut orthogonal_sliders = board.friendly_orthogonal_sliders;
         let mut diagonal_sliders = board.friendly_diagonal_sliders;
@@ -255,7 +255,7 @@ impl MoveGenerator {
             }
         }
     }
-    fn gen_knight_moves(&mut self, board: &Res<Board>, bbutils: &Res<BitBoardUtils>) {
+    fn gen_knight_moves(&mut self, board: &Board, bbutils: &BitBoardUtils) {
         let friendly_knight_piece = Piece::new(Piece::KNIGHT | self.friendly_color);
         let mut knights = board.piece_bitboards[friendly_knight_piece.index()] & self.not_pin_rays;
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
@@ -269,7 +269,7 @@ impl MoveGenerator {
             }
         }
     }
-    fn gen_pawn_moves(&mut self, board: &Res<Board>, precomp: &Res<PrecomputedMoveData>, magic: &Res<MagicBitBoards>) {
+    fn gen_pawn_moves(&mut self, board: &Board, precomp: &PrecomputedMoveData, magic: &MagicBitBoards) {
         let push_dir = if self.white_to_move { 1i8 } else { -1i8 };
         let push_offset = push_dir * 8;
 
@@ -380,7 +380,7 @@ impl MoveGenerator {
             }
         }
     }
-    fn in_check_after_ep(&self, board: &Res<Board>, magic: &Res<MagicBitBoards>, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
+    fn in_check_after_ep(&self, board: &Board, magic: &MagicBitBoards, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
         let enemy_ortho = board.enemy_orthogonal_sliders;
         if enemy_ortho != 0 {
             let masked_blockers = self.all_pieces ^ (1 << captured_pawn_sqr | 1 << start_sqr | 1 << target_sqr);
