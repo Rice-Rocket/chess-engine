@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::piece::Piece};
 
-use super::{text_input::TextInput, main_menu::MainMenuButtonLabel};
+use super::text_input::TextInput;
 
 #[derive(Component)]
 pub struct StatMenuParentNode {}

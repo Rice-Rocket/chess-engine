@@ -1,24 +1,59 @@
 use bevy::prelude::*;
-
 use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}};
-
 use super::stats::SearchStatistics;
 
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub enum AIVersion {
+    #[default]
     V0,
 }
 
 impl AIVersion {
+    // Newest version (version to test)
+    pub fn primary_version() -> Self {
+        AIVersion::V0
+    }
+    // Version for primary version to fight
+    pub fn secondary_version() -> Self {
+        AIVersion::V0
+    }
     pub fn label(&self) -> &str {
         match self {
             Self::V0 => "V0 - Random Moves",
         }
     }
-    // pub fn searcher(&self) -> 
 }
 
+#[derive(Component)]
+pub struct AIPlayer {
+    searching: bool,
+    pub version: AIVersion
+}
+
+impl AIPlayer {
+    pub fn versus_p1() -> Self {
+        AIPlayer {
+            version: AIVersion::primary_version(),
+            searching: false,
+        }
+    }
+    pub fn versus_p2() -> Self {
+        AIPlayer {
+            version: AIVersion::secondary_version(),
+            searching: false,
+        }
+    }
+}
+
+impl Default for AIPlayer {
+    fn default() -> Self {
+        AIPlayer {
+            version: AIVersion::default(),
+            searching: false,
+        }
+    }
+}
 
 #[derive(Event)]
 pub struct BeginSearch {}
@@ -29,21 +64,6 @@ pub struct SearchComplete {
     pub chosen_move: Move,
     pub eval: i32,
     pub stats: SearchStatistics
-}
-
-#[derive(Component)]
-pub struct AIPlayer {
-    searching: bool,
-    pub version: AIVersion
-}
-
-impl Default for AIPlayer {
-    fn default() -> Self {
-        AIPlayer {
-            searching: false,
-            version: AIVersion::V0,
-        }
-    }
 }
 
 pub fn ai_make_move(

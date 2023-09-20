@@ -25,11 +25,13 @@ impl Plugin for AIPlugin {
             .add_event::<BeginSearch>()
             .add_systems(OnEnter(AppState::LoadAI), (
                 spawn_searcher_v0,
+                
                 finalize,
             ))
             .add_systems(Update, (
-                ai_begin_search,
                 start_search_v0,
+
+                ai_begin_search,
                 ai_make_move,
             ).chain().run_if(in_state(AppState::InGame)).run_if(in_state(AppMode::GameHumanAI).or_else(in_state(AppMode::GameAIAI))))
         ;

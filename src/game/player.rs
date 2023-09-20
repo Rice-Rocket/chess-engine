@@ -22,12 +22,17 @@ pub fn spawn_players(
         AppMode::GameAIAI => (PlayerType::AI, PlayerType::AI),
         AppMode::None => (PlayerType::Human, PlayerType::Human),
     };
-    match white {
-        PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::WHITE })); },
-        PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::WHITE })); },
-    }
-    match black {
-        PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::BLACK })); },
-        PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::BLACK })); },
+    if app_mode.clone() != AppMode::GameAIAI {
+        match white {
+            PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::WHITE })); },
+            PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::WHITE })); },
+        }
+        match black {
+            PlayerType::Human => { commands.spawn((HumanPlayer::default(), Player { team: Piece::BLACK })); },
+            PlayerType::AI => { commands.spawn((AIPlayer::default(), Player { team: Piece::BLACK })); },
+        }
+    } else {
+        commands.spawn((AIPlayer::versus_p1(), Player { team: Piece::WHITE }));
+        commands.spawn((AIPlayer::versus_p1(), Player { team: Piece::BLACK }));
     }
 }
