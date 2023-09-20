@@ -13,13 +13,8 @@ pub struct SearcherV0 {
 
 impl SearcherV0 {
     pub fn start_search(&mut self,
-        // board: &mut Board, 
         move_gen: &mut MoveGenerator,
-        // precomp: &PrecomputedMoveData,
-        // bbutils: &BitBoardUtils,
-        // magic: &MagicBitBoards,
     ) {
-        // move_gen.generate_moves(board, precomp, bbutils, magic, false);
         let moves = &move_gen.moves;
         if moves.len() == 0 {
             self.best_move_so_far = Move::NULL;
@@ -40,40 +35,25 @@ impl Default for SearcherV0 {
     }
 }
 
-pub fn spawn_searcher_v0(
-    mut commands: Commands,
-) {
-    commands.insert_resource(SearcherV0::default());
-}
-
-pub fn start_search_v0(
+pub fn start_search(
     mut searcher: ResMut<SearcherV0>,
     mut begin_search_evr: EventReader<BeginSearch>,
     mut search_complete_evw: EventWriter<SearchComplete>,
 
-    // mut board: ResMut<Board>,
     mut move_gen: ResMut<MoveGenerator>,
-    // precomp: Res<PrecomputedMoveData>,
-    // bbutils: Res<BitBoardUtils>,
-    // magic: Res<MagicBitBoards>,
 ) {
     for _begin_search_event in begin_search_evr.iter() {
         searcher.start_search(
-            // board.as_mut(),
             move_gen.as_mut(),
-            // precomp.as_ref(),
-            // bbutils.as_ref(),
-            // magic.as_ref(),
         );
         search_complete_evw.send(SearchComplete {
             depth: 0,
             chosen_move: searcher.best_move_so_far,
-            eval: 0,
+            eval: 0.0,
             stats: SearchStatistics {
-                num_iters: 0,
                 num_position_evals: 0,
                 num_cutoffs: 0,
-                eval: 0,
+                think_time_ms: 0,
                 num_checks: 0,
                 num_mates: 0,
                 is_book: false,

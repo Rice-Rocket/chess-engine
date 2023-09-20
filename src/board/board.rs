@@ -104,11 +104,11 @@ impl Board {
     pub const WHITE_INDEX: usize = 0;
     pub const BLACK_INDEX: usize = 1;
 
-    pub fn get_piece_list(&self, ptype: u8, color_idx: usize) -> &PieceList {
-        return &self.all_pieces[color_idx * 7 + ptype as usize];
+    pub fn get_piece_list(&self, piece: Piece) -> &PieceList {
+        return &self.all_pieces[piece.color_index() * 7 + piece.piece_type() as usize];
     }
-    pub fn get_piece_list_mut(&mut self, ptype: u8, color_idx: usize) -> &mut PieceList {
-        return &mut self.all_pieces[color_idx * 7 + ptype as usize];
+    pub fn get_piece_list_mut(&mut self, piece: Piece) -> &mut PieceList {
+        return &mut self.all_pieces[piece.color_index() * 7 + piece.piece_type() as usize];
     }
 }
 
@@ -125,7 +125,7 @@ pub struct BoardUnmakeMove {
 
 
 impl Board {
-    pub fn make_move(&mut self, mov: Move, in_search: bool, zobrist: &Res<Zobrist>) {
+    pub fn make_move(&mut self, mov: Move, in_search: bool, zobrist: &Zobrist) {
         let start_sqr = mov.start();
         let target_sqr = mov.target();
         let move_flag = mov.move_flag();
@@ -155,7 +155,7 @@ impl Board {
                 self.total_pieces_no_pawns_kings -= 1;
             }
 
-            self.get_piece_list_mut(captured_ptype, self.opponent_color_idx).remove_piece(capture_sqr);
+            self.get_piece_list_mut(captured_piece).remove_piece(capture_sqr);
             BitBoardUtils::toggle_square(&mut self.piece_bitboards[captured_piece.index()], capture_sqr.square());
             BitBoardUtils::toggle_square(&mut self.color_bitboards[self.opponent_color_idx], capture_sqr.square());
             new_zobrist_key ^= zobrist.pieces_array[capture_sqr.index()][captured_piece.index()];
@@ -172,7 +172,7 @@ impl Board {
 
                 BitBoardUtils::toggle_squares(&mut self.piece_bitboards[rook_piece.index()], castling_rook_from.square(), castling_rook_to.square());
                 BitBoardUtils::toggle_squares(&mut self.color_bitboards[self.move_color_idx], castling_rook_from.square(), castling_rook_to.square());
-                self.get_piece_list_mut(Piece::ROOK, self.move_color_idx).move_piece(castling_rook_from, castling_rook_to);
+                self.get_piece_list_mut(rook_piece).move_piece(castling_rook_from, castling_rook_to);
                 self.square[castling_rook_from.index()] = Piece::NULL;
                 self.square[castling_rook_to.index()] = rook_piece;
                 
@@ -192,8 +192,8 @@ impl Board {
             let prom_piece = Piece::new(prom_ptype | self.move_color);
             BitBoardUtils::toggle_square(&mut self.piece_bitboards[moved_piece.index()], target_sqr.square());
             BitBoardUtils::toggle_square(&mut self.piece_bitboards[prom_piece.index()], target_sqr.square());
-            self.get_piece_list_mut(moved_ptype, self.move_color_idx).remove_piece(target_sqr);
-            self.get_piece_list_mut(prom_ptype, self.move_color_idx).add_piece(target_sqr);
+            self.get_piece_list_mut(moved_piece).remove_piece(target_sqr);
+            self.get_piece_list_mut(prom_piece).add_piece(target_sqr);
             self.square[target_sqr.index()] = prom_piece;
         }
 
@@ -259,104 +259,87 @@ impl Board {
         }
     }
     
-    // pub fn unmake_move(&mut self, mov: Move, in_search: bool) {
-    //     let color_to_move_idx = self.color_to_move_idx;
+    pub fn unmake_move(&mut self, mov: Move, in_search: bool) {
+        self.white_to_move = !self.white_to_move;
+        self.move_color = if self.white_to_move { Piece::WHITE } else { Piece::BLACK };
+        self.opponent_color = if self.white_to_move { Piece::BLACK } else { Piece::WHITE };
+        self.move_color_idx = 1 - self.move_color_idx;
+        self.opponent_color_idx = 1 - self.opponent_color_idx;
+        let undoing_white_move = self.white_to_move;
 
-    //     let opponent_color_idx = self.color_to_move_idx;
-    //     let undoing_white_move = opponent_color_idx == Board::WHITE_INDEX;
-    //     self.color_to_move = self.opponent_color;
-    //     self.opponent_color = if undoing_white_move { Piece::BLACK } else { Piece::WHITE };
-    //     self.color_to_move_idx = 1 - self.color_to_move_idx;
-    //     self.white_to_move = !self.white_to_move;
-    
-    //     let original_castle_state = self.current_game_state & 0b1111;
-    //     let captured_ptype = ((self.current_game_state >> 8) & 63) as u8;
-    //     let captured_piece = if captured_ptype == 0 { 0 } else { captured_ptype | self.opponent_color };
-    
-    //     let move_from = mov.start();
-    //     let move_to = mov.target();
-    //     let move_flags = mov.move_flag();
-    //     let is_en_passant = move_flags == Move::EN_PASSANT_CAPTURE;
-    //     let is_promotion = mov.is_promotion();
-    
-    //     let to_sqr_ptype = self.square[move_to.index()].piece_type();
-    //     let move_ptype = if is_promotion { Piece::PAWN } else { to_sqr_ptype };
-    
-    //     self.zobrist_key ^= self.zobrist.side_to_move;
-    //     self.zobrist_key ^= self.zobrist.pieces_array[move_from.index()][self.color_to_move_idx as usize][move_ptype as usize];
-    //     self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][self.color_to_move_idx as usize][to_sqr_ptype as usize];
-    
-    //     let old_en_passant_file = (self.current_game_state >> 4) & 15;
-    //     if old_en_passant_file != 0 {
-    //         self.zobrist_key ^= self.zobrist.en_passant_file[old_en_passant_file as usize];
-    //     }
-    //     if captured_ptype != 0 && !is_en_passant {
-    //         self.zobrist_key ^= self.zobrist.pieces_array[move_to.index()][opponent_color_idx as usize][captured_ptype as usize];
-    //         self.get_piece_list_mut(captured_ptype, opponent_color_idx).add_piece(move_to);
-    //     }
-    //     if move_ptype == Piece::KING {
-    //         self.king_square[color_to_move_idx as usize] = move_from;
-    //     } else if !is_promotion {
-    //         self.get_piece_list_mut(move_ptype, color_to_move_idx).move_piece(move_to, move_from);
-    //     }
-    
-    //     self.square[move_from.index()] = Piece::new(move_ptype | self.color_to_move);
-    //     self.square[move_to.index()] = Piece::new(captured_piece);
-    
-    //     if is_promotion {
-    //         self.get_piece_list_mut(Piece::PAWN, color_to_move_idx).add_piece(move_from);
-    //         match move_flags {
-    //             Move::QUEEN_PROMOTION => {
-    //                 self.get_piece_list_mut(Piece::QUEEN, color_to_move_idx).remove_piece(move_to);
-    //             },
-    //             Move::KNIGHT_PROMOTION => {
-    //                 self.get_piece_list_mut(Piece::KNIGHT, color_to_move_idx).remove_piece(move_to);
-    //             },
-    //             Move::ROOK_PROMOTION => {
-    //                 self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).remove_piece(move_to);
-    //             },
-    //             Move::BISHOP_PROMOTION => {
-    //                 self.get_piece_list_mut(Piece::BISHOP, color_to_move_idx).remove_piece(move_to);
-    //             },
-    //             _ => ()
-    //         }
-    //     } else if is_en_passant {
-    //         let ep_idx = move_to + (if self.color_to_move == Piece::WHITE { 56 } else { 8 });
-    //         self.square[move_to.index()] = Piece::NULL;
-    //         self.square[ep_idx.index()] = Piece::new(captured_piece);
-    //         self.get_piece_list_mut(Piece::PAWN, opponent_color_idx).add_piece(ep_idx);
-    //         self.zobrist_key ^= self.zobrist.pieces_array[ep_idx.index()][opponent_color_idx as usize][Piece::PAWN as usize];
-    //     } else if move_flags == Move::CASTLING {
-    //         let kingside = move_to.index() == 6 || move_to.index() == 62;
-    //         let castling_rook_from_idx = if kingside { move_to + 1 } else { move_to - 2 };
-    //         let castling_rook_to_idx = if kingside { move_to - 1 } else { move_to + 1 };
-    
-    //         self.square[castling_rook_from_idx.index()] = Piece::NULL;
-    //         self.square[castling_rook_to_idx.index()] = Piece::new(Piece::ROOK | self.color_to_move);
-            
-    //         self.get_piece_list_mut(Piece::ROOK, color_to_move_idx).move_piece(castling_rook_to_idx, castling_rook_from_idx);
-    //         self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_from_idx.index()][color_to_move_idx as usize][Piece::ROOK as usize];
-    //         self.zobrist_key ^= self.zobrist.pieces_array[castling_rook_to_idx.index()][self.color_to_move_idx as usize][Piece::ROOK as usize];
-    //     }
-    
-    //     self.game_state_history.pop();
-    //     self.current_game_state = self.game_state_history.get(self.game_state_history.len() - 1).unwrap().clone();
-    
-    //     self.fifty_move_counter = (self.current_game_state & 0b11111111111111111111111111111111) >> 14;
-    //     let new_en_passant_file = (self.current_game_state >> 4) & 15;
-    //     if new_en_passant_file != 0 {
-    //         self.zobrist_key = self.zobrist.en_passant_file[new_en_passant_file as usize];
-    //     }
-    //     let new_castle_state = self.current_game_state & 0b1111;
-    //     if new_castle_state != original_castle_state {
-    //         self.zobrist_key ^= self.zobrist.castling_rights[original_castle_state as usize];
-    //         self.zobrist_key ^= self.zobrist.castling_rights[new_castle_state as usize];
-    //     }
-    //     self.plycount -= 1;
-    //     if !in_search && self.repeat_position_history.len() > 0 {
-    //         self.repeat_position_history.pop();
-    //     }
-    // }
+        let move_from = mov.start();
+        let move_to = mov.target();
+        let move_flag = mov.move_flag();
+
+        let undoing_en_passant = move_flag == Move::EN_PASSANT_CAPTURE;
+        let undoing_promotion = mov.is_promotion();
+        let undoing_capture = self.current_state.captured_ptype != Piece::NONE;
+
+        let moved_piece = if undoing_promotion { Piece::new(Piece::PAWN | self.move_color) } else { self.square[move_to.index()] };
+        let moved_ptype = moved_piece.piece_type();
+        let captured_ptype = self.current_state.captured_ptype;
+
+        if undoing_promotion {
+            let promoted_piece = self.square[move_to.index()];
+            let pawn_piece = Piece::new(Piece::PAWN | self.move_color);
+            self.total_pieces_no_pawns_kings -= 1;
+
+            self.get_piece_list_mut(promoted_piece).remove_piece(move_to);
+            self.get_piece_list_mut(moved_piece).add_piece(move_to);
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[promoted_piece.index()], move_to.square());
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[pawn_piece.index()], move_to.square());
+        }
+
+        self.move_piece(moved_piece, move_to, move_from);
+
+        if undoing_capture {
+            let mut capture_square = move_to;
+            let captured_piece = Piece::new(captured_ptype | self.opponent_color);
+
+            if undoing_en_passant {
+                capture_square = move_to + (if undoing_white_move { -8 } else { 8 });
+            }
+            if captured_ptype != Piece::PAWN {
+                self.total_pieces_no_pawns_kings += 1;
+            }
+
+            BitBoardUtils::toggle_square(&mut self.piece_bitboards[captured_piece.index()], capture_square.square());
+            BitBoardUtils::toggle_square(&mut self.color_bitboards[self.opponent_color_idx], capture_square.square());
+            self.get_piece_list_mut(captured_piece).add_piece(capture_square);
+            self.square[capture_square.index()] = captured_piece;
+        }
+
+        if moved_ptype == Piece::KING {
+            self.king_square[self.move_color_idx] = move_from;
+            if move_flag == Move::CASTLING {
+                let rook_piece = Piece::new(Piece::ROOK | self.move_color);
+                let kingside = move_to == Coord::G1 || move_to == Coord::G8;
+                let rook_square_before_castling = if kingside { move_to + 1 } else { move_to - 2 };
+                let rook_square_after_castling = if kingside { move_to - 1 } else { move_to + 1 };
+
+                BitBoardUtils::toggle_squares(&mut self.piece_bitboards[rook_piece.index()], rook_square_after_castling.square(), rook_square_before_castling.square());
+                BitBoardUtils::toggle_squares(&mut self.color_bitboards[self.move_color_idx], rook_square_after_castling.square(), rook_square_before_castling.square());
+                self.square[rook_square_after_castling.index()] = Piece::NULL;
+                self.square[rook_square_before_castling.index()] = rook_piece;
+                self.get_piece_list_mut(rook_piece).move_piece(rook_square_after_castling, rook_square_before_castling);
+            }
+        }
+
+        self.all_pieces_bitboard = self.color_bitboards[Board::WHITE_INDEX] | self.color_bitboards[Board::BLACK_INDEX];
+        self.update_slider_bitboards();
+        
+        if !in_search && self.repeat_position_history.len() > 0 {
+            self.repeat_position_history.pop();
+        }
+        if !in_search {
+            self.move_log.remove(self.move_log.len() - 1);
+        }
+
+        self.game_state_history.pop();
+        self.current_state = self.game_state_history[self.game_state_history.len() - 1];
+        self.plycount -= 1;
+        self.has_cached_in_check_val = false;
+    }
 
     pub fn make_null_move(&mut self, zobrist: &Res<Zobrist>) {
         self.white_to_move = !self.white_to_move;
@@ -389,24 +372,6 @@ impl Board {
         self.has_cached_in_check_val = true;
         self.cached_in_check_val = false;
     }
-
-    // pub fn in_check(&mut self) {
-    //     if self.has_cached_in_check_val {
-    //         return self.cached_in_check_val;
-    //     }
-    //     self.cached_in_check_val = self.calc_in_check_state();
-    //     self.has_cached_in_check_val = true;
-    //     return self.cached_in_check_val;
-    // }
-
-    // pub fn calc_in_check_state(&mut self) {
-    //     let king_sqr = self.king_square[self.move_color_idx];
-    //     let blockers = self.all_pieces_bitboard;
-
-    //     if self.enemy_orthogonal_sliders != 0 {
-    //         let rook_attacks = 
-    //     }
-    // }
     
     pub fn load_position(&mut self, fen_str: Option<String>, zobrist: &mut Zobrist) {
         *self = Self::default();
@@ -428,7 +393,7 @@ impl Board {
                 if ptype == Piece::KING {
                     self.king_square[color_idx] = sqr;
                 }
-                self.get_piece_list_mut(ptype, color_idx).add_piece(sqr);
+                self.get_piece_list_mut(piece).add_piece(sqr);
                 self.total_pieces_no_pawns_kings += if ptype == Piece::KING || ptype == Piece::PAWN { 0 } else { 1 };
             }
         }
@@ -464,7 +429,7 @@ impl Board {
         BitBoardUtils::toggle_squares(&mut self.piece_bitboards[piece.index()], start.square(), target.square());
         BitBoardUtils::toggle_squares(&mut self.color_bitboards[piece.color_index()], start.square(), target.square());
 
-        self.get_piece_list_mut(piece.piece_type(), piece.color_index()).move_piece(start, target);
+        self.get_piece_list_mut(piece).move_piece(start, target);
         self.square[start.index()] = Piece::NULL;
         self.square[target.index()] = piece;
     }

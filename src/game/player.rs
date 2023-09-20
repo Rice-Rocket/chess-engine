@@ -33,6 +33,6 @@ pub fn spawn_players(
         }
     } else {
         commands.spawn((AIPlayer::versus_p1(), Player { team: Piece::WHITE }));
-        commands.spawn((AIPlayer::versus_p1(), Player { team: Piece::BLACK }));
+        commands.spawn((AIPlayer::versus_p2(), Player { team: Piece::BLACK }));
     }
 }

@@ -1,14 +1,12 @@
 pub mod ai_player;
 pub mod stats;
+use bevy::prelude::*;
+use crate::state::{AppState, AppMode};
+use self::ai_player::*;
 
 pub mod v0;
+pub mod v1;
 
-use bevy::prelude::*;
-
-use crate::state::{AppState, AppMode};
-
-use self::ai_player::*;
-use self::v0::search::searcher::*;
 
 fn finalize(
     mut commands: Commands,
@@ -23,13 +21,14 @@ impl Plugin for AIPlugin {
         app
             .add_event::<SearchComplete>()
             .add_event::<BeginSearch>()
+            .add_plugins(v0::AIPluginV0)
+            .add_plugins(v1::AIPluginV1)
             .add_systems(OnEnter(AppState::LoadAI), (
-                spawn_searcher_v0,
-                
                 finalize,
             ))
             .add_systems(Update, (
-                start_search_v0,
+                // v0::search::searcher::start_search,
+                v1::search::searcher::start_search,
 
                 ai_begin_search,
                 ai_make_move,

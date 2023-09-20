@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{state::{AppState, AppMode}, ui::{ingame_menu::{MatchManagerText, MatchManagerStatistic, MatchManagerStartButton}, text_input::TextInput}, board::{board::Board, zobrist::Zobrist}};
+use crate::{state::{AppState, AppMode}, ui::{ingame_menu::{MatchManagerText, MatchManagerStatistic, MatchManagerStartButton}, text_input::TextInput}, board::{board::Board, zobrist::Zobrist, piece::Piece}, ai::ai_player::AIPlayer};
 
-use super::manager::{GameManager, GameResult, CanMakeMove};
+use super::{manager::{GameManager, GameResult, CanMakeMove}, player::Player};
 
 
 #[derive(Resource)]
@@ -116,12 +116,24 @@ pub fn versus_game_over(
     mut match_manager_text_query: Query<(&mut Text, &mut MatchManagerText, Option<&TextInput>)>,
     mut manager: ResMut<GameManager>,
     mut can_make_move_evw: EventWriter<CanMakeMove>,
+    mut ai_player_query: Query<&mut Player, With<AIPlayer>>,
 ) {
     versus_manager.game_idx += 1;
     if versus_manager.game_idx == versus_manager.total_games {
         return;
     }
-    let switch_players = versus_manager.game_idx == versus_manager.total_games / 2;
+    let mut swapped_colors = false;
+    if versus_manager.game_idx == versus_manager.total_games / 2 {
+        for mut player in ai_player_query.iter_mut() {
+            if player.team == Piece::WHITE {
+                player.team = Piece::BLACK;
+                swapped_colors = true;
+            } else if player.team == Piece::BLACK {
+                player.team = Piece::WHITE;
+                swapped_colors = true;
+            }
+        }
+    }
 
     match manager.game_result {
         GameResult::None | GameResult::Playing | GameResult::BlackTimeout | GameResult::WhiteTimeout => (),
@@ -138,13 +150,13 @@ pub fn versus_game_over(
             MatchManagerStatistic::Player1Stats(version, is_white) => {
                 let wins = if is_white { versus_manager.white_wins } else { versus_manager.white_losses };
                 let losses = if is_white { versus_manager.white_losses } else { versus_manager.white_wins };
-                label.stat = MatchManagerStatistic::Player1Stats(version, if switch_players { !is_white } else { is_white });
+                // label.stat = MatchManagerStatistic::Player1Stats(version, if switch_players { !is_white } else { is_white });
                 text.sections[0].value = format!("{} | Wins: {}  Losses: {}  Draws: {}", version.label(), wins, losses, versus_manager.draws);
             },
             MatchManagerStatistic::Player2Stats(version, is_white) => {
                 let wins = if is_white { versus_manager.white_wins } else { versus_manager.white_losses };
                 let losses = if is_white { versus_manager.white_losses } else { versus_manager.white_wins };
-                label.stat = MatchManagerStatistic::Player2Stats(version, if switch_players { !is_white } else { is_white });
+                // label.stat = MatchManagerStatistic::Player2Stats(version, if switch_players { !is_white } else { is_white });
                 text.sections[0].value = format!("{} | Wins: {}  Losses: {}  Draws: {}", version.label(), wins, losses, versus_manager.draws);
             },
             MatchManagerStatistic::MaxThinkTime => {
@@ -155,6 +167,21 @@ pub fn versus_game_over(
             },
             MatchManagerStatistic::TotalGames => {
                 versus_manager.total_games = text_input.unwrap().value.parse().unwrap();
+            },
+            MatchManagerStatistic::BlackPlayer(mut version) => {
+                if swapped_colors {
+                    label.stat = MatchManagerStatistic::BlackPlayer(version.opponent().unwrap());
+                    version = version.opponent().unwrap();
+                }
+                text.sections[0].value = format!("Black: {}", version.label());
+            },
+            MatchManagerStatistic::WhitePlayer(mut version) => {
+                if swapped_colors {
+                    label.stat = MatchManagerStatistic::WhitePlayer(version.opponent().unwrap());
+                    version = version.opponent().unwrap();
+                }
+                text.sections[0].value = format!("White: {}", version.label());
+
             },
         };
     }

@@ -1,18 +1,19 @@
 use bevy::prelude::*;
-use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}};
+use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}, ui::ingame_menu::CalcStatistics};
 use super::stats::SearchStatistics;
 
 
-#[derive(Default, Clone, Copy)]
+#[derive(PartialEq, Default, Clone, Copy)]
 pub enum AIVersion {
-    #[default]
     V0,
+    #[default]
+    V1,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V0
+        AIVersion::V1
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
@@ -21,7 +22,17 @@ impl AIVersion {
     pub fn label(&self) -> &str {
         match self {
             Self::V0 => "V0 - Random Moves",
+            Self::V1 => "V1 - Minimax",
         }
+    }
+
+    pub fn opponent(self) -> Option<Self> {
+        if self == Self::primary_version() {
+            return Some(Self::secondary_version());
+        } else if self == Self::secondary_version() {
+            return Some(Self::primary_version());
+        }
+        None
     }
 }
 
@@ -49,7 +60,7 @@ impl AIPlayer {
 impl Default for AIPlayer {
     fn default() -> Self {
         AIPlayer {
-            version: AIVersion::default(),
+            version: AIVersion::primary_version(),
             searching: false,
         }
     }
@@ -62,7 +73,7 @@ pub struct BeginSearch {}
 pub struct SearchComplete {
     pub depth: i32,
     pub chosen_move: Move,
-    pub eval: i32,
+    pub eval: f32,
     pub stats: SearchStatistics
 }
 
@@ -70,12 +81,18 @@ pub fn ai_make_move(
     mut make_move_evw: EventWriter<BoardMakeMove>,
     mut player_query: Query<&mut AIPlayer>,
     mut search_complete_evr: EventReader<SearchComplete>,
+    mut calc_stats: ResMut<CalcStatistics>,
 ) {
     
     for search_complete in search_complete_evr.iter() {
         for mut ai in player_query.iter_mut() {
             ai.searching = false;
         }
+        calc_stats.ai_depth = search_complete.depth;
+        calc_stats.ai_eval = search_complete.eval;
+        calc_stats.ai_positions_evaled = search_complete.stats.num_position_evals;
+        calc_stats.ai_mates_found = search_complete.stats.num_mates;
+        calc_stats.ai_think_time = search_complete.stats.think_time_ms;
         make_move_evw.send(BoardMakeMove {
             mov: search_complete.chosen_move
         });

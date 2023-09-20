@@ -71,15 +71,15 @@ impl GameManager {
         if board.friendly_orthogonal_sliders != 0 || board.enemy_orthogonal_sliders != 0 {
             return false;
         };
-        if board.get_piece_list(Piece::PAWN, Board::WHITE_INDEX).count() > 0 || 
-            board.get_piece_list(Piece::PAWN, Board::BLACK_INDEX).count() > 0 {
+        if board.get_piece_list(Piece::new(Piece::WHITE_PAWN)).count() > 0 || 
+            board.get_piece_list(Piece::new(Piece::BLACK_PAWN)).count() > 0 {
                 return false;
         };
 
-        let n_white_bishops = board.get_piece_list(Piece::BISHOP, Board::WHITE_INDEX).count();
-        let n_black_bishops = board.get_piece_list(Piece::BISHOP, Board::BLACK_INDEX).count();
-        let n_white_knights = board.get_piece_list(Piece::KNIGHT, Board::WHITE_INDEX).count();
-        let n_black_knights = board.get_piece_list(Piece::KNIGHT, Board::BLACK_INDEX).count();
+        let n_white_bishops = board.get_piece_list(Piece::new(Piece::WHITE_BISHOP)).count();
+        let n_black_bishops = board.get_piece_list(Piece::new(Piece::BLACK_BISHOP)).count();
+        let n_white_knights = board.get_piece_list(Piece::new(Piece::WHITE_KNIGHT)).count();
+        let n_black_knights = board.get_piece_list(Piece::new(Piece::BLACK_KNIGHT)).count();
         let n_white_minors = n_white_bishops + n_white_knights;
         let n_black_minors = n_black_bishops + n_black_knights;
 

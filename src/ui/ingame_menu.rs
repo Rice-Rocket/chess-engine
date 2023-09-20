@@ -17,16 +17,21 @@ impl GameOverSplash {
 
 pub enum MenuStatistic {
     MoveGenTime,
+    AIDepth,
+    AIPositionsEvaluated,
+    AIMatesFound,
+    AIEvaluation,
+    AIThinkTime,
 }
 
 impl MenuStatistic {
     pub const DEFAULT_COLOR: Color = Color::rgb(0.53, 0.49, 0.48);
     pub const MOVE_GEN_TIME_COLOR: Color = Color::rgb(0.82, 0.36, 0.37);
-    pub const COLOR_2: Color = Color::rgb(0.77, 0.55, 0.33);
-    pub const COLOR_3: Color = Color::rgb(0.69, 0.92, 0.46);
-    pub const COLOR_4: Color = Color::rgb(0.58, 0.76, 0.93);
-    pub const COLOR_5: Color = Color::rgb(0.70, 0.53, 0.90);
-    pub const COLOR_6: Color = Color::rgb(0.49, 0.24, 0.81);
+    pub const DEPTH_COLOR: Color = Color::rgb(0.77, 0.55, 0.33);
+    pub const POSITIONS_EVALED_COLOR: Color = Color::rgb(0.69, 0.92, 0.46);
+    pub const EVAL_COLOR: Color = Color::rgb(0.58, 0.76, 0.93);
+    pub const THINK_TIME_COLOR: Color = Color::rgb(0.70, 0.53, 0.90);
+    pub const MATES_FOUND_COLOR: Color = Color::rgb(0.49, 0.24, 0.81);
 }
 
 pub enum MatchManagerStatistic {
@@ -36,6 +41,8 @@ pub enum MatchManagerStatistic {
     MaxThinkTime,
     MaxGameLength,
     TotalGames,
+    BlackPlayer(AIVersion),
+    WhitePlayer(AIVersion),
 }
 
 impl MatchManagerStatistic {
@@ -60,12 +67,22 @@ pub struct MatchManagerStartButton {}
 #[derive(Resource)]
 pub struct CalcStatistics {
     pub move_gen_time: f32,
+    pub ai_depth: i32,
+    pub ai_positions_evaled: i32,
+    pub ai_eval: f32,
+    pub ai_think_time: u32,
+    pub ai_mates_found: i32,
 }
 
 impl Default for CalcStatistics {
     fn default() -> Self {
         CalcStatistics {
             move_gen_time: 0.0,
+            ai_depth: 0,
+            ai_positions_evaled: 0,
+            ai_eval: 0.0,
+            ai_think_time: 0,
+            ai_mates_found: 0,
         }
     }
 }
@@ -98,12 +115,51 @@ pub fn spawn_calc_stats(
                 "Move gen time: N/A",
                 TextStyle {
                     font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
-                    font_size: 15.0,
+                    font_size: 20.0,
                     color: MenuStatistic::MOVE_GEN_TIME_COLOR,
                 }
             ), StatMenuText { stat: MenuStatistic::MoveGenTime }));
             if manager.white_player_type != manager.black_player_type {
-                // spawn other stats
+                parent.spawn((TextBundle::from_section(
+                    "Search Depth: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::DEPTH_COLOR,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIDepth }));
+                parent.spawn((TextBundle::from_section(
+                    "Positions Evaluated: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::POSITIONS_EVALED_COLOR,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIPositionsEvaluated }));
+                parent.spawn((TextBundle::from_section(
+                    "Evaluation: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::EVAL_COLOR,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIEvaluation }));
+                parent.spawn((TextBundle::from_section(
+                    "Checkmates Found: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::MATES_FOUND_COLOR,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIMatesFound }));
+                parent.spawn((TextBundle::from_section(
+                    "Think Time: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::THINK_TIME_COLOR,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIThinkTime }));
             }
         });
 }
@@ -114,7 +170,12 @@ pub fn update_menu_stats(
 ) {
     for (mut text, stat) in menu_text_query.iter_mut() {
         text.sections[0].value = match stat.stat {
-            MenuStatistic::MoveGenTime => { format!("Move gen time: {} micros", calc_stats.move_gen_time) }
+            MenuStatistic::MoveGenTime => { format!("Move gen time: {} micros", calc_stats.move_gen_time) },
+            MenuStatistic::AIDepth => { format!("Search Depth: {}", calc_stats.ai_depth) },
+            MenuStatistic::AIPositionsEvaluated => { format!("Evaluation: {}", calc_stats.ai_positions_evaled) },
+            MenuStatistic::AIEvaluation => { format!("Positions Evaluated: {}", calc_stats.ai_eval) },
+            MenuStatistic::AIThinkTime => { format!("Think Time: {} ms", calc_stats.ai_think_time) },
+            MenuStatistic::AIMatesFound => { format!("Checkmates Found: {}", calc_stats.ai_mates_found) },
         }
     }
 }
@@ -413,7 +474,7 @@ pub fn spawn_ai_vs_ai_menu(
             ));
         });
 
-        parent.spawn(TextBundle::from_section(
+        parent.spawn((TextBundle::from_section(
             format!("Black: {}", if p1_team == Piece::BLACK { p1_version.label() } else { p2_version.label() }),
             TextStyle {
                 font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
@@ -425,8 +486,8 @@ pub fn spawn_ai_vs_ai_menu(
             left: Val::Percent(43.0),
             width: Val::Percent(30.0),
             ..default()
-        }));
-        parent.spawn(TextBundle::from_section(
+        }), MatchManagerText { stat: MatchManagerStatistic::BlackPlayer(if p1_team == Piece::BLACK { p1_version } else { p2_version}) }));
+        parent.spawn((TextBundle::from_section(
             format!("White: {}", if p1_team == Piece::WHITE { p1_version.label() } else { p2_version.label() }),
             TextStyle {
                 font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
@@ -438,6 +499,6 @@ pub fn spawn_ai_vs_ai_menu(
             left: Val::Percent(43.0),
             width: Val::Percent(30.0),
             ..default()
-        }));
+        }), MatchManagerText { stat: MatchManagerStatistic::WhitePlayer(if p1_team == Piece::WHITE { p1_version } else { p2_version}) }));
     });
 }

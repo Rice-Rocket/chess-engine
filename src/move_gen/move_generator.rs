@@ -97,9 +97,9 @@ impl MoveGenerator {
         let mut end_dir_idx = 8;
 
         // Don't calculate unecessary directions
-        if board.get_piece_list(Piece::QUEEN, self.enemy_idx).count() == 0 {
-            start_dir_idx = if board.get_piece_list(Piece::ROOK, self.enemy_idx).count() > 0 { 0 } else { 4 };
-            end_dir_idx = if board.get_piece_list(Piece::BISHOP, self.enemy_idx).count() > 0 { 8 } else { 4 };
+        if board.get_piece_list(Piece::new(Piece::QUEEN | self.enemy_color)).count() == 0 {
+            start_dir_idx = if board.get_piece_list(Piece::new(Piece::ROOK | self.enemy_color)).count() > 0 { 0 } else { 4 };
+            end_dir_idx = if board.get_piece_list(Piece::new(Piece::BISHOP | self.enemy_color)).count() > 0 { 8 } else { 4 };
         }
 
         for dir in start_dir_idx..end_dir_idx {

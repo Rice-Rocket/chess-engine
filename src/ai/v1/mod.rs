@@ -8,12 +8,12 @@ pub mod evaluation;
 fn load(
     mut commands: Commands,
 ) {
-    commands.insert_resource(search::searcher::SearcherV0::default());
+    commands.insert_resource(search::searcher::SearcherV1::default());
 }
 
-pub struct AIPluginV0;
+pub struct AIPluginV1;
 
-impl Plugin for AIPluginV0 {
+impl Plugin for AIPluginV1 {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnEnter(AppState::LoadAI), load);
