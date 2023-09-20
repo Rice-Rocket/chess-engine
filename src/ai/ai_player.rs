@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager}, player::Player}};
+use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}};
 
 use super::stats::SearchStatistics;
 
@@ -66,11 +66,14 @@ pub fn ai_begin_search(
     mut begin_search_evw: EventWriter<BeginSearch>,
     mut player_query: Query<(&mut AIPlayer, &Player)>,
     manager: Res<GameManager>,
+    mut can_make_move_evr: EventReader<CanMakeMove>,
 ) {
-    for (mut ai, player_data) in player_query.iter_mut() {
-        if player_data.team == manager.move_color && !ai.searching {
-            ai.searching = true;
-            begin_search_evw.send(BeginSearch {});
+    for _can_make_move_ev in can_make_move_evr.iter() {
+        for (mut ai, player_data) in player_query.iter_mut() {
+            if player_data.team == manager.move_color && !ai.searching {
+                ai.searching = true;
+                begin_search_evw.send(BeginSearch {});
+            }
         }
     }
 }

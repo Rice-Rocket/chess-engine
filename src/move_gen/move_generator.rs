@@ -56,8 +56,6 @@ impl MoveGenerator {
         self.moves.clear();
         self.gen_quiet_moves = !captures_only;
 
-        // ! TODO: FIX MOVE GENERATOR SOMETIMES GENERATING NULL MOVES
-
         self.init(board, precomp, bbutils, magic);
         self.gen_king_moves(board, bbutils);
 

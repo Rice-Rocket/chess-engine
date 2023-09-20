@@ -37,7 +37,7 @@ pub struct GameManager {
 
 impl GameManager {
     // Regenerates and returns game result given board and legal moves
-    pub fn gen_game_result(&mut self, board: &Res<Board>, moves: &Vec<Move>, in_check: bool) -> GameResult {
+    pub fn gen_game_result(&mut self, board: &Board, moves: &Vec<Move>, in_check: bool) -> GameResult {
         if moves.len() == 0 {
             if in_check {
                 self.game_result = if board.white_to_move { GameResult::WhiteIsMated } else { GameResult::BlackIsMated };
@@ -67,7 +67,7 @@ impl GameManager {
         self.game_result = GameResult::Playing;
         return self.game_result;
     }
-    fn insufficient_material(&self, board: &Res<Board>) -> bool {
+    fn insufficient_material(&self, board: &Board) -> bool {
         if board.friendly_orthogonal_sliders != 0 || board.enemy_orthogonal_sliders != 0 {
             return false;
         };
@@ -100,6 +100,9 @@ pub struct BoardMakeMove {
 
 #[derive(Event)]
 pub struct ProcessedMove {}
+
+#[derive(Event)]
+pub struct CanMakeMove {}
 
 pub fn initialize_game(
     mut move_gen: ResMut<MoveGenerator>,
@@ -140,7 +143,10 @@ pub fn execute_board_move(
 ) {
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
-        println!("start: {}, piece: {:?}, val: {}", mov.start().square(), board.square[mov.start().index()], mov.value());
+
+        // let piece = board.square[mov.start().index()];
+        // println!("sqr: {}, piece: {:?}, num_pieces: {}", mov.start().square(), piece, board.get_piece_list(piece.piece_type(), piece.color_index()).count());
+
         board.make_move(mov, false, &zobrist);
         manager.executed_board_move = Some(mov);
     }
@@ -160,13 +166,12 @@ pub fn on_make_move(
     if let Some(mov) = manager.executed_board_move {
         let time_start = SystemTime::now();
         move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
-        println!("generated moves");
         let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_micros();
         stats.move_gen_time = move_gen_time as f32;
     
         manager.game_moves.push(mov);
     
-        match manager.gen_game_result(&board, &move_gen.moves, move_gen.in_check()) {
+        match manager.gen_game_result(board.as_ref(), &move_gen.moves, move_gen.in_check()) {
             GameResult::None => (),
             GameResult::Playing => (),
             GameResult::WhiteIsMated => { commands.insert_resource(NextState(Some(AppState::GameOver))) },
@@ -187,10 +192,12 @@ pub fn on_make_move(
 pub fn advance_turn(
     mut manager: ResMut<GameManager>,
     mut processed_move_evr: EventReader<ProcessedMove>,
+    mut can_make_move_evw: EventWriter<CanMakeMove>,
     board: Res<Board>,
 ) {
     for _event in processed_move_evr.iter() {
         manager.move_color = board.move_color;
+        can_make_move_evw.send(CanMakeMove {});
     }
 }
 

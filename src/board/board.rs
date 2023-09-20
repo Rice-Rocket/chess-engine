@@ -427,9 +427,8 @@ impl Board {
                 BitBoardUtils::set_square(&mut self.color_bitboards[color_idx], sqr_idx);
                 if ptype == Piece::KING {
                     self.king_square[color_idx] = sqr;
-                } else {
-                    self.get_piece_list_mut(ptype, color_idx).add_piece(sqr);
                 }
+                self.get_piece_list_mut(ptype, color_idx).add_piece(sqr);
                 self.total_pieces_no_pawns_kings += if ptype == Piece::KING || ptype == Piece::PAWN { 0 } else { 1 };
             }
         }

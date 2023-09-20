@@ -27,6 +27,7 @@ impl Plugin for GamePlugin {
         app
             .add_event::<BoardMakeMove>()
             .add_event::<ProcessedMove>()
+            .add_event::<CanMakeMove>()
             .add_systems(OnEnter(AppState::LoadGame), (
                 spawn_versus_manager, //.run_if(in_state(AppMode::GameAIAI)),
                 spawn_players,
@@ -40,7 +41,10 @@ impl Plugin for GamePlugin {
                 on_make_move,
                 advance_turn,
             ).run_if(in_state(AppState::InGame)))
-            .add_systems(Update, start_versus_games.run_if(in_state(AppMode::GameAIAI)).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, (
+                start_versus_games,
+                versus_update,
+            ).run_if(in_state(AppMode::GameAIAI)).run_if(in_state(AppState::InGame)))
             .add_systems(OnEnter(AppState::GameOver), (
                 versus_game_over
             ).run_if(in_state(AppMode::GameAIAI)))

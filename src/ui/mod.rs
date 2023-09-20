@@ -5,12 +5,14 @@ pub mod theme;
 pub mod main_menu;
 pub mod arrows;
 pub mod ingame_menu;
+pub mod text_input;
 
 use board::*;
 use theme::*;
 use main_menu::*;
 use arrows::*;
 use ingame_menu::*;
+use text_input::*;
 
 use crate::{AppState, state::AppMode};
 
@@ -54,6 +56,7 @@ impl Plugin for UIPlugin {
             .add_event::<BoardUIResetPiecePosition>()
             .add_event::<BoardSetSquareColor>()
             .add_event::<BoardResetSquareColors>()
+            .add_plugins(TextInputPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(Startup, spawn_main_menu)
             .add_systems(Update, update_menu_buttons.run_if(in_state(AppState::MainMenu)))
@@ -88,7 +91,7 @@ impl Plugin for UIPlugin {
             .add_systems(OnEnter(AppState::GameOver), spawn_game_over_splash.run_if(in_state(AppMode::GameHumanHuman).or_else(in_state(AppMode::GameHumanAI))))
             .add_systems(OnExit(AppState::GameOver), (
                 despawn_game_over_splash,
-                reset_board_pieces
+                reset_board_pieces,
             ));
     }
 }

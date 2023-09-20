@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::piece::Piece};
 
+use super::{text_input::TextInput, main_menu::MainMenuButtonLabel};
+
 #[derive(Component)]
 pub struct StatMenuParentNode {}
 
@@ -29,10 +31,11 @@ impl MenuStatistic {
 
 pub enum MatchManagerStatistic {
     GameNumber,
-    Player1Stats(AIVersion),
-    Player2Stats(AIVersion),
+    Player1Stats(AIVersion, bool),
+    Player2Stats(AIVersion, bool),
     MaxThinkTime,
     MaxGameLength,
+    TotalGames,
 }
 
 impl MatchManagerStatistic {
@@ -290,7 +293,7 @@ pub fn spawn_ai_vs_ai_menu(
                 ..default()
             },
             ..default()
-        }), MatchManagerText { stat: MatchManagerStatistic::Player1Stats(p1_version) }));
+        }), MatchManagerText { stat: MatchManagerStatistic::Player1Stats(p1_version, p1_team == Piece::WHITE) }));
         parent.spawn((TextBundle::from_section(
             format!("{} | Wins: 0  Losses: 0  Draws: 0", p2_version.label()),
             TextStyle {
@@ -304,7 +307,7 @@ pub fn spawn_ai_vs_ai_menu(
                 ..default()
             },
             ..default()
-        }), MatchManagerText { stat: MatchManagerStatistic::Player2Stats(p2_version) }));
+        }), MatchManagerText { stat: MatchManagerStatistic::Player2Stats(p2_version, p1_team == Piece::BLACK) }));
 
         parent.spawn(TextBundle::from_section(
             "Settings",
@@ -320,39 +323,79 @@ pub fn spawn_ai_vs_ai_menu(
             },
             ..default()
         }));
-        parent.spawn((TextBundle::from_section(
-            "Max Think Time: 100 ms",
-            TextStyle {
-                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
-                font_size: 20.0,
-                color: MatchManagerStatistic::DEFAULT_COLOR,
-            }
-        ).with_style(Style {
-            padding: UiRect {
-                bottom: Val::Percent(2.0),
+
+        parent.spawn((ButtonBundle {
+            style: Style {
+                width: Val::Percent(25.0),
+                height: Val::Percent(5.0),
+                top: Val::Percent(0.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
+            background_color: BackgroundColor(Color::rgb(0.95, 0.95, 0.95)),
             ..default()
-        }), MatchManagerText { stat: MatchManagerStatistic::MaxThinkTime }));
-        parent.spawn((TextBundle::from_section(
-            "Max Game Length: 100 moves",
-            TextStyle {
-                font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
-                font_size: 20.0,
-                color: MatchManagerStatistic::DEFAULT_COLOR,
-            }
-        ).with_style(Style {
-            padding: UiRect {
-                bottom: Val::Percent(5.0),
+        }, TextInput::new("Max Think Time: ", "100", " ms", true),
+        MatchManagerText { stat: MatchManagerStatistic::MaxThinkTime })).with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Max Think Time: ",
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                    font_size: 20.0,
+                    color: Color::rgb(0.4, 0.4, 0.4),
+                }
+            ));
+        });
+        parent.spawn((ButtonBundle {
+            style: Style {
+                width: Val::Percent(25.0),
+                height: Val::Percent(5.0),
+                top: Val::Percent(1.5),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
+            background_color: BackgroundColor(Color::rgb(0.95, 0.95, 0.95)),
             ..default()
-        }), MatchManagerText { stat: MatchManagerStatistic::MaxGameLength }));
+        }, TextInput::new("Max Game Length: ", "100", " moves", true),
+        MatchManagerText { stat: MatchManagerStatistic::MaxGameLength })).with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Max Game Length: ",
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                    font_size: 20.0,
+                    color: Color::rgb(0.4, 0.4, 0.4),
+                }
+            ));
+        });
+        parent.spawn((ButtonBundle {
+            style: Style {
+                width: Val::Percent(25.0),
+                height: Val::Percent(5.0),
+                top: Val::Percent(3.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgb(0.95, 0.95, 0.95)),
+            ..default()
+        }, TextInput::new("Total Games: ", "1000", "", true),
+        MatchManagerText { stat: MatchManagerStatistic::TotalGames })).with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Total Games: ",
+                TextStyle {
+                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                    font_size: 20.0,
+                    color: Color::rgb(0.4, 0.4, 0.4),
+                }
+            ));
+        });
 
         parent.spawn((ButtonBundle {
             style: Style {
                 width: Val::Percent(30.0),
                 height: Val::Percent(5.0),
+                top: Val::Percent(7.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -378,7 +421,7 @@ pub fn spawn_ai_vs_ai_menu(
                 color: MatchManagerStatistic::DEFAULT_COLOR,
             }
         ).with_style(Style {
-            bottom: Val::Percent(43.0),
+            bottom: Val::Percent(53.0),
             left: Val::Percent(43.0),
             width: Val::Percent(30.0),
             ..default()
@@ -391,7 +434,7 @@ pub fn spawn_ai_vs_ai_menu(
                 color: MatchManagerStatistic::DEFAULT_COLOR,
             }
         ).with_style(Style {
-            top: Val::Percent(47.0),
+            top: Val::Percent(37.5),
             left: Val::Percent(43.0),
             width: Val::Percent(30.0),
             ..default()

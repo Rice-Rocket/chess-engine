@@ -26,7 +26,7 @@ impl SearcherV0 {
         bbutils: &BitBoardUtils,
         magic: &MagicBitBoards,
     ) {
-        move_gen.generate_moves(board, precomp, bbutils, magic, false);
+        // move_gen.generate_moves(board, precomp, bbutils, magic, false);
         let moves = &move_gen.moves;
         if moves.len() == 0 {
             self.best_move_so_far = Move::NULL;
