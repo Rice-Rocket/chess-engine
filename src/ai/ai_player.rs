@@ -10,24 +10,26 @@ pub const DEFAULT_AI_THINK_TIME_MS: u32 = 1000;
 pub enum AIVersion {
     V0,
     V1,
-    #[default]
     V2,
+    #[default]
+    V3,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V2
+        AIVersion::V3
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V1
+        AIVersion::V2
     }
     pub fn label(&self) -> &str {
         match self {
             Self::V0 => "V0 - Random Moves",
             Self::V1 => "V1 - Minimax",
             Self::V2 => "V2 - Iterative Deepening",
+            Self::V3 => "V3 - Alphabeta Pruning",
         }
     }
 
@@ -104,6 +106,7 @@ pub fn ai_make_move(
         calc_stats.ai_eval = search_complete.eval;
         calc_stats.ai_positions_evaled = search_complete.stats.num_position_evals;
         calc_stats.ai_mates_found = search_complete.stats.num_mates;
+        calc_stats.ai_num_cutoffs = search_complete.stats.num_cutoffs;
         calc_stats.ai_think_time = search_complete.stats.think_time_ms;
         make_move_evw.send(BoardMakeMove {
             mov: search_complete.chosen_move

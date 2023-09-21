@@ -21,6 +21,7 @@ pub enum MenuStatistic {
     AIPositionsEvaluated,
     AIMatesFound,
     AIEvaluation,
+    AINumCutoffs,
     AIThinkTime,
 }
 
@@ -72,6 +73,7 @@ pub struct CalcStatistics {
     pub ai_eval: f32,
     pub ai_think_time: u32,
     pub ai_mates_found: i32,
+    pub ai_num_cutoffs: i32,
 }
 
 impl Default for CalcStatistics {
@@ -83,6 +85,7 @@ impl Default for CalcStatistics {
             ai_eval: 0.0,
             ai_think_time: 0,
             ai_mates_found: 0,
+            ai_num_cutoffs: 0,
         }
     }
 }
@@ -153,13 +156,13 @@ pub fn spawn_calc_stats(
                     }
                 ), StatMenuText { stat: MenuStatistic::AIMatesFound }));
                 parent.spawn((TextBundle::from_section(
-                    "Think Time: N/A",
+                    "Pruned Branches: N/A",
                     TextStyle {
                         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                         font_size: 20.0,
                         color: MenuStatistic::PURPLE,
                     }
-                ), StatMenuText { stat: MenuStatistic::AIThinkTime }));
+                ), StatMenuText { stat: MenuStatistic::AINumCutoffs }));
             }
         });
 }
@@ -176,6 +179,7 @@ pub fn update_menu_stats(
             MenuStatistic::AIPositionsEvaluated => { format!("Positions Evaluated: {}", calc_stats.ai_positions_evaled) },
             MenuStatistic::AIThinkTime => { format!("Think Time: {} ms", calc_stats.ai_think_time) },
             MenuStatistic::AIMatesFound => { format!("Checkmates Found: {}", calc_stats.ai_mates_found) },
+            MenuStatistic::AINumCutoffs => { format!("Pruned Branches: {}", calc_stats.ai_num_cutoffs)}
         }
     }
 }
