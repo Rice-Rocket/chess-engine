@@ -12,18 +12,19 @@ pub enum AIVersion {
     V1,
     V2,
     V3,
-    #[default]
     V4,
+    #[default]
+    V5,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V4
+        AIVersion::V5
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V3
+        AIVersion::V4
     }
     pub fn label(&self) -> &str {
         match self {
@@ -32,6 +33,7 @@ impl AIVersion {
             Self::V2 => "V2 - Iterative Deepening",
             Self::V3 => "V3 - Alphabeta Pruning",
             Self::V4 => "V4 - Repetitions and Transpositions",
+            Self::V5 => "V5 - Move Ordering",
         }
     }
 
