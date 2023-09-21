@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::{board::moves::Move, move_gen::move_generator::MoveGenerator, ai::{ai_player::{BeginSearch, SearchComplete}, stats::SearchStatistics}};
+use crate::{board::moves::Move, move_gen::move_generator::MoveGenerator, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
 
 
 #[derive(Resource)]
@@ -42,7 +42,10 @@ pub fn start_search(
 
     mut move_gen: ResMut<MoveGenerator>,
 ) {
-    for _begin_search_event in begin_search_evr.iter() {
+    for begin_search_event in begin_search_evr.iter() {
+        if begin_search_event.version != AIVersion::V0 {
+            continue;
+        }
         searcher.start_search(
             move_gen.as_mut(),
         );

@@ -16,6 +16,7 @@ impl Plugin for TextInputPlugin {
 #[derive(Component)]
 pub struct TextInput {
     pub value: String,
+    pub inactive: bool,
     prefix: String,
     suffix: String,
     display_value: String,
@@ -27,6 +28,7 @@ impl TextInput {
     pub fn new(prefix: &str, default_value: &str, suffix: &str, only_numbers: bool) -> Self {
         Self {
             value: default_value.to_string(),
+            inactive: false,
             prefix: prefix.to_string(),
             suffix: suffix.to_string(),
             display_value: default_value.to_string(),
@@ -49,6 +51,10 @@ pub fn update_text_input_interaction(
     }
     if let Some(text_input_entity) = pressed {
         for (mut text_input, entity) in text_input_query.iter_mut() {
+            if text_input.inactive {
+                text_input.active = false;
+                continue;
+            }
             if entity == text_input_entity || text_input.active {
                 text_input.active = !text_input.active; 
             }

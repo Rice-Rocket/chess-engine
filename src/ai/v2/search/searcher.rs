@@ -1,21 +1,31 @@
+use std::time::SystemTime;
+
 use bevy::prelude::*;
 use crate::{board::{moves::Move, board::Board, zobrist::Zobrist}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
 
 use super::super::evaluation::eval::Evaluation;
 
 #[derive(Resource)]
-pub struct SearcherV1 {
+pub struct SearcherV2 {
     pub current_depth: i32,
     pub best_move_so_far: Move,
     pub best_eval_so_far: f32,
+    pub max_think_time_ms: u32,
+    best_move_this_iter: Move,
+    best_eval_this_iter: f32,
 
     positions_evaled: u32,
     num_mates: i32,
     has_searched_one_move: bool,
+    search_cancelled: bool,
+
+    search_iteration_time: SystemTime,
+    search_total_time: SystemTime,
+    current_iter_depth: i32,
+    move_is_from_partial_search: bool,
 }
 
-impl SearcherV1 {
-    pub const SEARCH_DEPTH: i32 = 4;
+impl SearcherV2 {
     pub const MATE_SCORE: f32 = 100000.0;
     pub const POS_INF: f32 = 9999999.0;
     pub const NEG_INF: f32 = -Self::POS_INF;
@@ -28,7 +38,6 @@ impl SearcherV1 {
         magic: &MagicBitBoards,
         zobrist: &Zobrist,
     ) {
-        move_gen.generate_moves(board, precomp, bbutils, magic, false);
         let init_moves = &move_gen.moves;
         if init_moves.len() == 0 {
             self.best_move_so_far = Move::NULL;
@@ -40,10 +49,13 @@ impl SearcherV1 {
         self.best_move_so_far = Move::NULL;
         self.num_mates = 0;
         self.has_searched_one_move = false;
+        self.move_is_from_partial_search = false;
+        self.search_cancelled = false;
 
-        
-        self.search(
-            Self::SEARCH_DEPTH, 0,
+        self.search_iteration_time = SystemTime::now();
+        self.search_total_time = SystemTime::now();
+
+        self.start_iterative_deepening(
             board,
             move_gen,
             precomp,
@@ -52,12 +64,59 @@ impl SearcherV1 {
             zobrist,
         );
 
-        // board.white_to_move = white_to_move;
-        // board.move_color = if white_to_move { Piece::WHITE } else { Piece::BLACK };
-        // board.opponent_color = if white_to_move { Piece::BLACK } else { Piece::WHITE };
-        // board.move_color_idx = if white_to_move { Board::WHITE_INDEX } else { Board::BLACK_INDEX };
-        // board.opponent_color_idx = 1 - board.move_color_idx;
+        
+        // self.search(
+        //     Self::SEARCH_DEPTH, 0,
+        //     board,
+        //     move_gen,
+        //     precomp,
+        //     bbutils,
+        //     magic,
+        //     zobrist,
+        // );
     }
+
+    fn start_iterative_deepening(
+        &mut self, 
+        board: &mut Board,
+        move_gen: &mut MoveGenerator,
+        precomp: &PrecomputedMoveData,
+        bbutils: &BitBoardUtils,
+        magic: &MagicBitBoards,
+        zobrist: &Zobrist, 
+    ) {
+        for search_depth in 1..=256 {
+            self.has_searched_one_move = false;
+            self.search_iteration_time = SystemTime::now();
+            self.current_iter_depth = search_depth;
+            self.search(
+                search_depth, 0, 
+                board,
+                move_gen,
+                precomp,
+                bbutils,
+                magic,
+                zobrist,
+            );
+            
+            if self.search_cancelled {
+                if self.has_searched_one_move {
+                    self.best_move_so_far = self.best_move_this_iter;
+                    self.best_eval_so_far = self.best_eval_this_iter;
+                    self.move_is_from_partial_search = true;
+                }
+                break;
+            } else {
+                self.current_depth = search_depth;
+                self.best_move_so_far = self.best_move_this_iter;
+                self.best_eval_so_far = self.best_eval_this_iter;
+
+                self.best_eval_this_iter = f32::MIN;
+                self.best_move_this_iter = Move::NULL;
+            }
+        }
+    }
+    
     fn search(
         &mut self, depth_remaining: i32, current_depth: i32,
         board: &mut Board,
@@ -67,6 +126,10 @@ impl SearcherV1 {
         magic: &MagicBitBoards,
         zobrist: &Zobrist,
     ) -> f32 {
+        if SystemTime::now().duration_since(self.search_total_time).unwrap().as_millis() as u32 > self.max_think_time_ms {
+            self.search_cancelled = true;
+            return 0.0;
+        }
         if depth_remaining == 0 {
             self.positions_evaled += 1;
             return Evaluation::evaluate(board);
@@ -88,7 +151,6 @@ impl SearcherV1 {
         };
 
         let mut best_eval = f32::MIN;
-        // let mut best_move = Move::NULL;
         for mov in moves.iter() {
             board.make_move(*mov, true, zobrist);
             // negate evaluation, switiching sides
@@ -103,35 +165,51 @@ impl SearcherV1 {
                 zobrist,
             );
             board.unmake_move(*mov, true);
+            if self.search_cancelled {
+                return 0.0;
+            }
             if eval > best_eval {
                 best_eval = eval;
-                // best_move = *mov;
                 if current_depth == 0 {
-                    self.best_move_so_far = *mov;
-                    self.best_eval_so_far = eval;
+                    self.best_eval_this_iter = eval;
+                    self.best_move_this_iter = *mov;
                     self.has_searched_one_move = true;
                 }
             }
         };
         return best_eval;
     }
+
+    // fn is_mate_score(score: f32) -> bool {
+    //     if score == f32::MIN { return false; }
+    //     const MAX_MATE_DEPTH: f32 = 1000.0;
+    //     return score.abs() > Self::MATE_SCORE - MAX_MATE_DEPTH;
+    // }
 }
 
-impl Default for SearcherV1 {
+impl Default for SearcherV2 {
     fn default() -> Self {
         Self {
             current_depth: 0,
             best_move_so_far: Move::NULL,
             best_eval_so_far: 0.0,
             positions_evaled: 0,
+            max_think_time_ms: 1000,
             num_mates: 0,
             has_searched_one_move: false,
+            search_cancelled: false,
+            best_move_this_iter: Move::NULL,
+            best_eval_this_iter: 0.0,
+            search_iteration_time: SystemTime::now(),
+            search_total_time: SystemTime::now(),
+            current_iter_depth: 0,
+            move_is_from_partial_search: false,
         }
     }
 }
 
 pub fn start_search(
-    mut searcher: ResMut<SearcherV1>,
+    mut searcher: ResMut<SearcherV2>,
     mut begin_search_evr: EventReader<BeginSearch>,
     mut search_complete_evw: EventWriter<SearchComplete>,
 
@@ -143,10 +221,11 @@ pub fn start_search(
     zobrist: Res<Zobrist>,
 ) {
     for begin_search_event in begin_search_evr.iter() {
-        if begin_search_event.version != AIVersion::V1 {
+        if begin_search_event.version != AIVersion::V2 {
             continue;
         }
         let time_start = std::time::SystemTime::now();
+        searcher.max_think_time_ms = begin_search_event.think_time;
         searcher.start_search(
             board.as_mut(),
             move_gen.as_mut(),
@@ -157,7 +236,7 @@ pub fn start_search(
         );
         let think_time = std::time::SystemTime::now().duration_since(time_start).unwrap().as_millis();
         search_complete_evw.send(SearchComplete {
-            depth: SearcherV1::SEARCH_DEPTH,
+            depth: searcher.current_depth,
             chosen_move: searcher.best_move_so_far,
             eval: searcher.best_eval_so_far,
             stats: SearchStatistics {

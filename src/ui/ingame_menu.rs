@@ -26,12 +26,12 @@ pub enum MenuStatistic {
 
 impl MenuStatistic {
     pub const DEFAULT_COLOR: Color = Color::rgb(0.53, 0.49, 0.48);
-    pub const MOVE_GEN_TIME_COLOR: Color = Color::rgb(0.82, 0.36, 0.37);
-    pub const DEPTH_COLOR: Color = Color::rgb(0.77, 0.55, 0.33);
-    pub const POSITIONS_EVALED_COLOR: Color = Color::rgb(0.69, 0.92, 0.46);
-    pub const EVAL_COLOR: Color = Color::rgb(0.58, 0.76, 0.93);
-    pub const THINK_TIME_COLOR: Color = Color::rgb(0.70, 0.53, 0.90);
-    pub const MATES_FOUND_COLOR: Color = Color::rgb(0.49, 0.24, 0.81);
+    pub const RED: Color = Color::rgb(0.82, 0.36, 0.37);
+    pub const ORANGE: Color = Color::rgb(0.77, 0.55, 0.33);
+    pub const GREEN: Color = Color::rgb(0.69, 0.92, 0.46);
+    pub const BLUE: Color = Color::rgb(0.58, 0.76, 0.93);
+    pub const PURPLE: Color = Color::rgb(0.70, 0.53, 0.90);
+    pub const DARK_PURPLE: Color = Color::rgb(0.49, 0.24, 0.81);
 }
 
 pub enum MatchManagerStatistic {
@@ -68,7 +68,7 @@ pub struct MatchManagerStartButton {}
 pub struct CalcStatistics {
     pub move_gen_time: f32,
     pub ai_depth: i32,
-    pub ai_positions_evaled: i32,
+    pub ai_positions_evaled: u32,
     pub ai_eval: f32,
     pub ai_think_time: u32,
     pub ai_mates_found: i32,
@@ -111,45 +111,45 @@ pub fn spawn_calc_stats(
         ..default()
     }, StatMenuParentNode {}))
         .with_children(|parent| {
-            parent.spawn((TextBundle::from_section(
-                "Move gen time: N/A",
-                TextStyle {
-                    font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
-                    font_size: 20.0,
-                    color: MenuStatistic::MOVE_GEN_TIME_COLOR,
-                }
-            ), StatMenuText { stat: MenuStatistic::MoveGenTime }));
+            // parent.spawn((TextBundle::from_section(
+            //     "Move gen time: N/A",
+            //     TextStyle {
+            //         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+            //         font_size: 20.0,
+            //         color: MenuStatistic::MOVE_GEN_TIME_COLOR,
+            //     }
+            // ), StatMenuText { stat: MenuStatistic::MoveGenTime }));
             if manager.white_player_type != manager.black_player_type {
                 parent.spawn((TextBundle::from_section(
                     "Search Depth: N/A",
                     TextStyle {
                         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                         font_size: 20.0,
-                        color: MenuStatistic::DEPTH_COLOR,
+                        color: MenuStatistic::RED,
                     }
                 ), StatMenuText { stat: MenuStatistic::AIDepth }));
-                parent.spawn((TextBundle::from_section(
-                    "Positions Evaluated: N/A",
-                    TextStyle {
-                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
-                        font_size: 20.0,
-                        color: MenuStatistic::POSITIONS_EVALED_COLOR,
-                    }
-                ), StatMenuText { stat: MenuStatistic::AIPositionsEvaluated }));
                 parent.spawn((TextBundle::from_section(
                     "Evaluation: N/A",
                     TextStyle {
                         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                         font_size: 20.0,
-                        color: MenuStatistic::EVAL_COLOR,
+                        color: MenuStatistic::ORANGE,
                     }
                 ), StatMenuText { stat: MenuStatistic::AIEvaluation }));
+                parent.spawn((TextBundle::from_section(
+                    "Positions Evaluated: N/A",
+                    TextStyle {
+                        font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
+                        font_size: 20.0,
+                        color: MenuStatistic::GREEN,
+                    }
+                ), StatMenuText { stat: MenuStatistic::AIPositionsEvaluated }));
                 parent.spawn((TextBundle::from_section(
                     "Checkmates Found: N/A",
                     TextStyle {
                         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                         font_size: 20.0,
-                        color: MenuStatistic::MATES_FOUND_COLOR,
+                        color: MenuStatistic::BLUE,
                     }
                 ), StatMenuText { stat: MenuStatistic::AIMatesFound }));
                 parent.spawn((TextBundle::from_section(
@@ -157,7 +157,7 @@ pub fn spawn_calc_stats(
                     TextStyle {
                         font: asset_server.load("ui/font/LiberationSans-Regular.ttf"),
                         font_size: 20.0,
-                        color: MenuStatistic::THINK_TIME_COLOR,
+                        color: MenuStatistic::PURPLE,
                     }
                 ), StatMenuText { stat: MenuStatistic::AIThinkTime }));
             }
@@ -172,8 +172,8 @@ pub fn update_menu_stats(
         text.sections[0].value = match stat.stat {
             MenuStatistic::MoveGenTime => { format!("Move gen time: {} micros", calc_stats.move_gen_time) },
             MenuStatistic::AIDepth => { format!("Search Depth: {}", calc_stats.ai_depth) },
-            MenuStatistic::AIPositionsEvaluated => { format!("Evaluation: {}", calc_stats.ai_positions_evaled) },
-            MenuStatistic::AIEvaluation => { format!("Positions Evaluated: {}", calc_stats.ai_eval) },
+            MenuStatistic::AIEvaluation => { format!("Evaluation: {}", calc_stats.ai_eval) },
+            MenuStatistic::AIPositionsEvaluated => { format!("Positions Evaluated: {}", calc_stats.ai_positions_evaled) },
             MenuStatistic::AIThinkTime => { format!("Think Time: {} ms", calc_stats.ai_think_time) },
             MenuStatistic::AIMatesFound => { format!("Checkmates Found: {}", calc_stats.ai_mates_found) },
         }
@@ -267,7 +267,7 @@ pub fn spawn_ai_vs_ai_menu(
     }, StatMenuParentNode {}));
     parent_node.with_children(|parent| {
         parent.spawn(TextBundle::from_section(
-            "Match Manager",
+            "Versus Manager",
             TextStyle {
                 font: asset_server.load("ui/font/LiberationSans-Bold.ttf"),
                 font_size: 30.0,

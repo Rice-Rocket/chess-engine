@@ -144,9 +144,6 @@ pub fn execute_board_move(
     for make_move_event in make_move_evr.iter() {
         let mov = make_move_event.mov;
 
-        // let piece = board.square[mov.start().index()];
-        // println!("sqr: {}, piece: {:?}, num_pieces: {}", mov.start().square(), piece, board.get_piece_list(piece.piece_type(), piece.color_index()).count());
-
         board.make_move(mov, false, &zobrist);
         manager.executed_board_move = Some(mov);
     }
@@ -168,7 +165,6 @@ pub fn on_make_move(
         move_gen.generate_moves(&board, &precomp, &bbutils, &magic, false);
         let move_gen_time = SystemTime::now().duration_since(time_start).unwrap().as_micros();
         stats.move_gen_time = move_gen_time as f32;
-    
         manager.game_moves.push(mov);
     
         match manager.gen_game_result(board.as_ref(), &move_gen.moves, move_gen.in_check()) {

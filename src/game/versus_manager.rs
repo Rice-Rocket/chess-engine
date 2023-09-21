@@ -55,10 +55,12 @@ pub fn start_versus_games(
     mut interaction_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<MatchManagerStartButton>)>,
     versus_manager: ResMut<VersusManager>,
     mut match_manager_text_query: Query<(&MatchManagerText, &mut Text)>,
+    mut match_text_input_query: Query<&mut TextInput, (With<Text>, With<Button>)>,
     mut zobrist: ResMut<Zobrist>,
     mut board: ResMut<Board>,
     mut manager: ResMut<GameManager>,
     mut can_make_move_evw: EventWriter<CanMakeMove>,
+    mut ai_player_query: Query<&mut AIPlayer>,
 ) {
     for (interaction, mut _color) in interaction_query.iter_mut() {
         match *interaction {
@@ -70,6 +72,13 @@ pub fn start_versus_games(
                         },
                         _ => (),
                     }
+                }
+                for mut match_text_input in match_text_input_query.iter_mut() {
+                    match_text_input.inactive = true;
+                }
+                
+                for mut ai_player in ai_player_query.iter_mut() {
+                    ai_player.think_time_ms = versus_manager.max_think_time_ms as u32;
                 }
 
                 board.load_position(Some(versus_manager.position_fens[0].clone()), zobrist.as_mut());
@@ -127,10 +136,20 @@ pub fn versus_game_over(
         for mut player in ai_player_query.iter_mut() {
             if player.team == Piece::WHITE {
                 player.team = Piece::BLACK;
-                swapped_colors = true;
+                if !swapped_colors {
+                    let temp = versus_manager.white_wins;
+                    versus_manager.white_wins = versus_manager.white_losses;
+                    versus_manager.white_losses = temp;
+                    swapped_colors = true;
+                }
             } else if player.team == Piece::BLACK {
                 player.team = Piece::WHITE;
-                swapped_colors = true;
+                if !swapped_colors {
+                    let temp = versus_manager.white_wins;
+                    versus_manager.white_wins = versus_manager.white_losses;
+                    versus_manager.white_losses = temp;
+                    swapped_colors = true;
+                }
             }
         }
     }
@@ -147,16 +166,18 @@ pub fn versus_game_over(
             MatchManagerStatistic::GameNumber => {
                 text.sections[0].value = format!("Game Number: {} / {}", versus_manager.game_idx + 1, versus_manager.total_games);
             },
-            MatchManagerStatistic::Player1Stats(version, is_white) => {
+            MatchManagerStatistic::Player1Stats(version, mut is_white) => {
+                is_white = if swapped_colors { !is_white } else { is_white };
+                label.stat = MatchManagerStatistic::Player1Stats(version, is_white);
                 let wins = if is_white { versus_manager.white_wins } else { versus_manager.white_losses };
                 let losses = if is_white { versus_manager.white_losses } else { versus_manager.white_wins };
-                // label.stat = MatchManagerStatistic::Player1Stats(version, if switch_players { !is_white } else { is_white });
                 text.sections[0].value = format!("{} | Wins: {}  Losses: {}  Draws: {}", version.label(), wins, losses, versus_manager.draws);
             },
-            MatchManagerStatistic::Player2Stats(version, is_white) => {
+            MatchManagerStatistic::Player2Stats(version, mut is_white) => {
+                is_white = if swapped_colors { !is_white } else { is_white };
+                label.stat = MatchManagerStatistic::Player2Stats(version, is_white);
                 let wins = if is_white { versus_manager.white_wins } else { versus_manager.white_losses };
                 let losses = if is_white { versus_manager.white_losses } else { versus_manager.white_wins };
-                // label.stat = MatchManagerStatistic::Player2Stats(version, if switch_players { !is_white } else { is_white });
                 text.sections[0].value = format!("{} | Wins: {}  Losses: {}  Draws: {}", version.label(), wins, losses, versus_manager.draws);
             },
             MatchManagerStatistic::MaxThinkTime => {

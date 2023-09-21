@@ -1,28 +1,33 @@
 use bevy::prelude::*;
-use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}, ui::ingame_menu::CalcStatistics};
+use crate::{board::moves::Move, game::{manager::{BoardMakeMove, GameManager, CanMakeMove}, player::Player}, ui::ingame_menu::CalcStatistics, state::AppMode};
 use super::stats::SearchStatistics;
+
+
+pub const DEFAULT_AI_THINK_TIME_MS: u32 = 1000;
 
 
 #[derive(PartialEq, Default, Clone, Copy)]
 pub enum AIVersion {
     V0,
-    #[default]
     V1,
+    #[default]
+    V2,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V1
+        AIVersion::V2
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V0
+        AIVersion::V1
     }
     pub fn label(&self) -> &str {
         match self {
             Self::V0 => "V0 - Random Moves",
             Self::V1 => "V1 - Minimax",
+            Self::V2 => "V2 - Iterative Deepening",
         }
     }
 
@@ -39,6 +44,7 @@ impl AIVersion {
 #[derive(Component)]
 pub struct AIPlayer {
     searching: bool,
+    pub think_time_ms: u32,
     pub version: AIVersion
 }
 
@@ -46,12 +52,14 @@ impl AIPlayer {
     pub fn versus_p1() -> Self {
         AIPlayer {
             version: AIVersion::primary_version(),
+            think_time_ms: DEFAULT_AI_THINK_TIME_MS,
             searching: false,
         }
     }
     pub fn versus_p2() -> Self {
         AIPlayer {
             version: AIVersion::secondary_version(),
+            think_time_ms: DEFAULT_AI_THINK_TIME_MS,
             searching: false,
         }
     }
@@ -61,13 +69,17 @@ impl Default for AIPlayer {
     fn default() -> Self {
         AIPlayer {
             version: AIVersion::primary_version(),
+            think_time_ms: DEFAULT_AI_THINK_TIME_MS,
             searching: false,
         }
     }
 }
 
 #[derive(Event)]
-pub struct BeginSearch {}
+pub struct BeginSearch {
+    pub version: AIVersion,
+    pub think_time: u32,
+}
 
 #[derive(Event)]
 pub struct SearchComplete {
@@ -103,13 +115,32 @@ pub fn ai_begin_search(
     mut begin_search_evw: EventWriter<BeginSearch>,
     mut player_query: Query<(&mut AIPlayer, &Player)>,
     manager: Res<GameManager>,
+    app_mode: Res<State<AppMode>>,
     mut can_make_move_evr: EventReader<CanMakeMove>,
 ) {
     for _can_make_move_ev in can_make_move_evr.iter() {
         for (mut ai, player_data) in player_query.iter_mut() {
             if player_data.team == manager.move_color && !ai.searching {
-                ai.searching = true;
-                begin_search_evw.send(BeginSearch {});
+                match app_mode.clone() {
+                    AppMode::None | AppMode::GameHumanHuman => (),
+                    AppMode::GameHumanAI => {
+                        if ai.version == AIVersion::primary_version() {
+                            ai.searching = true;
+                            begin_search_evw.send(BeginSearch {
+                                version: ai.version,
+                                think_time: DEFAULT_AI_THINK_TIME_MS,
+                            });
+                        }
+                    },
+                    AppMode::GameAIAI => {
+                        ai.searching = true;
+                        begin_search_evw.send(BeginSearch {
+                            version: ai.version,
+                            think_time: ai.think_time_ms,
+                        });
+                    }
+
+                }
             }
         }
     }

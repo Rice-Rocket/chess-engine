@@ -6,6 +6,7 @@ use self::ai_player::*;
 
 pub mod v0;
 pub mod v1;
+pub mod v2;
 
 
 fn finalize(
@@ -21,14 +22,16 @@ impl Plugin for AIPlugin {
         app
             .add_event::<SearchComplete>()
             .add_event::<BeginSearch>()
-            .add_plugins(v0::AIPluginV0)
+            // .add_plugins(v0::AIPluginV0)
             .add_plugins(v1::AIPluginV1)
+            .add_plugins(v2::AIPluginV2)
             .add_systems(OnEnter(AppState::LoadAI), (
                 finalize,
             ))
             .add_systems(Update, (
                 // v0::search::searcher::start_search,
                 v1::search::searcher::start_search,
+                v2::search::searcher::start_search,
 
                 ai_begin_search,
                 ai_make_move,
