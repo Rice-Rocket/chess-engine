@@ -70,7 +70,7 @@ pub struct CalcStatistics {
     pub move_gen_time: f32,
     pub ai_depth: i32,
     pub ai_positions_evaled: u32,
-    pub ai_eval: f32,
+    pub ai_eval: i32,
     pub ai_think_time: u32,
     pub ai_mates_found: i32,
     pub ai_num_cutoffs: i32,
@@ -82,7 +82,7 @@ impl Default for CalcStatistics {
             move_gen_time: 0.0,
             ai_depth: 0,
             ai_positions_evaled: 0,
-            ai_eval: 0.0,
+            ai_eval: 0,
             ai_think_time: 0,
             ai_mates_found: 0,
             ai_num_cutoffs: 0,
@@ -488,7 +488,7 @@ pub fn spawn_ai_vs_ai_menu(
         ).with_style(Style {
             bottom: Val::Percent(53.0),
             left: Val::Percent(43.0),
-            width: Val::Percent(30.0),
+            width: Val::Percent(40.0),
             ..default()
         }), MatchManagerText { stat: MatchManagerStatistic::BlackPlayer(if p1_team == Piece::BLACK { p1_version } else { p2_version}) }));
         parent.spawn((TextBundle::from_section(
@@ -501,7 +501,7 @@ pub fn spawn_ai_vs_ai_menu(
         ).with_style(Style {
             top: Val::Percent(37.5),
             left: Val::Percent(43.0),
-            width: Val::Percent(30.0),
+            width: Val::Percent(40.0),
             ..default()
         }), MatchManagerText { stat: MatchManagerStatistic::WhitePlayer(if p1_team == Piece::WHITE { p1_version } else { p2_version}) }));
     });

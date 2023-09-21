@@ -11,9 +11,9 @@ fn load(
     commands.insert_resource(search::searcher::Searcher::default());
 }
 
-pub struct AIPluginV0;
+pub struct AIPluginV4;
 
-impl Plugin for AIPluginV0 {
+impl Plugin for AIPluginV4 {
     fn build(&self, app: &mut App) {
         app
             .add_systems(OnEnter(AppState::LoadAI), load);

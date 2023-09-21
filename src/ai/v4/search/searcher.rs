@@ -1,21 +1,25 @@
 use std::time::SystemTime;
 
 use bevy::prelude::*;
-use crate::{board::{moves::Move, board::Board, zobrist::Zobrist}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
+use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
 
-use super::super::evaluation::eval::Evaluation;
+use super::{super::evaluation::eval::Evaluation, transpositions::{TranspositionTable, EvaluationType}};
 
 #[derive(Resource)]
 pub struct Searcher {
     pub current_depth: i32,
     pub best_move_so_far: Move,
-    pub best_eval_so_far: f32,
+    pub best_eval_so_far: i32,
     pub max_think_time_ms: u32,
     best_move_this_iter: Move,
-    best_eval_this_iter: f32,
+    best_eval_this_iter: i32,
+
+    repetition_table: Vec<u64>,
+    transposition_table: TranspositionTable,
 
     positions_evaled: u32,
     num_mates: i32,
+    num_cutoffs: i32,
     has_searched_one_move: bool,
     search_cancelled: bool,
 
@@ -26,9 +30,12 @@ pub struct Searcher {
 }
 
 impl Searcher {
-    pub const MATE_SCORE: f32 = 100000.0;
-    pub const POS_INF: f32 = 9999999.0;
-    pub const NEG_INF: f32 = -Self::POS_INF;
+    const MATE_SCORE: i32 = 100000;
+    const POS_INF: i32 = 9999999;
+    const NEG_INF: i32 = -Self::POS_INF;
+
+    const TRANSPOSITION_TABLE_SIZE_MB: usize = 64;
+    const MAX_MATE_DEPTH: i32 = 1000;
 
     pub fn start_search(&mut self,
         board: &mut Board, 
@@ -38,16 +45,21 @@ impl Searcher {
         magic: &MagicBitBoards,
         zobrist: &Zobrist,
     ) {
-        let init_moves = &move_gen.moves;
+        let init_moves = move_gen.moves.clone();
         if init_moves.len() == 0 {
             self.best_move_so_far = Move::NULL;
             return;
         }
 
-        self.positions_evaled = 0;
-        self.best_eval_so_far = 0.0;
+        self.repetition_table = board.repeat_position_history.clone();
+
         self.best_move_so_far = Move::NULL;
+        self.best_eval_so_far = 0;
+
+        self.positions_evaled = 0;
         self.num_mates = 0;
+        self.num_cutoffs = 0;
+
         self.has_searched_one_move = false;
         self.move_is_from_partial_search = false;
         self.search_cancelled = false;
@@ -64,16 +76,9 @@ impl Searcher {
             zobrist,
         );
 
-        
-        // self.search(
-        //     Self::SEARCH_DEPTH, 0,
-        //     board,
-        //     move_gen,
-        //     precomp,
-        //     bbutils,
-        //     magic,
-        //     zobrist,
-        // );
+        if self.best_move_so_far == Move::NULL {
+            self.best_move_so_far = init_moves[0];
+        }
     }
 
     fn start_iterative_deepening(
@@ -85,12 +90,13 @@ impl Searcher {
         magic: &MagicBitBoards,
         zobrist: &Zobrist, 
     ) {
-        for search_depth in 1..=256 {
+        for search_depth in 1u8..=255u8 {
             self.has_searched_one_move = false;
             self.search_iteration_time = SystemTime::now();
-            self.current_iter_depth = search_depth;
+            self.current_iter_depth = search_depth as i32;
             self.search(
-                search_depth, 0, 
+                search_depth, 0, Self::NEG_INF, Self::POS_INF,
+                Move::NULL, false,
                 board,
                 move_gen,
                 precomp,
@@ -107,29 +113,56 @@ impl Searcher {
                 }
                 break;
             } else {
-                self.current_depth = search_depth;
+                self.current_depth = search_depth as i32;
                 self.best_move_so_far = self.best_move_this_iter;
                 self.best_eval_so_far = self.best_eval_this_iter;
 
-                self.best_eval_this_iter = f32::MIN;
+                self.best_eval_this_iter = Self::NEG_INF;
                 self.best_move_this_iter = Move::NULL;
             }
         }
     }
     
     fn search(
-        &mut self, depth_remaining: i32, current_depth: i32,
+        &mut self, depth_remaining: u8, current_depth: u8, mut alpha: i32, mut beta: i32,
+        prev_move: Move, prev_was_capture: bool,
         board: &mut Board,
         move_gen: &mut MoveGenerator,
         precomp: &PrecomputedMoveData,
         bbutils: &BitBoardUtils,
         magic: &MagicBitBoards,
         zobrist: &Zobrist,
-    ) -> f32 {
+    ) -> i32 {
+        // Cancel search if over max think time
         if SystemTime::now().duration_since(self.search_total_time).unwrap().as_millis() as u32 > self.max_think_time_ms {
             self.search_cancelled = true;
-            return 0.0;
+            return 0;
         }
+
+        if current_depth > 0 {
+            // Punish repeated positions
+            if board.current_state.fifty_move_counter >= 100 || self.repetition_table.contains(&board.current_state.zobrist_key) {
+                return 0;
+            }
+
+            // Prune if shorter mating sequence has been found
+            alpha = alpha.max(-Self::MATE_SCORE + current_depth as i32);
+            beta = beta.min(Self::MATE_SCORE - current_depth as i32);
+            if alpha >= beta {
+                return alpha;
+            }
+        }
+
+        // Try getting the position from the transposition table
+        if let Some(tt_val) = self.transposition_table.get_evaluation(depth_remaining, current_depth, alpha, beta, board) {
+            if current_depth == 0 {
+                self.best_move_this_iter = self.transposition_table.get_stored_move(board).unwrap();
+                self.best_eval_this_iter = self.transposition_table.entries[self.transposition_table.index(board)].clone().unwrap().value;
+            }
+            return tt_val;
+        }
+
+        // If leaf node is reached, evaluate the board
         if depth_remaining == 0 {
             self.positions_evaled += 1;
             return Evaluation::evaluate(board);
@@ -138,25 +171,40 @@ impl Searcher {
         move_gen.generate_moves(board, precomp, bbutils, magic, false);
         let moves = move_gen.moves.clone();
 
-        // check if position is terminal
+        // Check if position is terminal
         if moves.len() == 0 {
             if move_gen.in_check() {
                 self.num_mates += 1;
-                // favor faster mates
-                let mate_score = Self::MATE_SCORE - current_depth as f32;
+                // Favor faster mates
+                let mate_score = Self::MATE_SCORE - current_depth as i32;
                 return -mate_score;
-            } else { // stalemate
-                return 0.0;
+            } else { // Stalemate
+                return 0;
             };
         };
 
-        let mut best_eval = f32::MIN;
+        if current_depth > 0 {
+            let was_pawn_move = board.square[prev_move.target().index()].piece_type() == Piece::PAWN;
+            if was_pawn_move || prev_was_capture { self.repetition_table.clear() };
+            self.repetition_table.push(board.current_state.zobrist_key);
+        }
+
+        let mut evaluation_bound = EvaluationType::UpperBound;
+        let mut best_move_this_position = Move::NULL;
+
+        // Loop through legal moves
         for mov in moves.iter() {
+            let captured_ptype = board.square[mov.target().index()].piece_type();
+            let is_capture = captured_ptype != Piece::NONE;
             board.make_move(*mov, true, zobrist);
-            // negate evaluation, switiching sides
+            // Negate evaluation -- A bad position for the opponent is good for us and vice versa
             let eval = -self.search(
                 depth_remaining - 1,
                 current_depth + 1,
+                -beta,
+                -alpha,
+                mov.clone(), 
+                is_capture,
                 board,
                 move_gen, 
                 precomp,
@@ -165,11 +213,29 @@ impl Searcher {
                 zobrist,
             );
             board.unmake_move(*mov, true);
+            // Exit early if search is cancelled
             if self.search_cancelled {
-                return 0.0;
+                return 0;
             }
-            if eval > best_eval {
-                best_eval = eval;
+
+            // Beta cutoff / Fail high
+            if eval >= beta {
+                // Very good move but not the best, store as lower bound
+                self.transposition_table.store_evaluation(depth_remaining, current_depth, beta, EvaluationType::LowerBound, mov.clone(), board);
+                
+                if current_depth > 0 {
+                    self.repetition_table.pop();
+                }
+
+                self.num_cutoffs += 1;
+                return beta;
+            }
+
+            // New best move for this position
+            if eval > alpha {
+                evaluation_bound = EvaluationType::Exact;
+                best_move_this_position = mov.clone();
+                alpha = eval;
                 if current_depth == 0 {
                     self.best_eval_this_iter = eval;
                     self.best_move_this_iter = *mov;
@@ -177,33 +243,43 @@ impl Searcher {
                 }
             }
         };
-        return best_eval;
+
+        if current_depth > 0 {
+            self.repetition_table.pop();
+        }
+        self.transposition_table.store_evaluation(depth_remaining, current_depth, alpha, evaluation_bound, best_move_this_position, board);
+
+        return alpha;
     }
 
-    // fn is_mate_score(score: f32) -> bool {
-    //     if score == f32::MIN { return false; }
-    //     const MAX_MATE_DEPTH: f32 = 1000.0;
-    //     return score.abs() > Self::MATE_SCORE - MAX_MATE_DEPTH;
-    // }
+    pub fn is_mate_score(score: i32) -> bool {
+        if score == i32::MIN { return false; };
+        return score.abs() > Self::MATE_SCORE - Self::MAX_MATE_DEPTH;
+    }
 }
 
 impl Default for Searcher {
     fn default() -> Self {
         Self {
+            repetition_table: Vec::new(),
+            transposition_table: TranspositionTable::new(Self::TRANSPOSITION_TABLE_SIZE_MB),
+
             current_depth: 0,
-            best_move_so_far: Move::NULL,
-            best_eval_so_far: 0.0,
             positions_evaled: 0,
-            max_think_time_ms: 1000,
+            best_eval_so_far: 0,
+            best_move_so_far: Move::NULL,
             num_mates: 0,
+            num_cutoffs: 0,
             has_searched_one_move: false,
             search_cancelled: false,
+            max_think_time_ms: 1000,
+            best_eval_this_iter: 0,
             best_move_this_iter: Move::NULL,
-            best_eval_this_iter: 0.0,
-            search_iteration_time: SystemTime::now(),
-            search_total_time: SystemTime::now(),
             current_iter_depth: 0,
             move_is_from_partial_search: false,
+
+            search_iteration_time: SystemTime::now(),
+            search_total_time: SystemTime::now(),
         }
     }
 }
@@ -221,7 +297,7 @@ pub fn start_search(
     zobrist: Res<Zobrist>,
 ) {
     for begin_search_event in begin_search_evr.iter() {
-        if begin_search_event.version != AIVersion::V2 {
+        if begin_search_event.version != AIVersion::V4 {
             continue;
         }
         let time_start = std::time::SystemTime::now();
@@ -238,10 +314,10 @@ pub fn start_search(
         search_complete_evw.send(SearchComplete {
             depth: searcher.current_depth,
             chosen_move: searcher.best_move_so_far,
-            eval: searcher.best_eval_so_far as i32,
+            eval: searcher.best_eval_so_far,
             stats: SearchStatistics {
                 num_position_evals: searcher.positions_evaled,
-                num_cutoffs: 0,
+                num_cutoffs: searcher.num_cutoffs,
                 think_time_ms: think_time as u32,
                 num_checks: 0,
                 num_mates: searcher.num_mates,

@@ -6,7 +6,7 @@ use crate::{board::{moves::Move, board::Board, zobrist::Zobrist}, move_gen::{mov
 use super::super::evaluation::eval::Evaluation;
 
 #[derive(Resource)]
-pub struct SearcherV3 {
+pub struct Searcher {
     pub current_depth: i32,
     pub best_move_so_far: Move,
     pub best_eval_so_far: f32,
@@ -26,7 +26,7 @@ pub struct SearcherV3 {
     move_is_from_partial_search: bool,
 }
 
-impl SearcherV3 {
+impl Searcher {
     pub const MATE_SCORE: f32 = 100000.0;
     pub const POS_INF: f32 = 9999999.0;
     pub const NEG_INF: f32 = -Self::POS_INF;
@@ -196,7 +196,7 @@ impl SearcherV3 {
     // }
 }
 
-impl Default for SearcherV3 {
+impl Default for Searcher {
     fn default() -> Self {
         Self {
             current_depth: 0,
@@ -219,7 +219,7 @@ impl Default for SearcherV3 {
 }
 
 pub fn start_search(
-    mut searcher: ResMut<SearcherV3>,
+    mut searcher: ResMut<Searcher>,
     mut begin_search_evr: EventReader<BeginSearch>,
     mut search_complete_evw: EventWriter<SearchComplete>,
 
@@ -248,7 +248,7 @@ pub fn start_search(
         search_complete_evw.send(SearchComplete {
             depth: searcher.current_depth,
             chosen_move: searcher.best_move_so_far,
-            eval: searcher.best_eval_so_far,
+            eval: searcher.best_eval_so_far as i32,
             stats: SearchStatistics {
                 num_position_evals: searcher.positions_evaled,
                 num_cutoffs: searcher.num_cutoffs,

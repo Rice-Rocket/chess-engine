@@ -11,18 +11,19 @@ pub enum AIVersion {
     V0,
     V1,
     V2,
-    #[default]
     V3,
+    #[default]
+    V4,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V3
+        AIVersion::V4
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V2
+        AIVersion::V3
     }
     pub fn label(&self) -> &str {
         match self {
@@ -30,6 +31,7 @@ impl AIVersion {
             Self::V1 => "V1 - Minimax",
             Self::V2 => "V2 - Iterative Deepening",
             Self::V3 => "V3 - Alphabeta Pruning",
+            Self::V4 => "V4 - Repetitions and Transpositions",
         }
     }
 
@@ -87,7 +89,7 @@ pub struct BeginSearch {
 pub struct SearchComplete {
     pub depth: i32,
     pub chosen_move: Move,
-    pub eval: f32,
+    pub eval: i32,
     pub stats: SearchStatistics
 }
 

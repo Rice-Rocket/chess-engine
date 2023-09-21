@@ -5,13 +5,13 @@ use crate::{board::moves::Move, move_gen::move_generator::MoveGenerator, ai::{ai
 
 
 #[derive(Resource)]
-pub struct SearcherV0 {
+pub struct Searcher {
     pub current_depth: i32,
     pub best_move_so_far: Move,
     pub best_eval_so_far: i32,
 }
 
-impl SearcherV0 {
+impl Searcher {
     pub fn start_search(&mut self,
         move_gen: &mut MoveGenerator,
     ) {
@@ -25,7 +25,7 @@ impl SearcherV0 {
     }
 }
 
-impl Default for SearcherV0 {
+impl Default for Searcher {
     fn default() -> Self {
         Self {
             current_depth: 0,
@@ -36,7 +36,7 @@ impl Default for SearcherV0 {
 }
 
 pub fn start_search(
-    mut searcher: ResMut<SearcherV0>,
+    mut searcher: ResMut<Searcher>,
     mut begin_search_evr: EventReader<BeginSearch>,
     mut search_complete_evw: EventWriter<SearchComplete>,
 
@@ -52,7 +52,7 @@ pub fn start_search(
         search_complete_evw.send(SearchComplete {
             depth: 0,
             chosen_move: searcher.best_move_so_far,
-            eval: 0.0,
+            eval: 0,
             stats: SearchStatistics {
                 num_position_evals: 0,
                 num_cutoffs: 0,

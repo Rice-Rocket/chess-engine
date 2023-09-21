@@ -4,7 +4,7 @@ use crate::{board::{moves::Move, board::Board, zobrist::Zobrist}, move_gen::{mov
 use super::super::evaluation::eval::Evaluation;
 
 #[derive(Resource)]
-pub struct SearcherV1 {
+pub struct Searcher {
     pub current_depth: i32,
     pub best_move_so_far: Move,
     pub best_eval_so_far: f32,
@@ -14,7 +14,7 @@ pub struct SearcherV1 {
     has_searched_one_move: bool,
 }
 
-impl SearcherV1 {
+impl Searcher {
     pub const SEARCH_DEPTH: i32 = 4;
     pub const MATE_SCORE: f32 = 100000.0;
     pub const POS_INF: f32 = 9999999.0;
@@ -117,7 +117,7 @@ impl SearcherV1 {
     }
 }
 
-impl Default for SearcherV1 {
+impl Default for Searcher {
     fn default() -> Self {
         Self {
             current_depth: 0,
@@ -131,7 +131,7 @@ impl Default for SearcherV1 {
 }
 
 pub fn start_search(
-    mut searcher: ResMut<SearcherV1>,
+    mut searcher: ResMut<Searcher>,
     mut begin_search_evr: EventReader<BeginSearch>,
     mut search_complete_evw: EventWriter<SearchComplete>,
 
@@ -157,9 +157,9 @@ pub fn start_search(
         );
         let think_time = std::time::SystemTime::now().duration_since(time_start).unwrap().as_millis();
         search_complete_evw.send(SearchComplete {
-            depth: SearcherV1::SEARCH_DEPTH,
+            depth: Searcher::SEARCH_DEPTH,
             chosen_move: searcher.best_move_so_far,
-            eval: searcher.best_eval_so_far,
+            eval: searcher.best_eval_so_far as i32,
             stats: SearchStatistics {
                 num_position_evals: searcher.positions_evaled,
                 num_cutoffs: 0,

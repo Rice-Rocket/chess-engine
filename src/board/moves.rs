@@ -9,7 +9,7 @@ const TARGET_SQUARE_MASK: u16 = 0b0000111111000000;
 // const FLAG_MASK: u16 = 0b1111000000000000;
 
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub struct Move {
     val: u16,
 }

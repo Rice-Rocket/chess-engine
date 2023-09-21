@@ -8,7 +8,7 @@ pub mod evaluation;
 fn load(
     mut commands: Commands,
 ) {
-    commands.insert_resource(search::searcher::SearcherV1::default());
+    commands.insert_resource(search::searcher::Searcher::default());
 }
 
 pub struct AIPluginV1;
