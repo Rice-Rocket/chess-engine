@@ -3,7 +3,7 @@ use super::{
     piece::Piece, piece_list::PieceList,
     moves::{self, Move}, zobrist::Zobrist, coord::Coord, game_state::GameState,
 };
-use crate::fen;
+use crate::{fen, move_gen::magics::MagicBitBoards};
 use crate::move_gen::bitboard::utils::*;
 
 
@@ -425,6 +425,45 @@ impl Board {
         self.current_state.zobrist_key = zobrist_key;
         self.repeat_position_history.push(zobrist_key);
         self.game_state_history.push(self.current_state);
+    }
+
+    pub fn in_check(&mut self, magic: &MagicBitBoards, bbutils: &BitBoardUtils) -> bool {
+        if self.has_cached_in_check_val {
+            return self.cached_in_check_val;
+        }
+        self.cached_in_check_val = self.get_in_check_state(magic, bbutils);
+        self.has_cached_in_check_val = true;
+        return self.cached_in_check_val;
+    }
+    fn get_in_check_state(&self, magic: &MagicBitBoards, bbutils: &BitBoardUtils) -> bool {
+        let king_sqr = self.king_square[self.move_color_idx];
+        let blockers = self.all_pieces_bitboard;
+
+        if self.enemy_orthogonal_sliders != 0 {
+            let rook_attacks = magic.get_rook_attacks(king_sqr, blockers);
+            if (rook_attacks & self.enemy_orthogonal_sliders) != 0 {
+                return true;
+            }
+        }
+        if self.enemy_diagonal_sliders != 0 {
+            let bishop_attacks = magic.get_bishop_attacks(king_sqr, blockers);
+            if (bishop_attacks & self.enemy_diagonal_sliders) != 0 {
+                return true;
+            }
+        }
+
+        let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color).index()];
+        if (bbutils.knight_attacks[king_sqr.index()] & enemy_knights) != 0 {
+            return true;
+        }
+
+        let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color).index()];
+        let pawn_attack_mask = if self.white_to_move { bbutils.white_pawn_attacks[king_sqr.index()] } else { bbutils.black_pawn_attacks[king_sqr.index()] };
+        if (pawn_attack_mask & enemy_pawns) != 0 {
+            return true;
+        }
+
+        return false;
     }
 
     fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {

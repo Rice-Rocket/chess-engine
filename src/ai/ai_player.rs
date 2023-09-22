@@ -8,6 +8,7 @@ pub const DEFAULT_AI_THINK_TIME_MS: u32 = 1000;
 
 #[derive(PartialEq, Default, Clone, Copy)]
 pub enum AIVersion {
+    #[default]
     V0,
     V1,
     V2,
@@ -16,18 +17,18 @@ pub enum AIVersion {
     V5,
     V6,
     V7,
-    #[default]
     V8,
+    V9,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V8
+        AIVersion::V9
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V5
+        AIVersion::V8
     }
     pub fn label(&self) -> &str {
         match self {
@@ -40,6 +41,7 @@ impl AIVersion {
             Self::V6 => "V6 - Tapered Evaluation",
             Self::V7 => "V7 - Piece Square Tables",
             Self::V8 => "V8 - Quiescence Search",
+            Self::V9 => "V9 - Depth Reduction and Extension",
         }
     }
 
