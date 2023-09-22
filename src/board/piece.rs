@@ -65,6 +65,15 @@ impl Piece {
     pub fn piece_type(self) -> u8 {
         return self.val & TYPE_MASK;
     }
+    pub fn is_not_pawn_king(self) -> bool {
+        self.piece_type() > 1 && self.piece_type() < 6
+    }
+    pub fn is_not_pawn(self) -> bool {
+        self.piece_type() > 1
+    }
+    pub fn is_not_king(self) -> bool {
+        self.piece_type() > 0 && self.piece_type() < 6
+    }
     pub fn is_rook_or_queen(self) -> bool {
         return self.piece_type() == Self::QUEEN || self.piece_type() == Self::ROOK;
     }
@@ -76,6 +85,12 @@ impl Piece {
     }
     pub fn index(self) -> usize {
         self.val as usize
+    }
+    pub fn ptype_index(self) -> Option<usize> {
+        if self.piece_type() == Piece::NONE {
+            return None;
+        }
+        return Some(self.piece_type() as usize - 1);
     }
     pub fn color_index(self) -> usize {
         if self.is_white() { Board::WHITE_INDEX } else { Board::BLACK_INDEX }
@@ -96,7 +111,7 @@ impl BitOrAssign for Piece {
     }
 }
 
-impl std::fmt::Debug for Piece {
+impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Piece({},{})", if self.is_white() { "white" } else { "black" }, match self.piece_type() {
             Piece::PAWN => "pawn",
@@ -106,6 +121,26 @@ impl std::fmt::Debug for Piece {
             Piece::QUEEN => "queen",
             Piece::KING => "king",
             _ => "none"
+        }))
+    }
+}
+
+impl std::fmt::Debug for Piece {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", match (self.is_white(), self.piece_type()) {
+            (true, Piece::PAWN) => "P",
+            (true, Piece::KNIGHT) => "N",
+            (true, Piece::BISHOP) => "B",
+            (true, Piece::ROOK) => "R",
+            (true, Piece::QUEEN) => "Q",
+            (true, Piece::KING) => "K",
+            (false, Piece::PAWN) => "p",
+            (false, Piece::KNIGHT) => "n",
+            (false, Piece::BISHOP) => "b",
+            (false, Piece::ROOK) => "r",
+            (false, Piece::QUEEN) => "q",
+            (false, Piece::KING) => "k",
+            _ => "-",
         }))
     }
 }

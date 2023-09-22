@@ -126,6 +126,8 @@ pub struct BoardUnmakeMove {
 
 impl Board {
     pub fn make_move(&mut self, mov: Move, in_search: bool, zobrist: &Zobrist) {
+        // print_board(self.square);
+
         let start_sqr = mov.start();
         let target_sqr = mov.target();
         let move_flag = mov.move_flag();
@@ -447,6 +449,16 @@ impl Board {
         self.enemy_diagonal_sliders = self.piece_bitboards[enemy_bishop.index()] | self.piece_bitboards[enemy_queen.index()];
     }
 }
+
+// fn print_board(squares: [Piece; 64]) {
+//     for y in 0..8 {
+//         let mut string = String::new();
+//         for x in 0..8 {
+//             string += &format!("{:?}", squares[y * 8 + x]);
+//         }
+//         println!("{}", string);
+//     }
+// }
 
 pub fn spawn_main_board(
     mut commands: Commands,

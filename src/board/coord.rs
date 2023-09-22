@@ -36,6 +36,10 @@ impl Coord {
             rank, file
         }
     }
+    pub fn iterate_squares() -> CoordIterator {
+        CoordIterator { curr: -1 }
+    }
+
     pub const fn new_const(file: i8, rank: i8) -> Self {
         Self {
             rank, file
@@ -122,5 +126,20 @@ impl Mul<i8> for Coord {
     type Output = Coord;
     fn mul(self, rhs: i8) -> Self::Output {
         Coord::new(self.file * rhs, self.rank * rhs)
+    }
+}
+
+pub struct CoordIterator {
+    curr: i8,
+}
+
+impl Iterator for CoordIterator {
+    type Item = Coord;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.curr += 1;
+        if self.curr > 63 || self.curr < 0 {
+            return None;
+        };
+        Some(Coord::from_idx(self.curr))
     }
 }
