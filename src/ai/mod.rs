@@ -11,6 +11,7 @@ pub mod v3;
 pub mod v4;
 pub mod v5;
 pub mod v6;
+pub mod v7;
 
 
 fn finalize(
@@ -33,6 +34,7 @@ impl Plugin for AIPlugin {
             .add_plugins(v4::AIPluginV4)
             .add_plugins(v5::AIPluginV5)
             .add_plugins(v6::AIPluginV6)
+            .add_plugins(v7::AIPluginV7)
             .add_systems(OnEnter(AppState::LoadAI), (
                 finalize,
             ))
@@ -44,6 +46,7 @@ impl Plugin for AIPlugin {
                 v4::search::searcher::start_search,
                 v5::search::searcher::start_search,
                 v6::search::searcher::start_search,
+                v7::search::searcher::start_search,
 
                 ai_begin_search,
                 ai_make_move,

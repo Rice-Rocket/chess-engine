@@ -9,7 +9,7 @@ pub fn non_pawn_material(board: &Board, perspective: Perspective) -> i32 {
 }
 pub fn non_pawn_material_sqr(board: &Board, perspective: Perspective, sqr: Coord) -> i32 {
     let piece = board.square[sqr.index()];
-    if piece.is_perspective(perspective) {
+    if perspective.is_color(piece.color()) {
         if piece.is_not_pawn() {
             return piece_value_bonus_sqr(board, perspective, true, sqr);
         }
@@ -30,7 +30,7 @@ pub fn piece_value_bonus(board: &Board, perspective: Perspective, mg: bool) -> i
 }
 pub fn piece_value_bonus_sqr(board: &Board, perspective: Perspective, mg: bool, sqr: Coord) -> i32 {
     let piece = board.square[sqr.index()];
-    if piece.is_perspective(perspective) {
+    if perspective.is_color(piece.color()) {
         let bonuses = if mg { PIECE_VALUE_BONUSES_MG } else { PIECE_VALUE_BONUSES_EG };
         if let Some(i) = piece.ptype_index() {
             if i as u8 + 1 != Piece::KING {
