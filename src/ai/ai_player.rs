@@ -15,18 +15,19 @@ pub enum AIVersion {
     V4,
     V5,
     V6,
-    #[default]
     V7,
+    #[default]
+    V8,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V7
+        AIVersion::V8
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V6
+        AIVersion::V5
     }
     pub fn label(&self) -> &str {
         match self {
@@ -38,6 +39,7 @@ impl AIVersion {
             Self::V5 => "V5 - Move Ordering",
             Self::V6 => "V6 - Tapered Evaluation",
             Self::V7 => "V7 - Piece Square Tables",
+            Self::V8 => "V8 - Quiescence Search",
         }
     }
 
@@ -116,6 +118,7 @@ pub fn ai_make_move(
         calc_stats.ai_mates_found = search_complete.stats.num_mates;
         calc_stats.ai_num_cutoffs = search_complete.stats.num_cutoffs;
         calc_stats.ai_think_time = search_complete.stats.think_time_ms;
+        calc_stats.ai_transpositions = search_complete.stats.num_transpositions;
         make_move_evw.send(BoardMakeMove {
             mov: search_complete.chosen_move
         });

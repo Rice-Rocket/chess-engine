@@ -60,6 +60,7 @@ pub fn start_search(
                 num_checks: 0,
                 num_mates: 0,
                 is_book: false,
+                ..default()
             }
         });
     }

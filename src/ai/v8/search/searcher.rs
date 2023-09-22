@@ -21,6 +21,7 @@ pub struct Searcher {
     positions_evaled: u32,
     num_mates: i32,
     num_cutoffs: i32,
+    num_transpositions: i32,
     has_searched_one_move: bool,
     search_cancelled: bool,
 
@@ -61,6 +62,7 @@ impl Searcher {
         self.positions_evaled = 0;
         self.num_mates = 0;
         self.num_cutoffs = 0;
+        self.num_transpositions = 0;
 
         self.has_searched_one_move = false;
         self.move_is_from_partial_search = false;
@@ -157,6 +159,7 @@ impl Searcher {
 
         // Try getting the position from the transposition table
         if let Some(tt_val) = self.transposition_table.get_evaluation(depth_remaining, current_depth, alpha, beta, board) {
+            self.num_transpositions += 1;
             if current_depth == 0 {
                 self.best_move_this_iter = self.transposition_table.get_stored_move(board).unwrap();
                 self.best_eval_this_iter = self.transposition_table.entries[self.transposition_table.index(board)].clone().unwrap().value;
@@ -166,8 +169,7 @@ impl Searcher {
 
         // If leaf node is reached, evaluate the board
         if depth_remaining == 0 {
-            self.positions_evaled += 1;
-            return Evaluation::evaluate(board);
+            return self.quiescence_search(alpha, beta, board, move_gen, precomp, bbutils, magic, zobrist);
         };
 
         move_gen.generate_moves(board, precomp, bbutils, magic, false);
@@ -267,6 +269,47 @@ impl Searcher {
         return alpha;
     }
 
+    fn quiescence_search(
+        &mut self, mut alpha: i32, beta: i32,
+        board: &mut Board,
+        move_gen: &mut MoveGenerator,
+        precomp: &PrecomputedMoveData,
+        bbutils: &BitBoardUtils,
+        magic: &MagicBitBoards,
+        zobrist: &Zobrist,
+    ) -> i32 {
+        if self.search_cancelled { return 0; }
+
+        let mut eval = Evaluation::evaluate(board);
+        self.positions_evaled += 1;
+
+        if eval > beta {
+            self.num_cutoffs += 1;
+            return beta;
+        }
+        if eval > alpha {
+            alpha = eval;
+        }
+
+        move_gen.generate_moves(board, precomp, bbutils, magic, true);
+        let mut moves = move_gen.moves.clone();
+        self.move_ordering.order_moves(Move::NULL, &mut moves, board, bbutils, move_gen.enemy_attack_map, move_gen.enemy_pawn_attack_map, true, 0);
+        for mov in moves.iter() {
+            board.make_move(mov.clone(), true, zobrist);
+            eval = -self.quiescence_search(-beta, -alpha, board, move_gen, precomp, bbutils, magic, zobrist);
+            board.unmake_move(mov.clone(), true);
+
+            if eval >= beta {
+                self.num_cutoffs += 1;
+                return beta;
+            }
+            if eval > alpha {
+                alpha = eval;
+            }
+        }
+        return alpha;
+    }
+
     pub fn is_mate_score(score: i32) -> bool {
         if score == i32::MIN { return false; };
         return score.abs() > Self::MATE_SCORE - Self::MAX_MATE_DEPTH;
@@ -286,6 +329,7 @@ impl Default for Searcher {
             best_move_so_far: Move::NULL,
             num_mates: 0,
             num_cutoffs: 0,
+            num_transpositions: 0,
             has_searched_one_move: false,
             search_cancelled: false,
             max_think_time_ms: 1000,
@@ -313,7 +357,7 @@ pub fn start_search(
     zobrist: Res<Zobrist>,
 ) {
     for begin_search_event in begin_search_evr.iter() {
-        if begin_search_event.version != AIVersion::V5 {
+        if begin_search_event.version != AIVersion::V8 {
             continue;
         }
         let time_start = std::time::SystemTime::now();
@@ -334,11 +378,11 @@ pub fn start_search(
             stats: SearchStatistics {
                 num_position_evals: searcher.positions_evaled,
                 num_cutoffs: searcher.num_cutoffs,
+                num_transpositions: searcher.num_transpositions,
                 think_time_ms: think_time as u32,
                 num_checks: 0,
                 num_mates: searcher.num_mates,
                 is_book: false,
-                ..default()
             }
         });
     }

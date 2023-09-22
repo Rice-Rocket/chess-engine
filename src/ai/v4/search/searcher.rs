@@ -322,6 +322,7 @@ pub fn start_search(
                 num_checks: 0,
                 num_mates: searcher.num_mates,
                 is_book: false,
+                ..default()
             }
         });
     }
