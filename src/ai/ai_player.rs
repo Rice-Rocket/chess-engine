@@ -19,16 +19,17 @@ pub enum AIVersion {
     V7,
     V8,
     V9,
+    V10,
 }
 
 impl AIVersion {
     // Newest version (version to test)
     pub fn primary_version() -> Self {
-        AIVersion::V9
+        AIVersion::V10
     }
     // Version for primary version to fight
     pub fn secondary_version() -> Self {
-        AIVersion::V8
+        AIVersion::V9
     }
     pub fn label(&self) -> &str {
         match self {
@@ -42,6 +43,7 @@ impl AIVersion {
             Self::V7 => "V7 - Piece Square Tables",
             Self::V8 => "V8 - Quiescence Search",
             Self::V9 => "V9 - Depth Reduction and Extension",
+            Self::V10 => "V10 - Imbalance Evaluation",
         }
     }
 
@@ -57,7 +59,7 @@ impl AIVersion {
 
 #[derive(Component)]
 pub struct AIPlayer {
-    searching: bool,
+    pub searching: bool,
     pub think_time_ms: u32,
     pub version: AIVersion
 }

@@ -26,8 +26,21 @@ impl BitBoardUtils {
     pub const NOT_FILE_A: u64 = !Self::FILE_A;
     pub const NOT_FILE_H: u64 = !(Self::FILE_A << 7);
 
+    pub const DE_BRUIJN_64: u128 = 0x37E84A99DAE458F;
+    pub const DE_BRUIJN_TABLE: [u32; 64] = [
+        0, 1, 17, 2, 18, 50, 3, 57,
+        47, 19, 22, 51, 29, 4, 33, 58,
+        15, 48, 20, 27, 25, 23, 52, 41,
+        54, 30, 38, 5, 43, 34, 59, 8,
+        63, 16, 49, 56, 46, 21, 28, 32,
+        14, 26, 24, 40, 53, 37, 42, 7,
+        62, 55, 45, 31, 13, 39, 36, 6,
+        61, 44, 12, 35, 60, 11, 10, 9
+    ];
+
     pub fn pop_lsb(b: &mut u64) -> u32 {
-        let i = b.trailing_zeros();
+        // let i = b.trailing_zeros();
+        let i = Self::DE_BRUIJN_TABLE[((((*b as i128) & -(*b as i128)) as u128 * Self::DE_BRUIJN_64) as u64 >> 58) as usize];
         *b &= *b - 1;
         return i;
     }

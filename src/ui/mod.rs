@@ -7,6 +7,7 @@ pub mod arrows;
 pub mod ingame_menu;
 pub mod text_input;
 
+use bevy_egui::EguiPlugin;
 use board::*;
 use theme::*;
 use main_menu::*;
@@ -53,10 +54,13 @@ impl Plugin for UIPlugin {
             .init_resource::<BoardUITransform>()
             .init_resource::<BoardUI>()
             .init_resource::<CalcStatistics>()
+            .init_resource::<DebugInfo>()
             .add_event::<BoardUIResetPiecePosition>()
             .add_event::<BoardSetSquareColor>()
             .add_event::<BoardResetSquareColors>()
+            .add_event::<DebugPositionLoaded>()
             .add_plugins(TextInputPlugin)
+            .add_plugins(EguiPlugin)
             .add_systems(Startup, spawn_camera)
             .add_systems(Startup, spawn_main_menu)
             .add_systems(Update, update_menu_buttons.run_if(in_state(AppState::MainMenu)))
@@ -74,6 +78,8 @@ impl Plugin for UIPlugin {
             .add_systems(OnEnter(AppState::LoadUI), (
                 spawn_ai_vs_ai_menu,
             ).run_if(in_state(AppMode::GameAIAI)))
+
+            .add_systems(Update, update_egui.run_if(in_state(AppState::InGame).and_then(in_state(AppMode::GameHumanHuman))))
             
             .add_systems(Update, (
                 update_pieces,
@@ -87,6 +93,8 @@ impl Plugin for UIPlugin {
                 update_board_ui_on_resize.after(update_board_ui_transform),
                 update_menu_stats,
             ).run_if(in_state(AppState::InGame)))
+
+            .add_systems(Update, reset_board_pieces.run_if(in_state(AppMode::GameHumanHuman).and_then(in_state(AppState::InGame))))
             
             .add_systems(OnEnter(AppState::GameOver), spawn_game_over_splash.run_if(in_state(AppMode::GameHumanHuman).or_else(in_state(AppMode::GameHumanAI))))
             .add_systems(OnExit(AppState::GameOver), (

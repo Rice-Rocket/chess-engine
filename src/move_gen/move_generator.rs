@@ -231,6 +231,12 @@ impl MoveGenerator {
 
         while orthogonal_sliders != 0 {
             let start = Coord::from_idx(BitBoardUtils::pop_lsb(&mut orthogonal_sliders) as i8);
+            // ! Incredibly stange bug where H8 is considered a legal starting position even though
+            // ! there is no rook there. Probably has to do with castling. 
+            if board.square[start.index()].piece_type() == Piece::NONE {
+                println!("Tried to generate {:?} rook move, cancelled", start);
+                continue;
+            };
             let mut move_sqrs = magic.get_rook_attacks(start, self.all_pieces) & move_mask;
             if self.is_pinned(start) {
                 move_sqrs &= precomp.align_mask[start.index()][self.friendly_king_sqr.index()];

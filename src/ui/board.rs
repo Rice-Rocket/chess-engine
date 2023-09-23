@@ -191,7 +191,13 @@ pub fn reset_board_pieces(
     board_transform: Res<BoardUITransform>,
     board: Res<Board>,
     piece_theme: Res<PieceTheme>,
+    debug_pos_loaded_evr: EventReader<DebugPositionLoaded>,
+    app_mode: Res<State<AppMode>>,
 ) {
+    if app_mode.clone() != AppMode::GameAIAI && debug_pos_loaded_evr.len() == 0 {
+        return;
+    };
+
     for piece in pieces_query.iter() {
         commands.entity(piece).despawn();
     }

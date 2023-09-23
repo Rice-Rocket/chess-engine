@@ -146,7 +146,7 @@ pub fn start_search(
         if begin_search_event.version != AIVersion::V1 {
             continue;
         }
-        let time_start = std::time::SystemTime::now();
+        let time_start = std::time::Instant::now();
         searcher.start_search(
             board.as_mut(),
             move_gen.as_mut(),
@@ -155,7 +155,7 @@ pub fn start_search(
             magic.as_ref(),
             zobrist.as_ref(),
         );
-        let think_time = std::time::SystemTime::now().duration_since(time_start).unwrap().as_millis();
+        let think_time = std::time::Instant::now().duration_since(time_start).as_millis();
         search_complete_evw.send(SearchComplete {
             depth: Searcher::SEARCH_DEPTH,
             chosen_move: searcher.best_move_so_far,

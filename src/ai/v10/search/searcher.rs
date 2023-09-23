@@ -25,7 +25,6 @@ pub struct Searcher {
     has_searched_one_move: bool,
     search_cancelled: bool,
 
-    search_iteration_time: Instant,
     search_total_time: Instant,
     current_iter_depth: i32,
     move_is_from_partial_search: bool,
@@ -38,6 +37,7 @@ impl Searcher {
 
     const TRANSPOSITION_TABLE_SIZE_MB: usize = 64;
     const MAX_MATE_DEPTH: i32 = 1000;
+    const MAX_EXTENSIONS: i32 = 16;
 
     pub fn start_search(&mut self,
         board: &mut Board, 
@@ -68,7 +68,6 @@ impl Searcher {
         self.move_is_from_partial_search = false;
         self.search_cancelled = false;
 
-        self.search_iteration_time = Instant::now();
         self.search_total_time = Instant::now();
 
         self.start_iterative_deepening(
@@ -96,11 +95,10 @@ impl Searcher {
     ) {
         for search_depth in 1u8..=255u8 {
             self.has_searched_one_move = false;
-            self.search_iteration_time = Instant::now();
             self.current_iter_depth = search_depth as i32;
             self.search(
                 search_depth, 0, Self::NEG_INF, Self::POS_INF,
-                Move::NULL, false,
+                Move::NULL, false, 0,
                 board,
                 move_gen,
                 precomp,
@@ -123,13 +121,17 @@ impl Searcher {
 
                 self.best_eval_this_iter = Self::NEG_INF;
                 self.best_move_this_iter = Move::NULL;
+
+                if Self::is_mate_score(self.best_eval_so_far) && Self::num_ply_in_mate(self.best_eval_so_far) <= search_depth as i32 {
+                    break;
+                }
             }
         }
     }
     
     fn search(
         &mut self, depth_remaining: u8, current_depth: u8, mut alpha: i32, mut beta: i32,
-        prev_move: Move, prev_was_capture: bool,
+        prev_move: Move, prev_was_capture: bool, num_extensions: i32,
         board: &mut Board,
         move_gen: &mut MoveGenerator,
         precomp: &PrecomputedMoveData,
@@ -200,25 +202,62 @@ impl Searcher {
         let mut best_move_this_position = Move::NULL;
 
         // Loop through legal moves
-        for mov in moves.iter() {
+        for (i, mov) in moves.iter().enumerate() {
             let captured_ptype = board.square[mov.target().index()].piece_type();
             let is_capture = captured_ptype != Piece::NONE;
             board.make_move(*mov, true, zobrist);
-            // Negate evaluation -- A bad position for the opponent is good for us and vice versa
-            let eval = -self.search(
-                depth_remaining - 1,
-                current_depth + 1,
-                -beta,
-                -alpha,
-                mov.clone(), 
-                is_capture,
-                board,
-                move_gen, 
-                precomp,
-                bbutils,
-                magic,
-                zobrist,
-            );
+
+            let mut extensions = 0;
+            if num_extensions < Self::MAX_EXTENSIONS {
+                let moved_ptype = board.square[mov.target().index()].piece_type();
+                let target_rank = mov.target().rank();
+                if board.in_check(magic, bbutils) {
+                    extensions = 1;
+                } else if moved_ptype == Piece::PAWN && (target_rank == 1) || (target_rank == 6) {
+                    extensions = 1;
+                }
+            }
+            let mut needs_full_search = true;
+            let mut eval = 0;
+
+            if i >= 3 && extensions == 0 && depth_remaining >= 3 && !is_capture {
+                eval = -self.search(
+                    depth_remaining - 1 - 1,
+                    current_depth + 1,
+                    -alpha - 1,
+                    -alpha,
+                    mov.clone(),
+                    is_capture,
+                    num_extensions, 
+                    board, 
+                    move_gen,
+                    precomp,
+                    bbutils,
+                    magic,
+                    zobrist,
+                );
+                needs_full_search = eval > alpha;
+            }
+
+            if needs_full_search {
+                // Negate evaluation -- A bad position for the opponent is good for us and vice versa
+                eval = -self.search(
+                    depth_remaining - 1 + extensions,
+                    current_depth + 1,
+                    -beta,
+                    -alpha,
+                    mov.clone(), 
+                    is_capture,
+                    num_extensions + extensions as i32,
+                    board,
+                    move_gen, 
+                    precomp,
+                    bbutils,
+                    magic,
+                    zobrist,
+                );
+            }
+
             board.unmake_move(*mov, true);
             // Exit early if search is cancelled
             if self.search_cancelled {
@@ -295,6 +334,7 @@ impl Searcher {
         let mut moves = move_gen.moves.clone();
         self.move_ordering.order_moves(Move::NULL, &mut moves, board, bbutils, move_gen.enemy_attack_map, move_gen.enemy_pawn_attack_map, true, 0);
         for mov in moves.iter() {
+            if board.square[mov.start().index()].piece_type() == Piece::NONE { println!("null move"); }
             board.make_move(mov.clone(), true, zobrist);
             eval = -self.quiescence_search(-beta, -alpha, board, move_gen, precomp, bbutils, magic, zobrist);
             board.unmake_move(mov.clone(), true);
@@ -313,6 +353,9 @@ impl Searcher {
     pub fn is_mate_score(score: i32) -> bool {
         if score == i32::MIN { return false; };
         return score.abs() > Self::MATE_SCORE - Self::MAX_MATE_DEPTH;
+    }
+    pub fn num_ply_in_mate(score: i32) -> i32 {
+        return Self::MATE_SCORE - score.abs();
     }
 }
 
@@ -338,7 +381,6 @@ impl Default for Searcher {
             current_iter_depth: 0,
             move_is_from_partial_search: false,
 
-            search_iteration_time: Instant::now(),
             search_total_time: Instant::now(),
         }
     }
@@ -357,7 +399,7 @@ pub fn start_search(
     zobrist: Res<Zobrist>,
 ) {
     for begin_search_event in begin_search_evr.iter() {
-        if begin_search_event.version != AIVersion::V8 {
+        if begin_search_event.version != AIVersion::V10 {
             continue;
         }
         let time_start = std::time::Instant::now();

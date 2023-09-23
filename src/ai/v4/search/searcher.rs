@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::Instant;
 
 use bevy::prelude::*;
 use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
@@ -23,8 +23,8 @@ pub struct Searcher {
     has_searched_one_move: bool,
     search_cancelled: bool,
 
-    search_iteration_time: SystemTime,
-    search_total_time: SystemTime,
+    search_iteration_time: Instant,
+    search_total_time: Instant,
     current_iter_depth: i32,
     move_is_from_partial_search: bool,
 }
@@ -64,8 +64,8 @@ impl Searcher {
         self.move_is_from_partial_search = false;
         self.search_cancelled = false;
 
-        self.search_iteration_time = SystemTime::now();
-        self.search_total_time = SystemTime::now();
+        self.search_iteration_time = Instant::now();
+        self.search_total_time = Instant::now();
 
         self.start_iterative_deepening(
             board,
@@ -92,7 +92,7 @@ impl Searcher {
     ) {
         for search_depth in 1u8..=255u8 {
             self.has_searched_one_move = false;
-            self.search_iteration_time = SystemTime::now();
+            self.search_iteration_time = Instant::now();
             self.current_iter_depth = search_depth as i32;
             self.search(
                 search_depth, 0, Self::NEG_INF, Self::POS_INF,
@@ -134,7 +134,7 @@ impl Searcher {
         zobrist: &Zobrist,
     ) -> i32 {
         // Cancel search if over max think time
-        if SystemTime::now().duration_since(self.search_total_time).unwrap().as_millis() as u32 > self.max_think_time_ms {
+        if Instant::now().duration_since(self.search_total_time).as_millis() as u32 > self.max_think_time_ms {
             self.search_cancelled = true;
             return 0;
         }
@@ -278,8 +278,8 @@ impl Default for Searcher {
             current_iter_depth: 0,
             move_is_from_partial_search: false,
 
-            search_iteration_time: SystemTime::now(),
-            search_total_time: SystemTime::now(),
+            search_iteration_time: Instant::now(),
+            search_total_time: Instant::now(),
         }
     }
 }
@@ -300,7 +300,7 @@ pub fn start_search(
         if begin_search_event.version != AIVersion::V4 {
             continue;
         }
-        let time_start = std::time::SystemTime::now();
+        let time_start = std::time::Instant::now();
         searcher.max_think_time_ms = begin_search_event.think_time;
         searcher.start_search(
             board.as_mut(),
@@ -310,7 +310,7 @@ pub fn start_search(
             magic.as_ref(),
             zobrist.as_ref(),
         );
-        let think_time = std::time::SystemTime::now().duration_since(time_start).unwrap().as_millis();
+        let think_time = std::time::Instant::now().duration_since(time_start).as_millis();
         search_complete_evw.send(SearchComplete {
             depth: searcher.current_depth,
             chosen_move: searcher.best_move_so_far,

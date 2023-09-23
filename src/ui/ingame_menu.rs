@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts};
 
-use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::piece::Piece};
+use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::{ai_player::{AIPlayer, AIVersion}, v10::evaluation::eval}, board::{piece::Piece, board::Board, zobrist::Zobrist}, utils::fen::START_FEN, state::AppState, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}};
 
 use super::text_input::TextInput;
 
@@ -508,5 +509,68 @@ pub fn spawn_ai_vs_ai_menu(
             width: Val::Percent(40.0),
             ..default()
         }), MatchManagerText { stat: MatchManagerStatistic::WhitePlayer(if p1_team == Piece::WHITE { p1_version } else { p2_version}) }));
+    });
+}
+
+
+#[derive(Resource)]
+pub struct DebugInfo {
+    pub fen_str: String,
+    pub eval_white: String,
+    pub eval_black: String,
+    pub eval_total: String,
+}
+
+impl Default for DebugInfo {
+    fn default() -> Self {
+        DebugInfo {
+            fen_str: String::from(START_FEN),
+            eval_white: String::from("N/A"),
+            eval_black: String::from("N/A"),
+            eval_total: String::from("N/A"),
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct DebugPositionLoaded {}
+
+
+pub fn update_egui(
+    mut contexts: EguiContexts,
+    mut debug: ResMut<DebugInfo>,
+    mut board: ResMut<Board>,
+    mut move_gen: ResMut<MoveGenerator>,
+    mut zobrist: ResMut<Zobrist>,
+    precomp: Res<PrecomputedMoveData>,
+    bbutils: Res<BitBoardUtils>,
+    magic: Res<MagicBitBoards>,
+    mut debug_pos_loaded_evw: EventWriter<DebugPositionLoaded>,
+) {
+    egui::Window::new("Debug").show(contexts.ctx_mut(), |ui| {
+        ui.text_edit_singleline(&mut debug.fen_str);
+        if ui.add(egui::Button::new("Load Fen")).clicked() {
+            board.load_position(Some(debug.fen_str.clone()), &mut zobrist);
+            move_gen.generate_moves(board.as_ref(), precomp.as_ref(), bbutils.as_ref(), magic.as_ref(), false);
+            debug_pos_loaded_evw.send(DebugPositionLoaded {});
+        };
+        ui.add_space(1.0);
+        if ui.add(egui::Button::new("Get Evaluation")).clicked() {
+            let white = crate::ai::v10::evaluation::perspective::Perspective::White;
+            let black = crate::ai::v10::evaluation::perspective::Perspective::Black;
+
+            // let eval_white = crate::ai::v10::evaluation::eval::Evaluation::evaluate(&board);
+            // debug.eval_white = format!("{}", eval_white);
+
+            // let eval_black = crate::ai::v10::evaluation::eval::Evaluation::evaluate(&board);
+            // debug.eval_black = format!("{}", eval_black);
+            
+            // let eval_total = eval_white - eval_black;
+            let eval_total = crate::ai::v10::evaluation::imbalance::imbalance_total(&board);
+            debug.eval_total = format!("{}", eval_total);
+        }
+        ui.label(format!("Eval White: {}", debug.eval_white));
+        ui.label(format!("Eval Black: {}", debug.eval_black));
+        ui.label(format!("Eval Total: {}", debug.eval_total));
     });
 }

@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::Instant;
 
 use bevy::prelude::*;
 use crate::{board::{moves::Move, board::Board, zobrist::Zobrist, piece::Piece}, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}, ai::{ai_player::{BeginSearch, SearchComplete, AIVersion}, stats::SearchStatistics}};
@@ -25,7 +25,7 @@ pub struct Searcher {
     has_searched_one_move: bool,
     search_cancelled: bool,
 
-    search_total_time: SystemTime,
+    search_total_time: Instant,
     current_iter_depth: i32,
     move_is_from_partial_search: bool,
 }
@@ -68,7 +68,7 @@ impl Searcher {
         self.move_is_from_partial_search = false;
         self.search_cancelled = false;
 
-        self.search_total_time = SystemTime::now();
+        self.search_total_time = Instant::now();
 
         self.start_iterative_deepening(
             board,
@@ -140,7 +140,7 @@ impl Searcher {
         zobrist: &Zobrist,
     ) -> i32 {
         // Cancel search if over max think time
-        if SystemTime::now().duration_since(self.search_total_time).unwrap().as_millis() as u32 > self.max_think_time_ms {
+        if Instant::now().duration_since(self.search_total_time).as_millis() as u32 > self.max_think_time_ms {
             self.search_cancelled = true;
             return 0;
         }
@@ -242,13 +242,13 @@ impl Searcher {
             if needs_full_search {
                 // Negate evaluation -- A bad position for the opponent is good for us and vice versa
                 eval = -self.search(
-                    depth_remaining - 1,
+                    depth_remaining - 1 + extensions,
                     current_depth + 1,
                     -beta,
                     -alpha,
                     mov.clone(), 
                     is_capture,
-                    num_extensions,
+                    num_extensions + extensions as i32,
                     board,
                     move_gen, 
                     precomp,
@@ -334,6 +334,7 @@ impl Searcher {
         let mut moves = move_gen.moves.clone();
         self.move_ordering.order_moves(Move::NULL, &mut moves, board, bbutils, move_gen.enemy_attack_map, move_gen.enemy_pawn_attack_map, true, 0);
         for mov in moves.iter() {
+            if board.square[mov.start().index()].piece_type() == Piece::NONE { println!("null move"); }
             board.make_move(mov.clone(), true, zobrist);
             eval = -self.quiescence_search(-beta, -alpha, board, move_gen, precomp, bbutils, magic, zobrist);
             board.unmake_move(mov.clone(), true);
@@ -380,7 +381,7 @@ impl Default for Searcher {
             current_iter_depth: 0,
             move_is_from_partial_search: false,
 
-            search_total_time: SystemTime::now(),
+            search_total_time: Instant::now(),
         }
     }
 }
@@ -401,7 +402,7 @@ pub fn start_search(
         if begin_search_event.version != AIVersion::V9 {
             continue;
         }
-        let time_start = std::time::SystemTime::now();
+        let time_start = std::time::Instant::now();
         searcher.max_think_time_ms = begin_search_event.think_time;
         searcher.start_search(
             board.as_mut(),
@@ -411,7 +412,7 @@ pub fn start_search(
             magic.as_ref(),
             zobrist.as_ref(),
         );
-        let think_time = std::time::SystemTime::now().duration_since(time_start).unwrap().as_millis();
+        let think_time = std::time::Instant::now().duration_since(time_start).as_millis();
         search_complete_evw.send(SearchComplete {
             depth: searcher.current_depth,
             chosen_move: searcher.best_move_so_far,

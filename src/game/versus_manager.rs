@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{state::{AppState, AppMode}, ui::{ingame_menu::{MatchManagerText, MatchManagerStatistic, MatchManagerStartButton}, text_input::TextInput}, board::{board::Board, zobrist::Zobrist, piece::Piece}, ai::ai_player::AIPlayer};
 
-use super::{manager::{GameManager, GameResult, CanMakeMove}, player::Player};
+use super::{manager::{GameManager, GameResult, CanMakeMove, ProcessedMove}, player::Player};
 
 
 #[derive(Resource)]
@@ -124,8 +124,8 @@ pub fn versus_game_over(
     mut zobrist: ResMut<Zobrist>,
     mut match_manager_text_query: Query<(&mut Text, &mut MatchManagerText, Option<&TextInput>)>,
     mut manager: ResMut<GameManager>,
-    mut can_make_move_evw: EventWriter<CanMakeMove>,
-    mut ai_player_query: Query<&mut Player, With<AIPlayer>>,
+    mut processed_move_evw: EventWriter<ProcessedMove>,
+    mut ai_player_query: Query<(&mut AIPlayer, &mut Player)>,
 ) {
     versus_manager.game_idx += 1;
     if versus_manager.game_idx == versus_manager.total_games {
@@ -133,7 +133,8 @@ pub fn versus_game_over(
     }
     let mut swapped_colors = false;
     if versus_manager.game_idx == versus_manager.total_games / 2 {
-        for mut player in ai_player_query.iter_mut() {
+        for (mut ai, mut player) in ai_player_query.iter_mut() {
+            ai.searching = false;
             if player.team == Piece::WHITE {
                 player.team = Piece::BLACK;
                 if !swapped_colors {
@@ -208,8 +209,7 @@ pub fn versus_game_over(
     }
 
     board.load_position(Some(versus_manager.position_fens[versus_manager.game_idx % (versus_manager.total_games / 2)].clone()), zobrist.as_mut());
-    manager.move_color = board.move_color;
     manager.game_moves.clear();
     commands.insert_resource(NextState(Some(AppState::InGame)));
-    can_make_move_evw.send(CanMakeMove {});
+    processed_move_evw.send(ProcessedMove {});
 }
