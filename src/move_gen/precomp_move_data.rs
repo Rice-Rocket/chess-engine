@@ -4,11 +4,13 @@ use crate::{
     board::coord::*,
 };
 
+use super::bitboard::bb::BitBoard;
+
 
 #[derive(Resource)]
 pub struct PrecomputedMoveData {
-    pub align_mask: [[u64; 64]; 64],
-    pub dir_ray_mask: [[u64; 8]; 64],
+    pub align_mask: [[BitBoard; 64]; 64],
+    pub dir_ray_mask: [[BitBoard; 8]; 64],
     
     pub direction_offsets: [i8; 8],
     pub dir_offsets_2d: [Coord; 8],
@@ -22,13 +24,13 @@ pub struct PrecomputedMoveData {
     pub pawn_attacks_black: [Vec<i8>; 64],
     pub direction_lookup: [i8; 127],
 
-    pub king_attack_bitboards: [u64; 64],
-    pub knight_attack_bitboards: [u64; 64],
-    pub pawn_attack_bitboards: [[u64; 2]; 64],
+    pub king_attack_bitboards: [BitBoard; 64],
+    pub knight_attack_bitboards: [BitBoard; 64],
+    pub pawn_attack_bitboards: [[BitBoard; 2]; 64],
     
-    pub rook_moves: [u64; 64],
-    pub bishop_moves: [u64; 64],
-    pub queen_moves: [u64; 64],
+    pub rook_moves: [BitBoard; 64],
+    pub bishop_moves: [BitBoard; 64],
+    pub queen_moves: [BitBoard; 64],
 
     pub manhattan_distance: [[u32; 64]; 64],
     pub king_distance: [[u32; 64]; 64],
@@ -53,9 +55,9 @@ impl Default for PrecomputedMoveData {
         let mut knight_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         let mut king_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         
-        let mut rook_moves: [u64; 64] = [0; 64];
-        let mut bishop_moves: [u64; 64] = [0; 64];
-        let mut queen_moves: [u64; 64] = [0; 64];
+        let mut rook_moves: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut bishop_moves: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut queen_moves: [BitBoard; 64] = [BitBoard(0); 64];
         let pawn_attack_dirs: [[Coord; 2]; 2] = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]]; // index with [color index]
         
         let direction_offsets: [i8; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
@@ -65,9 +67,9 @@ impl Default for PrecomputedMoveData {
             Coord::new(-1, 1), Coord::new(1, -1),
             Coord::new(1, 1), Coord::new(-1, -1)];
         let all_knight_jumps: [i8; 8] = [15, 17, -17, -15, 10, -6, 6, -10];
-        let mut king_attack_bitboards: [u64; 64] = [0; 64];
-        let mut knight_attack_bitboards: [u64; 64] = [0; 64];
-        let mut pawn_attack_bitboards: [[u64; 2]; 64] = [[0; 2]; 64]; // index with [square][color index]
+        let mut king_attack_bitboards: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut knight_attack_bitboards: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut pawn_attack_bitboards: [[BitBoard; 2]; 64] = [[BitBoard(0); 2]; 64]; // index with [square][color index]
 
         for sqr_idx in 0..64 {
             let y = sqr_idx / 8;
@@ -192,7 +194,7 @@ impl Default for PrecomputedMoveData {
             }
         };
 
-        let mut align_mask: [[u64; 64]; 64] = [[0; 64]; 64];
+        let mut align_mask: [[BitBoard; 64]; 64] = [[BitBoard(0); 64]; 64];
         for sqr_a in 0..64 {
             for sqr_b in 0..64 {
                 let ca = Coord::from_idx(sqr_a);
@@ -208,7 +210,7 @@ impl Default for PrecomputedMoveData {
             }
         }
 
-        let mut dir_ray_mask: [[u64; 8]; 64] = [[0; 8]; 64];
+        let mut dir_ray_mask: [[BitBoard; 8]; 64] = [[BitBoard(0); 8]; 64];
         for dir_idx in 0..dir_offsets_2d.len() {
             for sqr_idx in 0..64 {
                 let sqr = Coord::from_idx(sqr_idx);

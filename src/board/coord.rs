@@ -1,4 +1,4 @@
-use crate::game::representation::square_name_from_coord;
+use crate::{game::representation::square_name_from_coord, move_gen::bitboard::bb::BitBoard};
 use std::ops::{Add, Sub, Mul};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -36,6 +36,7 @@ impl Coord {
             rank, file
         }
     }
+    /// Iterates squares from indices [0, 64)
     pub fn iterate_squares() -> CoordIterator {
         CoordIterator { curr: -1 }
     }
@@ -66,21 +67,35 @@ impl Coord {
     pub fn is_eq(&self, other: Self) -> bool {
         return if self.file == other.file && self.rank == other.rank { true } else { false };
     }
+    /// The index of the coord (usize)
     pub fn index(&self) -> usize {
         (self.rank * 8 + self.file) as usize
     }
     pub const fn const_idx(&self) -> usize {
         (self.rank * 8 + self.file) as usize
     }
+    /// The square index of the coord (i8)
     pub fn square(&self) -> i8 {
         self.rank * 8 + self.file
     }
-    // Performs other - self
+    /// Performs other - self
     pub fn delta(self, other: Coord) -> Coord {
         Coord::new(other.file() - self.file(), other.rank() - self.rank())
     }
+    /// Checks if coord is inside bounds
     pub fn is_valid(&self) -> bool {
         self.rank >= 0 && self.file >= 0 && self.rank < 8 && self.file < 8
+    }
+    /// Converts the coord into a bitboard with only that square
+    pub fn to_bitboard(&self) -> BitBoard {
+        BitBoard(1u64 << self.index())
+    }
+
+    pub fn flip_rank(&self) -> Coord {
+        Coord::new(self.file, 7 - self.rank)
+    }
+    pub fn flip_file(&self) -> Coord {
+        Coord::new(7 - self.file, self.rank)
     }
 }
 

@@ -18,6 +18,7 @@ impl Piece {
     pub const ROOK: u8 = 4;   // 100
     pub const QUEEN: u8 = 5;  // 101
     pub const KING: u8 = 6;   // 110
+    pub const OUT_OF_BOUNDS: u8 = 7; // 111
 
     pub const WHITE: u8 = 0;
     pub const BLACK: u8 = 8;
@@ -120,7 +121,8 @@ impl std::fmt::Display for Piece {
             Piece::ROOK => "rook",
             Piece::QUEEN => "queen",
             Piece::KING => "king",
-            _ => "none"
+            Piece::OUT_OF_BOUNDS => "out of bounds",
+            _ => "none",
         }))
     }
 }

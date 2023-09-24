@@ -1,4 +1,4 @@
-use crate::{board::{moves::Move, board::Board, piece::Piece}, move_gen::bitboard::utils::BitBoardUtils};
+use crate::{board::{moves::Move, board::Board, piece::Piece}, move_gen::bitboard::{utils::BitBoardUtils, bb::BitBoard}};
 use super::super::evaluation::material::PIECE_VALUE_BONUSES_MG;
 
 pub struct KillerMove {
@@ -58,7 +58,7 @@ impl MoveOrdering {
         self.clear_killers();
     }
 
-    pub fn order_moves(&mut self, hash_move: Move, moves: &mut Vec<Move>, board: &Board, _bbutils: &BitBoardUtils, opp_attacks: u64, opp_pawn_attacks: u64, in_q_search: bool, ply: usize) {
+    pub fn order_moves(&mut self, hash_move: Move, moves: &mut Vec<Move>, board: &Board, _bbutils: &BitBoardUtils, opp_attacks: BitBoard, opp_pawn_attacks: BitBoard, in_q_search: bool, ply: usize) {
         // let opp_pieces = board.enemy_diagonal_sliders | board.enemy_orthogonal_sliders | board.piece_bitboards[Piece::new(Piece::KNIGHT | board.opponent_color).index()];
         // let pawn_attacks = if board.white_to_move { bbutils.white_pawn_attacks } else { bbutils.black_pawn_attacks };
 
@@ -85,7 +85,7 @@ impl MoveOrdering {
             if is_capture {
                 // Favor capturing higher value pieces with lower value pieces
                 let capture_material_data = Self::get_piece_value(capture_ptype) - piece_value;
-                let opp_can_recapture = BitBoardUtils::contains_square(&(opp_pawn_attacks | opp_attacks), target_sqr.square());
+                let opp_can_recapture = (opp_pawn_attacks | opp_attacks).contains_square(target_sqr.square());
 
                 // Punish moves where the opponent can recapture
                 if opp_can_recapture {
@@ -102,11 +102,11 @@ impl MoveOrdering {
                 }
             } else if move_ptype != Piece::KING {
                 // Punish moves that allow pieces to be captured by pawns severly
-                if BitBoardUtils::contains_square(&opp_pawn_attacks, target_sqr.square()) {
+                if opp_pawn_attacks.contains_square(target_sqr.square()) {
                     score -= 50;
                 }
                 // Punish moves that allow pieces to be captured slightly
-                else if BitBoardUtils::contains_square(&opp_attacks, target_sqr.square()) {
+                else if opp_attacks.contains_square(target_sqr.square()) {
                     score -= 25;
                 }
             }

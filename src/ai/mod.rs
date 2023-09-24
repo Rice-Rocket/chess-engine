@@ -16,6 +16,7 @@ pub mod v8;
 pub mod v9;
 pub mod v10;
 pub mod v11;
+pub mod v12;
 
 
 fn finalize(
@@ -31,24 +32,26 @@ impl Plugin for AIPlugin {
         app
             .add_event::<SearchComplete>()
             .add_event::<BeginSearch>()
-            .add_plugins(v5::AIPluginV5)
-            .add_plugins(v6::AIPluginV6)
-            .add_plugins(v7::AIPluginV7)
-            .add_plugins(v8::AIPluginV8)
-            .add_plugins(v9::AIPluginV9)
+            // .add_plugins(v5::AIPluginV5)
+            // .add_plugins(v6::AIPluginV6)
+            // .add_plugins(v7::AIPluginV7)
+            // .add_plugins(v8::AIPluginV8)
+            // .add_plugins(v9::AIPluginV9)
             .add_plugins(v10::AIPluginV10)
             .add_plugins(v11::AIPluginV11)
+            .add_plugins(v12::AIPluginV12)
             .add_systems(OnEnter(AppState::LoadAI), (
                 finalize,
             ))
             .add_systems(Update, (
-                v5::search::searcher::start_search,
-                v6::search::searcher::start_search,
-                v7::search::searcher::start_search,
-                v8::search::searcher::start_search,
-                v9::search::searcher::start_search,
+                // v5::search::searcher::start_search,
+                // v6::search::searcher::start_search,
+                // v7::search::searcher::start_search,
+                // v8::search::searcher::start_search,
+                // v9::search::searcher::start_search,
                 v10::search::searcher::start_search,
                 v11::search::searcher::start_search,
+                v12::search::searcher::start_search,
 
                 ai_begin_search,
                 ai_make_move,

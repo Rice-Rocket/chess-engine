@@ -3,7 +3,7 @@ use super::{
     piece::Piece, piece_list::PieceList,
     moves::{self, Move}, zobrist::Zobrist, coord::Coord, game_state::GameState,
 };
-use crate::{fen, move_gen::magics::MagicBitBoards};
+use crate::{fen, move_gen::{magics::MagicBitBoards, bitboard::bb::BitBoard}};
 use crate::move_gen::bitboard::utils::*;
 
 
@@ -12,13 +12,13 @@ pub struct Board {
     pub square: [Piece; 64],
     pub king_square: [Coord; 2],
 
-    pub piece_bitboards: [u64; Piece::MAX_PIECE_INDEX as usize + 1],
-    pub color_bitboards: [u64; 2],
-    pub all_pieces_bitboard: u64,
-    pub friendly_orthogonal_sliders: u64,
-    pub friendly_diagonal_sliders: u64,
-    pub enemy_orthogonal_sliders: u64,
-    pub enemy_diagonal_sliders: u64,
+    pub piece_bitboards: [BitBoard; Piece::MAX_PIECE_INDEX as usize + 1],
+    pub color_bitboards: [BitBoard; 2],
+    pub all_pieces_bitboard: BitBoard,
+    pub friendly_orthogonal_sliders: BitBoard,
+    pub friendly_diagonal_sliders: BitBoard,
+    pub enemy_orthogonal_sliders: BitBoard,
+    pub enemy_diagonal_sliders: BitBoard,
 
     pub total_pieces_no_pawns_kings: usize,
     all_pieces: Vec<PieceList>,
@@ -51,13 +51,13 @@ impl Default for Board {
             square: [Piece::NULL; 64],
             king_square: [Coord::NULL; 2],
 
-            piece_bitboards: [0; Piece::MAX_PIECE_INDEX as usize + 1],
-            color_bitboards: [0; 2],
-            all_pieces_bitboard: 0,
-            friendly_orthogonal_sliders: 0,
-            friendly_diagonal_sliders: 0,
-            enemy_orthogonal_sliders: 0,
-            enemy_diagonal_sliders: 0,
+            piece_bitboards: [BitBoard(0); Piece::MAX_PIECE_INDEX as usize + 1],
+            color_bitboards: [BitBoard(0); 2],
+            all_pieces_bitboard: BitBoard(0),
+            friendly_orthogonal_sliders: BitBoard(0),
+            friendly_diagonal_sliders: BitBoard(0),
+            enemy_orthogonal_sliders: BitBoard(0),
+            enemy_diagonal_sliders: BitBoard(0),
 
             total_pieces_no_pawns_kings: 0,
             all_pieces: vec![
@@ -158,8 +158,8 @@ impl Board {
             }
 
             self.get_piece_list_mut(captured_piece).remove_piece(capture_sqr);
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[captured_piece.index()], capture_sqr.square());
-            BitBoardUtils::toggle_square(&mut self.color_bitboards[self.opponent_color_idx], capture_sqr.square());
+            self.piece_bitboards[captured_piece.index()].toggle_square(capture_sqr.square());
+            self.color_bitboards[self.opponent_color_idx].toggle_square(capture_sqr.square());
             new_zobrist_key ^= zobrist.pieces_array[capture_sqr.index()][captured_piece.index()];
         }
 
@@ -172,8 +172,8 @@ impl Board {
                 let castling_rook_from = if kingside { target_sqr + 1 } else { target_sqr - 2 };
                 let castling_rook_to = if kingside { target_sqr - 1 } else { target_sqr + 1 };
 
-                BitBoardUtils::toggle_squares(&mut self.piece_bitboards[rook_piece.index()], castling_rook_from.square(), castling_rook_to.square());
-                BitBoardUtils::toggle_squares(&mut self.color_bitboards[self.move_color_idx], castling_rook_from.square(), castling_rook_to.square());
+                self.piece_bitboards[rook_piece.index()].toggle_squares(castling_rook_from.square(), castling_rook_to.square());
+                self.color_bitboards[self.move_color_idx].toggle_squares(castling_rook_from.square(), castling_rook_to.square());
                 self.get_piece_list_mut(rook_piece).move_piece(castling_rook_from, castling_rook_to);
                 self.square[castling_rook_from.index()] = Piece::NULL;
                 self.square[castling_rook_to.index()] = rook_piece;
@@ -192,8 +192,8 @@ impl Board {
                 _ => Piece::NONE,
             };
             let prom_piece = Piece::new(prom_ptype | self.move_color);
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[moved_piece.index()], target_sqr.square());
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[prom_piece.index()], target_sqr.square());
+            self.piece_bitboards[moved_piece.index()].toggle_square(target_sqr.square());
+            self.piece_bitboards[prom_piece.index()].toggle_square(target_sqr.square());
             self.get_piece_list_mut(moved_piece).remove_piece(target_sqr);
             self.get_piece_list_mut(prom_piece).add_piece(target_sqr);
             self.square[target_sqr.index()] = prom_piece;
@@ -288,8 +288,8 @@ impl Board {
 
             self.get_piece_list_mut(promoted_piece).remove_piece(move_to);
             self.get_piece_list_mut(moved_piece).add_piece(move_to);
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[promoted_piece.index()], move_to.square());
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[pawn_piece.index()], move_to.square());
+            self.piece_bitboards[promoted_piece.index()].toggle_square(move_to.square());
+            self.piece_bitboards[pawn_piece.index()].toggle_square(move_to.square());
         }
 
         self.move_piece(moved_piece, move_to, move_from);
@@ -305,8 +305,8 @@ impl Board {
                 self.total_pieces_no_pawns_kings += 1;
             }
 
-            BitBoardUtils::toggle_square(&mut self.piece_bitboards[captured_piece.index()], capture_square.square());
-            BitBoardUtils::toggle_square(&mut self.color_bitboards[self.opponent_color_idx], capture_square.square());
+            self.piece_bitboards[captured_piece.index()].toggle_square(capture_square.square());
+            self.color_bitboards[self.opponent_color_idx].toggle_square(capture_square.square());
             self.get_piece_list_mut(captured_piece).add_piece(capture_square);
             self.square[capture_square.index()] = captured_piece;
         }
@@ -319,8 +319,8 @@ impl Board {
                 let rook_square_before_castling = if kingside { move_to + 1 } else { move_to - 2 };
                 let rook_square_after_castling = if kingside { move_to - 1 } else { move_to + 1 };
 
-                BitBoardUtils::toggle_squares(&mut self.piece_bitboards[rook_piece.index()], rook_square_after_castling.square(), rook_square_before_castling.square());
-                BitBoardUtils::toggle_squares(&mut self.color_bitboards[self.move_color_idx], rook_square_after_castling.square(), rook_square_before_castling.square());
+                self.piece_bitboards[rook_piece.index()].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
+                self.color_bitboards[self.move_color_idx].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
                 self.square[rook_square_after_castling.index()] = Piece::NULL;
                 self.square[rook_square_before_castling.index()] = rook_piece;
                 self.get_piece_list_mut(rook_piece).move_piece(rook_square_after_castling, rook_square_before_castling);
@@ -390,8 +390,8 @@ impl Board {
             self.square[sqr.index()] = piece;
     
             if ptype != Piece::NONE {
-                BitBoardUtils::set_square(&mut self.piece_bitboards[piece.index()], sqr_idx);
-                BitBoardUtils::set_square(&mut self.color_bitboards[color_idx], sqr_idx);
+                self.piece_bitboards[piece.index()].set_square(sqr_idx);
+                self.color_bitboards[color_idx].set_square(sqr_idx);
                 if ptype == Piece::KING {
                     self.king_square[color_idx] = sqr;
                 }
@@ -439,27 +439,27 @@ impl Board {
         let king_sqr = self.king_square[self.move_color_idx];
         let blockers = self.all_pieces_bitboard;
 
-        if self.enemy_orthogonal_sliders != 0 {
+        if self.enemy_orthogonal_sliders.0 != 0 {
             let rook_attacks = magic.get_rook_attacks(king_sqr, blockers);
-            if (rook_attacks & self.enemy_orthogonal_sliders) != 0 {
+            if (rook_attacks & self.enemy_orthogonal_sliders).0 != 0 {
                 return true;
             }
         }
-        if self.enemy_diagonal_sliders != 0 {
+        if self.enemy_diagonal_sliders.0 != 0 {
             let bishop_attacks = magic.get_bishop_attacks(king_sqr, blockers);
-            if (bishop_attacks & self.enemy_diagonal_sliders) != 0 {
+            if (bishop_attacks & self.enemy_diagonal_sliders).0 != 0 {
                 return true;
             }
         }
 
         let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color).index()];
-        if (bbutils.knight_attacks[king_sqr.index()] & enemy_knights) != 0 {
+        if (bbutils.knight_attacks[king_sqr.index()] & enemy_knights).0 != 0 {
             return true;
         }
 
         let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color).index()];
         let pawn_attack_mask = if self.white_to_move { bbutils.white_pawn_attacks[king_sqr.index()] } else { bbutils.black_pawn_attacks[king_sqr.index()] };
-        if (pawn_attack_mask & enemy_pawns) != 0 {
+        if (pawn_attack_mask & enemy_pawns).0 != 0 {
             return true;
         }
 
@@ -467,8 +467,8 @@ impl Board {
     }
 
     fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {
-        BitBoardUtils::toggle_squares(&mut self.piece_bitboards[piece.index()], start.square(), target.square());
-        BitBoardUtils::toggle_squares(&mut self.color_bitboards[piece.color_index()], start.square(), target.square());
+        self.piece_bitboards[piece.index()].toggle_squares(start.square(), target.square());
+        self.color_bitboards[piece.color_index()].toggle_squares(start.square(), target.square());
 
         self.get_piece_list_mut(piece).move_piece(start, target);
         self.square[start.index()] = Piece::NULL;

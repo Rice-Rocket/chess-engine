@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::{piece::Piece, board::Board, zobrist::Zobrist}, utils::fen::START_FEN, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}};
+use crate::{game::{manager::{GameManager, GameResult, PlayerType}, player::Player}, ai::ai_player::{AIPlayer, AIVersion}, board::{piece::Piece, board::Board, zobrist::Zobrist, coord::Coord}, utils::fen::START_FEN, move_gen::{move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData, bitboard::utils::BitBoardUtils, magics::MagicBitBoards}};
 
 use super::text_input::TextInput;
 
@@ -541,8 +541,8 @@ pub fn update_egui(
     mut debug: ResMut<DebugInfo>,
     mut board: ResMut<Board>,
     mut move_gen: ResMut<MoveGenerator>,
-    mut zobrist: ResMut<Zobrist>,
     precomp: Res<PrecomputedMoveData>,
+    mut zobrist: ResMut<Zobrist>,
     bbutils: Res<BitBoardUtils>,
     magic: Res<MagicBitBoards>,
     mut debug_pos_loaded_evw: EventWriter<DebugPositionLoaded>,
@@ -556,17 +556,21 @@ pub fn update_egui(
         };
         ui.add_space(1.0);
         if ui.add(egui::Button::new("Get Evaluation")).clicked() {
-            let white = crate::ai::v11::evaluation::perspective::Perspective::White;
-            let black = crate::ai::v11::evaluation::perspective::Perspective::Black;
+            let white = crate::ai::v12::evaluation::perspective::Perspective::White;
+            let black = crate::ai::v12::evaluation::perspective::Perspective::Black;
 
-            let eval_white = crate::ai::v11::evaluation::mobility::mobility_bonus(&board, white, false);
-            debug.eval_white = format!("{}", eval_white);
+            let pos = crate::ai::v12::evaluation::pos::PositionEvaluation::new(
+                &board, &move_gen, &precomp, &magic
+            );
 
-            let eval_black = crate::ai::v11::evaluation::mobility::mobility_bonus(&board, black, false);
-            debug.eval_black = format!("{}", eval_black);
+            // let eval_white = crate::ai::v12::evaluation::eval(&pos, white, true);
+            // debug.eval_white = format!("{}", eval_white);
+
+            // let eval_black = crate::ai::v12::evaluation::eval(&pos, black, true);
+            // debug.eval_black = format!("{}", eval_black);
             
-            let eval_total = eval_white - eval_black;
-            // let eval_total = crate::ai::v11::evaluation::eval::Evaluation::evaluate(&board) * if board.white_to_move { 1 } else { -1 };
+            // let eval_total = eval_white - eval_black;
+            let eval_total = crate::ai::v12::evaluation::eval::Evaluation::evaluate(&board, &move_gen, &precomp, &magic) * if board.white_to_move { 1 } else { -1 };
             debug.eval_total = format!("{}", eval_total);
         }
         ui.label(format!("Eval White: {}", debug.eval_white));

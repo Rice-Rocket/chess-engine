@@ -66,7 +66,7 @@ pub fn queen_count_sqr(board: &Board, perspective: Perspective, sqr: Coord) -> i
 
 // Determines the number of pieces of the specified perspective
 pub fn total_piece_count(board: &Board, perspective: Perspective) -> i32 {
-    board.color_bitboards[perspective.color_idx()].count_ones() as i32
+    board.color_bitboards[perspective.color_idx()].0.count_ones() as i32
 }
 // Determines the number of pieces of the specified perspective on the given square
 pub fn total_piece_count_sqr(board: &Board, perspective: Perspective, sqr: Coord) -> i32 {

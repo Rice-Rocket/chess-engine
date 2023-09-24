@@ -2,13 +2,15 @@ use bevy::prelude::*;
 
 use crate::board::coord::Coord;
 
+use super::bb::BitBoard;
+
 
 #[derive(Resource)]
 pub struct BitBoardUtils {
-    pub knight_attacks: [u64; 64],
-    pub king_moves: [u64; 64],
-    pub white_pawn_attacks: [u64; 64],
-    pub black_pawn_attacks: [u64; 64],
+    pub knight_attacks: [BitBoard; 64],
+    pub king_moves: [BitBoard; 64],
+    pub white_pawn_attacks: [BitBoard; 64],
+    pub black_pawn_attacks: [BitBoard; 64],
 }
 
 impl BitBoardUtils {
@@ -26,84 +28,22 @@ impl BitBoardUtils {
     pub const NOT_FILE_A: u64 = !Self::FILE_A;
     pub const NOT_FILE_H: u64 = !(Self::FILE_A << 7);
 
-    pub const DE_BRUIJN_64: u128 = 0x37E84A99DAE458F;
-    pub const DE_BRUIJN_TABLE: [u32; 64] = [
-        0, 1, 17, 2, 18, 50, 3, 57,
-        47, 19, 22, 51, 29, 4, 33, 58,
-        15, 48, 20, 27, 25, 23, 52, 41,
-        54, 30, 38, 5, 43, 34, 59, 8,
-        63, 16, 49, 56, 46, 21, 28, 32,
-        14, 26, 24, 40, 53, 37, 42, 7,
-        62, 55, 45, 31, 13, 39, 36, 6,
-        61, 44, 12, 35, 60, 11, 10, 9
-    ];
-
-    pub fn pop_lsb(b: &mut u64) -> u32 {
-        // let i = b.trailing_zeros();
-        let i = Self::DE_BRUIJN_TABLE[((((*b as i128) & -(*b as i128)) as u128 * Self::DE_BRUIJN_64) as u64 >> 58) as usize];
-        *b &= *b - 1;
-        return i;
-    }
     
-    pub fn set_square(b: &mut u64, sqr_idx: i8) {
-        *b |= 1 << sqr_idx;
-    }
-    
-    pub fn clear_square(b: &mut u64, sqr_idx: i8) {
-        *b &= !(1 << sqr_idx);
-    }
-    
-    pub fn toggle_square(b: &mut u64, sqr_idx: i8) {
-        *b ^= 1 << sqr_idx;
-    }
-    
-    pub fn toggle_squares(b: &mut u64, sqr_a: i8, sqr_b: i8) {
-        *b ^= 1 << sqr_a | 1 << sqr_b;
-    }
-    
-    pub fn contains_square(b: &u64, sqr_idx: i8) -> bool {
-        ((b >> sqr_idx) & 1) != 0
-    }
-    
-    pub fn pawn_attacks(b: &u64, is_white: bool) -> u64 {
+    pub fn pawn_attacks(b: BitBoard, is_white: bool) -> BitBoard {
         if is_white {
-            return ((b << 9) & Self::NOT_FILE_A) | ((b << 7) & Self::NOT_FILE_H);
+            return ((b << 9) & !BitBoard::FILE_A) | ((b << 7) & Self::NOT_FILE_H);
         }
         return ((b >> 7) & Self::NOT_FILE_A) | ((b >> 9) & Self::NOT_FILE_H);
-    }
-    
-    pub fn shift(b: &u64, n: i8) -> u64 {
-        if n > 0 {
-            return b << n;
-        } else {
-            return b >> -n;
-        }
-    }
-
-    pub fn print_bitboard(label: &str, b: &u64) {
-        println!("{}:", label);
-        for rank in (0..8).rev() {
-            let mut row = "".to_string();
-            for file in 0..8 {
-                let coord = Coord::new(file, rank);
-                if Self::contains_square(b, coord.square()) {
-                    row += "1 ";
-                } else {
-                    row += "• ";
-                }
-            }
-            println!("{}", row);
-        }
     }
 }
 
 
 impl Default for BitBoardUtils {
     fn default() -> Self {
-        let mut knight_attacks: [u64; 64] = [0; 64];
-        let mut king_moves: [u64; 64] = [0; 64];
-        let mut white_pawn_attacks: [u64; 64] = [0; 64];
-        let mut black_pawn_attacks: [u64; 64] = [0; 64];
+        let mut knight_attacks: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut king_moves: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut white_pawn_attacks: [BitBoard; 64] = [BitBoard(0); 64];
+        let mut black_pawn_attacks: [BitBoard; 64] = [BitBoard(0); 64];
 
         let ortho_dir: [(i8, i8); 4] = [(-1, 0), (0, 1), (1, 0), (0, -1)];
         let diag_dir: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, 1), (1, -1)];

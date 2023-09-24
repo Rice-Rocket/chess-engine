@@ -68,7 +68,7 @@ impl GameManager {
         return self.game_result;
     }
     fn insufficient_material(&self, board: &Board) -> bool {
-        if board.friendly_orthogonal_sliders != 0 || board.enemy_orthogonal_sliders != 0 {
+        if board.friendly_orthogonal_sliders.0 != 0 || board.enemy_orthogonal_sliders.0 != 0 {
             return false;
         };
         if board.get_piece_list(Piece::new(Piece::WHITE_PAWN)).count() > 0 || 
