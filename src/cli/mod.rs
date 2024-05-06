@@ -14,7 +14,7 @@ fn display_board(
     selected: Option<(i8, i8)>,
     valid_moves: &[Move],
 ) {
-    for mut sqr in Coord::iterate_squares() {
+    for mut sqr in Coord::iter_squares() {
         sqr = sqr.flip_rank();
         if sqr.square() % 8 == 0 {
             if sqr.rank() == 7 {

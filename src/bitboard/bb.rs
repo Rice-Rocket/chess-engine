@@ -100,9 +100,18 @@ impl BitBoard {
     }
 }
 
+impl From<usize> for BitBoard {
+    fn from(value: usize) -> Self {
+        BitBoard(unsafe {
+            std::mem::transmute_copy(&value)
+        })
+    }
+}
+
+
 impl std::fmt::Debug for BitBoard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut str = String::from("");
+        let mut str = String::from("\n\r");
         for rank in (0..8).rev() {
             let mut row = String::from("");
             for file in 0..8 {
@@ -114,7 +123,7 @@ impl std::fmt::Debug for BitBoard {
                 }
             }
             str += &row;
-            str += "\n";
+            str += "\n\r";
         };
         write!(f, "{}", str)
     }

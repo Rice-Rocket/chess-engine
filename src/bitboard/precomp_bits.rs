@@ -19,12 +19,12 @@ pub struct PrecomputedBits {
 impl PrecomputedBits {
     pub const FILE_A: u64 = 0x101010101010101;
 
-    pub const WHITE_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F1.const_idx() | 1u64 << Coord::G1.const_idx());
-    pub const BLACK_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F8.const_idx() | 1u64 << Coord::G8.const_idx());
-    pub const WHITE_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D1.const_idx() | 1u64 << Coord::C1.const_idx());
-    pub const BLACK_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D8.const_idx() | 1u64 << Coord::C8.const_idx());
-    pub const WHITE_QUEENSIDE_MASK: BitBoard = BitBoard(Self::WHITE_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B1.const_idx());
-    pub const BLACK_QUEENSIDE_MASK: BitBoard = BitBoard(Self::BLACK_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B8.const_idx());
+    pub const WHITE_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F1.index() | 1u64 << Coord::G1.index());
+    pub const BLACK_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F8.index() | 1u64 << Coord::G8.index());
+    pub const WHITE_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D1.index() | 1u64 << Coord::C1.index());
+    pub const BLACK_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D8.index() | 1u64 << Coord::C8.index());
+    pub const WHITE_QUEENSIDE_MASK: BitBoard = BitBoard(Self::WHITE_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B1.index());
+    pub const BLACK_QUEENSIDE_MASK: BitBoard = BitBoard(Self::BLACK_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B8.index());
 
     pub fn new(bbutils: &BitBoardUtils) -> Self {
         let mut file_mask: [BitBoard; 8] = [BitBoard(0); 8];

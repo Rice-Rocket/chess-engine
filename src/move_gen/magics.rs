@@ -3,6 +3,7 @@ use crate::board::coord::Coord;
 use crate::bitboard::bb::BitBoard;
 
 
+#[derive(Debug)]
 pub struct MagicBitBoards {
     pub rook_mask: [BitBoard; 64],
     pub bishop_mask: [BitBoard; 64],
@@ -31,10 +32,12 @@ impl MagicBitBoards {
     pub fn get_slider_attacks(&self, square: Coord, blockers: BitBoard, ortho: bool) -> BitBoard {
         if ortho { self.get_rook_attacks(square, blockers) } else { self.get_bishop_attacks(square, blockers) }
     }
+
     pub fn get_rook_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
         let key = ((blockers & self.rook_mask[square.index()]).0.wrapping_mul(Self::ROOK_MAGICS[square.index()])).wrapping_shr(Self::ROOK_SHIFTS[square.index()]);
         self.rook_attacks[square.index()][key as usize]
     }
+
     pub fn get_bishop_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
         let key = ((blockers & self.bishop_mask[square.index()]).0.wrapping_mul(Self::BISHOP_MAGICS[square.index()])).wrapping_shr(Self::BISHOP_SHIFTS[square.index()]);
         self.bishop_attacks[square.index()][key as usize]
@@ -52,12 +55,13 @@ impl MagicBitBoards {
 
         for (pattern_idx, blocker_bitboard) in blocker_bitboards.iter_mut().enumerate().take(n_patterns) {
             for (bit_idx, move_sqr_i) in move_sqr_idx.iter().enumerate() {
-                let bit = BitBoard(((pattern_idx >> bit_idx) & 1) as u64);
+                let bit = BitBoard::from((pattern_idx >> bit_idx) & 1);
                 *blocker_bitboard |= bit << *move_sqr_i;
             };
         };
         blocker_bitboards
     }
+
     pub fn create_movement_mask(start_coord: Coord, ortho: bool) -> BitBoard {
         let mut mask = BitBoard(0);
         let directions = if ortho { Coord::ROOK_DIRECTIONS } else { Coord::BISHOP_DIRECTIONS };
@@ -73,6 +77,7 @@ impl MagicBitBoards {
         }
         mask
     }
+
     pub fn legal_move_bitboard_from_blockers(start_sqr: Coord, blockers: BitBoard, ortho: bool) -> BitBoard {
         let mut bitboard = BitBoard(0);
         let directions = if ortho { Coord::ROOK_DIRECTIONS } else { Coord::BISHOP_DIRECTIONS };
@@ -90,31 +95,7 @@ impl MagicBitBoards {
         }
         bitboard
     }
-    
-    // fn create_rook_table(square: Coord, magic: u64, left_shift: u32) -> [u64; MagicBitBoards::MIN_ROOK_LOOKUP_SIZE] {
-    //     let mut table: [u64; MagicBitBoards::MIN_ROOK_LOOKUP_SIZE];
-    //     let move_mask = Self::create_movement_mask(square, true);
-    //     let blockers = Self::create_blocker_bitboards(move_mask);
 
-    //     for pattern in blockers {
-    //         let index = (pattern * magic) >> left_shift;
-    //         let moves = Self::legal_move_bitboard_from_blockers(square, pattern, true);
-    //         table[index as usize] = moves;
-    //     };
-    //     return table;
-    // }
-    // fn create_bishop_table(square: Coord, magic: u64, left_shift: u32) -> [u64; MagicBitBoards::MIN_BISHOP_LOOKUP_SIZE] {
-    //     let mut table: [u64; MagicBitBoards::MIN_BISHOP_LOOKUP_SIZE];
-    //     let move_mask = Self::create_movement_mask(square, false);
-    //     let blockers = Self::create_blocker_bitboards(move_mask);
-
-    //     for pattern in blockers {
-    //         let index = (pattern * magic) >> left_shift;
-    //         let moves = Self::legal_move_bitboard_from_blockers(square, pattern, false);
-    //         table[index as usize] = moves;
-    //     };
-    //     return table;
-    // }
     fn create_table(square: Coord, ortho: bool, magic: u64, left_shift: u32) -> Vec<BitBoard> {
         let n_bits = 64 - left_shift;
         let lookup_size = 1 << n_bits;
@@ -136,8 +117,7 @@ impl Default for MagicBitBoards {
         let mut rook_mask: [BitBoard; 64] = [BitBoard(0); 64];
         let mut bishop_mask: [BitBoard; 64] = [BitBoard(0); 64];
 
-        for sqr_idx in 0..64 {
-            let sqr = Coord::from_idx(sqr_idx);
+        for sqr in Coord::iter_squares() {
             rook_mask[sqr.index()] = Self::create_movement_mask(sqr, true);
             bishop_mask[sqr.index()] = Self::create_movement_mask(sqr, false);
         };
@@ -146,11 +126,10 @@ impl Default for MagicBitBoards {
         let mut rook_attacks: [Vec<BitBoard>; 64] = [EMPTY_VEC; 64];
         let mut bishop_attacks: [Vec<BitBoard>; 64] = [EMPTY_VEC; 64];
 
-        for i in 0..64 {
-            let sqr = Coord::from_idx(i);
+        for sqr in Coord::iter_squares() {
             rook_attacks[sqr.index()] = Self::create_table(sqr, true, Self::ROOK_MAGICS[sqr.index()], Self::ROOK_SHIFTS[sqr.index()]);
             bishop_attacks[sqr.index()] = Self::create_table(sqr, false, Self::BISHOP_MAGICS[sqr.index()], Self::BISHOP_SHIFTS[sqr.index()]);
-        };
+        }
 
         MagicBitBoards {
             rook_mask,
