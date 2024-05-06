@@ -16,23 +16,23 @@ impl PieceList {
         }
     }
     pub fn count(&self) -> u32 {
-        return self.n_pieces;
+        self.n_pieces
     }
     pub fn add_piece(&mut self, square: Coord) {
         self.occupied_squares[self.n_pieces as usize] = square;
-        self.map[square.index() as usize] = self.n_pieces;
+        self.map[square.index()] = self.n_pieces;
         self.n_pieces += 1;
     }
     pub fn remove_piece(&mut self, square: Coord) {
-        let piece_idx = self.map[square.index() as usize];
+        let piece_idx = self.map[square.index()];
         self.occupied_squares[piece_idx as usize] = self.occupied_squares[(self.n_pieces - 1) as usize];
-        self.map[self.occupied_squares[piece_idx as usize].index() as usize] = piece_idx;
+        self.map[self.occupied_squares[piece_idx as usize].index()] = piece_idx;
         self.n_pieces -= 1;
     }
     pub fn move_piece(&mut self, start: Coord, target: Coord) {
-        let piece_idx = self.map[start.index() as usize];
+        let piece_idx = self.map[start.index()];
         self.occupied_squares[piece_idx as usize] = target;
-        self.map[target.index() as usize] = piece_idx;
+        self.map[target.index()] = piece_idx;
     }
     pub fn index(&self, idx: u32) -> Coord {
         self.occupied_squares[idx as usize]

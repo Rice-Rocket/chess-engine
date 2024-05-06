@@ -1,4 +1,4 @@
-use crate::{game::representation::square_name_from_coord, move_gen::bitboard::bb::BitBoard};
+use crate::{utils::representation::square_name_from_coord, bitboard::bb::BitBoard};
 use std::ops::{Add, Sub, Mul};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -48,7 +48,7 @@ impl Coord {
     }
     pub fn from_idx(idx: i8) -> Self {
         Self {
-            rank: idx >> 3,
+            rank: (idx >> 3) & 0b000111,
             file: idx & 0b000111,
         }
     }
@@ -59,13 +59,13 @@ impl Coord {
         self.file
     }
     pub fn is_light_square(&self) -> bool {
-        return (self.file() + self.rank()) % 2 != 0;
+        (self.file() + self.rank()) % 2 != 0
     }
     pub fn compare_to(&self, other: Self) -> u32 {
-        return if self.file == other.file && self.rank == other.rank { 0 } else { 1 };
+        if self.file == other.file && self.rank == other.rank { 0 } else { 1 }
     }
     pub fn is_eq(&self, other: Self) -> bool {
-        return if self.file == other.file && self.rank == other.rank { true } else { false };
+        self.file == other.file && self.rank == other.rank
     }
     /// The index of the coord (usize)
     pub fn index(&self) -> usize {
@@ -87,7 +87,7 @@ impl Coord {
         self.rank >= 0 && self.file >= 0 && self.rank < 8 && self.file < 8
     }
     /// Converts the coord into a bitboard with only that square
-    pub fn to_bitboard(&self) -> BitBoard {
+    pub fn to_bitboard(self) -> BitBoard {
         BitBoard(1u64 << self.index())
     }
 
@@ -115,9 +115,7 @@ impl Add<Coord> for Coord {
 impl Add<i8> for Coord {
     type Output = Coord;
     fn add(self, rhs: i8) -> Self::Output {
-        let rank = rhs >> 3;
-        let file = rhs & 0b000111;
-        Coord::new(self.file + file, self.rank + rank)
+        Coord::from_idx(self.square() + rhs)
     }
 }
 

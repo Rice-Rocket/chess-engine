@@ -1,20 +1,13 @@
-use bevy::prelude::*;
-
 use crate::board::coord::Coord;
 
-use super::bitboard::bb::BitBoard;
+use crate::bitboard::bb::BitBoard;
 
 
-#[derive(Resource)]
 pub struct MagicBitBoards {
     pub rook_mask: [BitBoard; 64],
     pub bishop_mask: [BitBoard; 64],
     pub rook_attacks: [Vec<BitBoard>; 64],
     pub bishop_attacks: [Vec<BitBoard>; 64],
-    // pub rook_attacks: [Box<[u64]>; 64],
-    // pub bishop_attacks: [Box<[u64]>; 64],
-    // pub rook_attacks: [[u64; MagicBitBoards::MIN_ROOK_LOOKUP_SIZE]; 64],
-    // pub bishop_attacks: [[u64; MagicBitBoards::MIN_BISHOP_LOOKUP_SIZE]; 64],
 }
 
 impl MagicBitBoards {
@@ -39,12 +32,12 @@ impl MagicBitBoards {
         if ortho { self.get_rook_attacks(square, blockers) } else { self.get_bishop_attacks(square, blockers) }
     }
     pub fn get_rook_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
-        let key = ((blockers & self.rook_mask[square.index()]).0 as u128 * Self::ROOK_MAGICS[square.index()] as u128) as u64 >> Self::ROOK_SHIFTS[square.index()];
-        return self.rook_attacks[square.index()][key as usize];
+        let key = ((blockers & self.rook_mask[square.index()]).0.wrapping_mul(Self::ROOK_MAGICS[square.index()])).wrapping_shr(Self::ROOK_SHIFTS[square.index()]);
+        self.rook_attacks[square.index()][key as usize]
     }
     pub fn get_bishop_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
-        let key = ((blockers & self.bishop_mask[square.index()]).0 as u128 * Self::BISHOP_MAGICS[square.index()] as u128) as u64 >> Self::BISHOP_SHIFTS[square.index()];
-        return self.bishop_attacks[square.index()][key as usize];
+        let key = ((blockers & self.bishop_mask[square.index()]).0.wrapping_mul(Self::BISHOP_MAGICS[square.index()])).wrapping_shr(Self::BISHOP_SHIFTS[square.index()]);
+        self.bishop_attacks[square.index()][key as usize]
     }
 
     pub fn create_blocker_bitboards(move_mask: BitBoard) -> Vec<BitBoard> {
@@ -57,13 +50,13 @@ impl MagicBitBoards {
         let n_patterns = 1 << move_sqr_idx.len();
         let mut blocker_bitboards = vec![BitBoard(0); n_patterns];
 
-        for pattern_idx in 0..n_patterns {
-            for bit_idx in 0..move_sqr_idx.len() {
+        for (pattern_idx, blocker_bitboard) in blocker_bitboards.iter_mut().enumerate().take(n_patterns) {
+            for (bit_idx, move_sqr_i) in move_sqr_idx.iter().enumerate() {
                 let bit = BitBoard(((pattern_idx >> bit_idx) & 1) as u64);
-                blocker_bitboards[pattern_idx] |= bit << move_sqr_idx[bit_idx];
+                *blocker_bitboard |= bit << *move_sqr_i;
             };
         };
-        return blocker_bitboards
+        blocker_bitboards
     }
     pub fn create_movement_mask(start_coord: Coord, ortho: bool) -> BitBoard {
         let mut mask = BitBoard(0);
@@ -78,7 +71,7 @@ impl MagicBitBoards {
                 } else { break; }
             }
         }
-        return mask;
+        mask
     }
     pub fn legal_move_bitboard_from_blockers(start_sqr: Coord, blockers: BitBoard, ortho: bool) -> BitBoard {
         let mut bitboard = BitBoard(0);
@@ -95,7 +88,7 @@ impl MagicBitBoards {
                 } else { break; }
             }
         }
-        return bitboard;
+        bitboard
     }
     
     // fn create_rook_table(square: Coord, magic: u64, left_shift: u32) -> [u64; MagicBitBoards::MIN_ROOK_LOOKUP_SIZE] {
@@ -130,11 +123,11 @@ impl MagicBitBoards {
         let blockers = Self::create_blocker_bitboards(move_mask);
 
         for pattern in blockers {
-            let index = (pattern.0 as u128 * magic as u128) as u64 >> left_shift;
+            let index = (pattern.0.wrapping_mul(magic)).wrapping_shr(left_shift);
             let moves = Self::legal_move_bitboard_from_blockers(square, pattern, ortho);
             table[index as usize] = moves;
         };
-        return table;
+        table
     }
 }
 
@@ -166,10 +159,4 @@ impl Default for MagicBitBoards {
             bishop_attacks,
         }
     }
-}
-
-pub fn spawn_magic_bitboards(
-    mut commands: Commands,
-) {
-    commands.insert_resource(MagicBitBoards::default());
 }

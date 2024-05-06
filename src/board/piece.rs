@@ -1,6 +1,6 @@
 use std::ops::{BitOr, BitOrAssign};
 
-use super::board::Board;
+use super::Board;
 
 const TYPE_MASK: u8 = 0b0111;
 const COLOR_MASK: u8 = 0b1000;
@@ -55,16 +55,16 @@ impl Piece {
         self.val
     }
     pub fn is_color(self, color: u8) -> bool {
-        return (self.val & COLOR_MASK) == color && self.val != 0
+        (self.val & COLOR_MASK) == color && self.val != 0
     }
     pub fn color(self) -> u8 {
-        return self.val & COLOR_MASK;
+        self.val & COLOR_MASK
     }
     pub fn is_white(self) -> bool {
         self.color() == Piece::WHITE
     }
     pub fn piece_type(self) -> u8 {
-        return self.val & TYPE_MASK;
+        self.val & TYPE_MASK
     }
     pub fn is_not_pawn_king(self) -> bool {
         self.piece_type() > 1 && self.piece_type() < 6
@@ -76,13 +76,13 @@ impl Piece {
         self.piece_type() > 0 && self.piece_type() < 6
     }
     pub fn is_rook_or_queen(self) -> bool {
-        return self.piece_type() == Self::QUEEN || self.piece_type() == Self::ROOK;
+        self.piece_type() == Self::QUEEN || self.piece_type() == Self::ROOK
     }
     pub fn is_bishop_or_queen(self) -> bool {
-        return self.piece_type() == Self::QUEEN || self.piece_type() == Self::BISHOP;
+        self.piece_type() == Self::QUEEN || self.piece_type() == Self::BISHOP
     }
     pub fn is_sliding_piece(self) -> bool {
-        return self.is_bishop_or_queen() || self.piece_type() == Self::ROOK;
+        self.is_bishop_or_queen() || self.piece_type() == Self::ROOK
     }
     pub fn index(self) -> usize {
         self.val as usize
@@ -91,7 +91,7 @@ impl Piece {
         if self.piece_type() == Piece::NONE {
             return None;
         }
-        return Some(self.piece_type() as usize - 1);
+        Some(self.piece_type() as usize - 1)
     }
     pub fn color_index(self) -> usize {
         if self.is_white() { Board::WHITE_INDEX } else { Board::BLACK_INDEX }

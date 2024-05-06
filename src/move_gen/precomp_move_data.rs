@@ -1,13 +1,11 @@
-use bevy::prelude::*;
 use crate::{
-    board::board::Board,
+    board::Board,
     board::coord::*,
 };
 
-use super::bitboard::bb::BitBoard;
+use crate::bitboard::bb::BitBoard;
 
 
-#[derive(Resource)]
 pub struct PrecomputedMoveData {
     pub align_mask: [[BitBoard; 64]; 64],
     pub dir_ray_mask: [[BitBoard; 8]; 64],
@@ -39,27 +37,24 @@ pub struct PrecomputedMoveData {
 
 impl PrecomputedMoveData {
     pub fn num_rook_moves_to_sqr(&self, start_sqr: u32, target_sqr: u32) -> u32 {
-        return self.manhattan_distance[start_sqr as usize][target_sqr as usize];
+        self.manhattan_distance[start_sqr as usize][target_sqr as usize]
     }
     pub fn num_king_moves_to_sqr(&self, start_sqr: u32, target_sqr: u32) -> u32 {
-        return self.king_distance[start_sqr as usize][target_sqr as usize];
+        self.king_distance[start_sqr as usize][target_sqr as usize]
     }
-}
 
-
-impl Default for PrecomputedMoveData {
-    fn default() -> Self {
+    pub fn new() -> Self {
         let mut pawn_attacks_white: [Vec<i8>; 64] = std::array::from_fn(|_| vec![]);
         let mut pawn_attacks_black: [Vec<i8>; 64] = std::array::from_fn(|_| vec![]);
         let mut num_sqrs_to_edge: [[i8; 8]; 64] = [[0; 8]; 64]; // index with [square][direction]
         let mut knight_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
         let mut king_moves: [Vec<Coord>; 64] = std::array::from_fn(|_| vec![]);
-        
+
         let mut rook_moves: [BitBoard; 64] = [BitBoard(0); 64];
         let mut bishop_moves: [BitBoard; 64] = [BitBoard(0); 64];
         let mut queen_moves: [BitBoard; 64] = [BitBoard(0); 64];
         let pawn_attack_dirs: [[Coord; 2]; 2] = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]]; // index with [color index]
-        
+
         let direction_offsets: [i8; 8] = [8, -8, -1, 1, 7, -7, 9, -9];
         let dir_offsets_2d: [Coord; 8] = [
             Coord::new(0, 1), Coord::new(0, -1),
@@ -92,7 +87,7 @@ impl Default for PrecomputedMoveData {
             let knight_bitboard = &mut knight_attack_bitboards[sqr_idx as usize];
             for knight_jump_delta in all_knight_jumps.iter() {
                 let knight_jump_sqr = sqr_idx + knight_jump_delta;
-                if knight_jump_sqr >= 0 && knight_jump_sqr < 64 {
+                if (0..64).contains(&knight_jump_sqr) {
                     let knight_sqr_y = knight_jump_sqr / 8;
                     let knight_sqr_x = knight_jump_sqr - knight_sqr_y * 8;
                     let max_coord_move_dst = (x - knight_sqr_x).abs().max((y - knight_sqr_y).abs());
@@ -107,7 +102,7 @@ impl Default for PrecomputedMoveData {
             let king_bitboard = &mut king_attack_bitboards[sqr_idx as usize];
             for king_move_delta in direction_offsets.iter() {
                 let king_move_sqr = sqr_idx + king_move_delta;
-                if king_move_sqr >= 0 && king_move_sqr < 64 {
+                if (0..64).contains(&king_move_sqr) {
                     let king_sqr_y = king_move_sqr / 8;
                     let king_sqr_x = king_move_sqr - king_sqr_y * 8;
                     let max_coord_move_dst = (x - king_sqr_x).abs().max((y - king_sqr_y).abs());
@@ -142,16 +137,14 @@ impl Default for PrecomputedMoveData {
                 }
             }
 
-            for direction_idx in 0..4 {
-                let cur_dir_offset = direction_offsets[direction_idx];
+            for (direction_idx, cur_dir_offset) in direction_offsets.iter().enumerate().take(4) {
                 for n in 0..num_sqrs_to_edge[sqr_idx as usize][direction_idx] {
                     let target_sqr = sqr_idx + cur_dir_offset * (n + 1);
                     rook_moves[sqr_idx as usize] |= 1u64 << target_sqr;
                 }
             }
 
-            for direction_idx in 4..8 {
-                let cur_dir_offset = direction_offsets[direction_idx];
+            for (direction_idx, cur_dir_offset) in direction_offsets.iter().enumerate().skip(4) {
                 for n in 0..num_sqrs_to_edge[sqr_idx as usize][direction_idx] {
                     let target_sqr = sqr_idx + cur_dir_offset * (n + 1);
                     bishop_moves[sqr_idx as usize] |= 1u64 << target_sqr;
@@ -211,11 +204,11 @@ impl Default for PrecomputedMoveData {
         }
 
         let mut dir_ray_mask: [[BitBoard; 8]; 64] = [[BitBoard(0); 8]; 64];
-        for dir_idx in 0..dir_offsets_2d.len() {
+        for (dir_idx, offset_2d) in dir_offsets_2d.iter().enumerate() {
             for sqr_idx in 0..64 {
                 let sqr = Coord::from_idx(sqr_idx);
                 for i in 0..8 {
-                    let c = sqr + dir_offsets_2d[dir_idx] * i;
+                    let c = sqr + *offset_2d * i;
                     if c.is_valid() {
                         dir_ray_mask[sqr.index()][dir_idx] |= 1 << c.index();
                     }
@@ -246,10 +239,4 @@ impl Default for PrecomputedMoveData {
             center_manhattan_distance,
         }
     }
-}
-
-pub fn spawn_precomp(
-    mut commands: Commands,
-) {
-    commands.insert_resource(PrecomputedMoveData::default());
 }

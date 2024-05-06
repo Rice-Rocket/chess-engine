@@ -1,12 +1,10 @@
-use bevy::prelude::*;
-
-use crate::board::{coord::Coord, moves::Move, board::Board, piece::Piece};
+use crate::board::{coord::Coord, moves::Move, Board, piece::Piece};
 use crate::move_gen::precomp_move_data::*;
 
-use super::bitboard::bb::BitBoard;
-use super::bitboard::utils::BitBoardUtils;
+use crate::bitboard::bb::BitBoard;
+use crate::bitboard::bbutils::BitBoardUtils;
 use super::magics::MagicBitBoards;
-use super::bitboard::precomp_bits::PrecomputedBits;
+use crate::bitboard::precomp_bits::PrecomputedBits;
 
 
 #[derive(Default, PartialEq)]
@@ -18,7 +16,6 @@ pub enum PromotionMode {
 }
 
 
-#[derive(Resource)]
 pub struct MoveGenerator {
     pub moves: Vec<Move>,
     pub promotions_to_gen: PromotionMode,
@@ -123,18 +120,16 @@ impl MoveGenerator {
                         if !is_friendly_piece_along_ray {
                             is_friendly_piece_along_ray = true;
                         } else { break; }
-                    } else {
-                        if (is_diagonal && piece.is_bishop_or_queen()) || (!is_diagonal && piece.is_rook_or_queen()) {
-                            if is_friendly_piece_along_ray {
-                                self.pin_rays |= ray_mask;
-                            } else {
-                                self.check_ray_bitmask |= ray_mask;
-                                self.in_double_check = self.in_check;
-                                self.in_check = true;
-                            }
-                            break;
-                        } else { break; }
-                    }
+                    } else if (is_diagonal && piece.is_bishop_or_queen()) || (!is_diagonal && piece.is_rook_or_queen()) {
+                        if is_friendly_piece_along_ray {
+                            self.pin_rays |= ray_mask;
+                        } else {
+                            self.check_ray_bitmask |= ray_mask;
+                            self.in_double_check = self.in_check;
+                            self.in_check = true;
+                        }
+                        break;
+                    } else { break; }
                 }
             }
             if self.in_double_check { break; }
@@ -234,10 +229,10 @@ impl MoveGenerator {
             let start = Coord::from_idx(orthogonal_sliders.pop_lsb() as i8);
             // ! Incredibly stange bug where H8 is considered a legal starting position even though
             // ! there is no rook there. Probably has to do with castling. 
-            if board.square[start.index()].piece_type() == Piece::NONE {
-                println!("Tried to generate {:?} rook move, cancelled", start);
-                continue;
-            };
+            // if board.square[start.index()].piece_type() == Piece::NONE {
+            //     log_debug(format!("Tried to generate {:?} rook move\n{}", start, crate::fen::fen_from_position(board)));
+            //     continue;
+            // };
             let mut move_sqrs = magic.get_rook_attacks(start, self.all_pieces) & move_mask;
             if self.is_pinned(start) {
                 move_sqrs &= precomp.align_mask[start.index()][self.friendly_king_sqr.index()];
@@ -363,10 +358,8 @@ impl MoveGenerator {
                 let mut pawns_that_can_ep = pawns & BitBoardUtils::pawn_attacks(BitBoard(1 << target_sqr), !self.white_to_move);
                 while pawns_that_can_ep.0 != 0 {
                     let start_sqr = pawns_that_can_ep.pop_lsb() as i8;
-                    if !self.is_pinned(Coord::from_idx(start_sqr)) || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()] {
-                        if !self.in_check_after_ep(board, magic, start_sqr, target_sqr, captured_pawn_sqr) {
-                            self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::EN_PASSANT_CAPTURE));
-                        }
+                    if (!self.is_pinned(Coord::from_idx(start_sqr)) || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()]) && !self.in_check_after_ep(board, magic, start_sqr, target_sqr, captured_pawn_sqr) {
+                        self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::EN_PASSANT_CAPTURE));
                     }
                 }
             }
@@ -392,38 +385,38 @@ impl MoveGenerator {
             let rook_attacks = magic.get_rook_attacks(self.friendly_king_sqr, masked_blockers);
             return (rook_attacks & enemy_ortho).0 != 0;
         }
-        return false;
+        false
     }
 }
 
-pub fn spawn_movegen(
-    mut commands: Commands,
-) {
-    let move_gen = MoveGenerator {
-        moves: Vec::new(),
-        promotions_to_gen: PromotionMode::All,
-        white_to_move: true,
-        friendly_color: Piece::WHITE,
-        enemy_color: Piece::BLACK,
-        friendly_king_sqr: Coord::new(0, 0),
-        friendly_idx: Board::WHITE_INDEX,
-        enemy_idx: Board::BLACK_INDEX,
-        in_check: false,
-        in_double_check: false,
-        check_ray_bitmask: BitBoard(0),
-        pin_rays: BitBoard(0),
-        not_pin_rays: BitBoard(0),
-        enemy_attack_map_no_pawns: BitBoard(0),
-        enemy_attack_map: BitBoard(0),
-        enemy_pawn_attack_map: BitBoard(0),
-        enemy_sliding_attack_map: BitBoard(0),
-        gen_quiet_moves: true,
-        enemy_pieces: BitBoard(0),
-        friendly_pieces: BitBoard(0),
-        all_pieces: BitBoard(0),
-        empty_sqrs: BitBoard(0),
-        empty_or_enemy_sqrs: BitBoard(0),
-        move_type_mask: BitBoard(0)
-    };
-    commands.insert_resource(move_gen);
+
+impl Default for MoveGenerator {
+    fn default() -> Self {
+        MoveGenerator {
+            moves: Vec::new(),
+            promotions_to_gen: PromotionMode::All,
+            white_to_move: true,
+            friendly_color: Piece::WHITE,
+            enemy_color: Piece::BLACK,
+            friendly_king_sqr: Coord::new(0, 0),
+            friendly_idx: Board::WHITE_INDEX,
+            enemy_idx: Board::BLACK_INDEX,
+            in_check: false,
+            in_double_check: false,
+            check_ray_bitmask: BitBoard(0),
+            pin_rays: BitBoard(0),
+            not_pin_rays: BitBoard(0),
+            enemy_attack_map_no_pawns: BitBoard(0),
+            enemy_attack_map: BitBoard(0),
+            enemy_pawn_attack_map: BitBoard(0),
+            enemy_sliding_attack_map: BitBoard(0),
+            gen_quiet_moves: true,
+            enemy_pieces: BitBoard(0),
+            friendly_pieces: BitBoard(0),
+            all_pieces: BitBoard(0),
+            empty_sqrs: BitBoard(0),
+            empty_or_enemy_sqrs: BitBoard(0),
+            move_type_mask: BitBoard(0)
+        }
+    }
 }

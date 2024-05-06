@@ -1,4 +1,4 @@
-use crate::game::representation::square_name_from_idx;
+use crate::utils::representation::square_name_from_idx;
 
 use super::piece::*;
 use super::coord::*;
@@ -6,7 +6,7 @@ use super::coord::*;
 
 const START_SQUARE_MASK: u16 = 0b0000000000111111;
 const TARGET_SQUARE_MASK: u16 = 0b0000111111000000;
-// const FLAG_MASK: u16 = 0b1111000000000000;
+const FLAG_MASK: u16 = 0b1111000000000000;
 
 
 #[derive(PartialEq, Clone, Copy)]
