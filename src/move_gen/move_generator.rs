@@ -63,6 +63,7 @@ impl MoveGenerator {
             self.gen_pawn_moves(board, precomp, magic);
         }
     }
+
     pub fn in_check(&self) -> bool {
         self.in_check
     }
@@ -89,15 +90,16 @@ impl MoveGenerator {
 
         self.calc_attack_data(board, precomp, bbutils, magic);
     }
+
     fn calc_attack_data(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards) {
         self.gen_sliding_attack_map(board, magic);
         let mut start_dir_idx = 0;
         let mut end_dir_idx = 8;
 
         // Don't calculate unecessary directions
-        if board.get_piece_list(Piece::new(Piece::QUEEN | self.enemy_color)).count() == 0 {
-            start_dir_idx = if board.get_piece_list(Piece::new(Piece::ROOK | self.enemy_color)).count() > 0 { 0 } else { 4 };
-            end_dir_idx = if board.get_piece_list(Piece::new(Piece::BISHOP | self.enemy_color)).count() > 0 { 8 } else { 4 };
+        if board.piece_bitboards[Piece::new(Piece::QUEEN | self.enemy_color).index()].count() == 0 {
+            start_dir_idx = if board.piece_bitboards[Piece::new(Piece::ROOK | self.enemy_color).index()].count() > 0 { 0 } else { 4 };
+            end_dir_idx = if board.piece_bitboards[Piece::new(Piece::BISHOP | self.enemy_color).index()].count() > 0 { 8 } else { 4 };
         }
 
         for dir in start_dir_idx..end_dir_idx {
@@ -171,11 +173,13 @@ impl MoveGenerator {
             self.check_ray_bitmask = BitBoard::ALL;
         }
     }
+
     fn gen_sliding_attack_map(&mut self, board: &Board, magic: &MagicBitBoards) {
         self.enemy_sliding_attack_map = BitBoard(0);
         self.update_slide_attack(board, magic, board.enemy_orthogonal_sliders, true);
         self.update_slide_attack(board, magic, board.enemy_diagonal_sliders, false);
     }
+
     fn update_slide_attack(&mut self, board: &Board, magic: &MagicBitBoards, mut piece_board: BitBoard, ortho: bool) {
         let blockers = board.all_pieces_bitboard & !self.friendly_king_sqr.to_bitboard();
         while piece_board.0 != 0 {
@@ -184,6 +188,7 @@ impl MoveGenerator {
             self.enemy_sliding_attack_map |= move_board;
         }
     }
+
     fn is_pinned(&self, sqr: Coord) -> bool {
         ((self.pin_rays >> sqr.index()) & 1).0 != 0
     }
@@ -215,6 +220,7 @@ impl MoveGenerator {
             }
         }
     }
+
     fn gen_sliding_moves(&mut self, board: &Board, magic: &MagicBitBoards, precomp: &PrecomputedMoveData) {
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
         let mut orthogonal_sliders = board.friendly_orthogonal_sliders;
@@ -255,6 +261,7 @@ impl MoveGenerator {
             }
         }
     }
+
     fn gen_knight_moves(&mut self, board: &Board, bbutils: &BitBoardUtils) {
         let friendly_knight_piece = Piece::new(Piece::KNIGHT | self.friendly_color);
         let mut knights = board.piece_bitboards[friendly_knight_piece.index()] & self.not_pin_rays;
@@ -269,6 +276,7 @@ impl MoveGenerator {
             }
         }
     }
+
     fn gen_pawn_moves(&mut self, board: &Board, precomp: &PrecomputedMoveData, magic: &MagicBitBoards) {
         let push_dir = if self.white_to_move { 1i8 } else { -1i8 };
         let push_offset = push_dir * 8;
@@ -378,6 +386,7 @@ impl MoveGenerator {
             }
         }
     }
+
     fn in_check_after_ep(&self, board: &Board, magic: &MagicBitBoards, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
         let enemy_ortho = board.enemy_orthogonal_sliders;
         if enemy_ortho.0 != 0 {

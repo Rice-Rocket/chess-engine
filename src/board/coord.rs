@@ -142,6 +142,18 @@ impl Mul<i8> for Coord {
     }
 }
 
+impl From<(i8, i8)> for Coord {
+    fn from(value: (i8, i8)) -> Self {
+        Coord::new(value.0, value.1)
+    }
+}
+
+impl From<Coord> for (i8, i8) {
+    fn from(value: Coord) -> Self {
+        (value.file(), value.rank())
+    }
+}
+
 pub struct CoordIterator {
     curr: i8,
 }

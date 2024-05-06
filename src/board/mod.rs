@@ -1,13 +1,11 @@
 pub mod coord;
 pub mod piece;
-pub mod piece_list;
 pub mod zobrist;
 pub mod moves;
 pub mod game_state;
 
 
 use piece::Piece;
-use piece_list::PieceList;
 use moves::Move;
 use zobrist::Zobrist;
 use coord::Coord;
@@ -31,7 +29,6 @@ pub struct Board {
     pub enemy_diagonal_sliders: BitBoard,
 
     pub total_pieces_no_pawns_kings: usize,
-    all_pieces: Vec<PieceList>,
     game_state_history: Vec<GameState>,
     cached_in_check_val: bool,
     has_cached_in_check_val: bool,
@@ -50,13 +47,6 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        let knights = vec![PieceList::new(10); 2];
-        let pawns = vec![PieceList::new(8); 2];
-        let rooks = vec![PieceList::new(10); 2];
-        let bishops = vec![PieceList::new(10); 2];
-        let queens = vec![PieceList::new(9); 2];
-        let kings = vec![PieceList::new(1); 2];
-        let empty_list = PieceList::new(0);
         Self {
             square: [Piece::NULL; 64],
             king_square: [Coord::NULL; 2],
@@ -70,22 +60,6 @@ impl Default for Board {
             enemy_diagonal_sliders: BitBoard(0),
 
             total_pieces_no_pawns_kings: 0,
-            all_pieces: vec![
-                empty_list.clone(),
-				pawns[Board::WHITE_INDEX].clone(),
-				knights[Board::WHITE_INDEX].clone(),
-				bishops[Board::WHITE_INDEX].clone(),
-				rooks[Board::WHITE_INDEX].clone(),
-				queens[Board::WHITE_INDEX].clone(),
-                kings[Board::WHITE_INDEX].clone(),
-				empty_list.clone(),
-				pawns[Board::BLACK_INDEX].clone(),
-				knights[Board::BLACK_INDEX].clone(),
-				bishops[Board::BLACK_INDEX].clone(),
-				rooks[Board::BLACK_INDEX].clone(),
-				queens[Board::BLACK_INDEX].clone(),
-                kings[Board::BLACK_INDEX].clone(),
-            ],
             game_state_history: Vec::with_capacity(64),
             cached_in_check_val: false,
             has_cached_in_check_val: false,
@@ -113,13 +87,6 @@ impl Default for Board {
 impl Board {
     pub const WHITE_INDEX: usize = 0;
     pub const BLACK_INDEX: usize = 1;
-
-    pub fn get_piece_list(&self, piece: Piece) -> &PieceList {
-        &self.all_pieces[piece.color_index() * 7 + piece.piece_type() as usize]
-    }
-    pub fn get_piece_list_mut(&mut self, piece: Piece) -> &mut PieceList {
-        &mut self.all_pieces[piece.color_index() * 7 + piece.piece_type() as usize]
-    }
 }
 
 pub struct BoardUnmakeMove {
@@ -160,10 +127,6 @@ impl Board {
                 self.total_pieces_no_pawns_kings -= 1;
             }
 
-            // if self.get_piece_list(captured_piece).count() == 0 {
-            //     println!("tried capture null piece: {:?}, {:?}\n{}", start_sqr, target_sqr, crate::utils::fen::fen_from_position(self));
-            // }
-            self.get_piece_list_mut(captured_piece).remove_piece(capture_sqr);
             self.piece_bitboards[captured_piece.index()].toggle_square(capture_sqr.square());
             self.color_bitboards[self.opponent_color_idx].toggle_square(capture_sqr.square());
             new_zobrist_key ^= zobrist.pieces_array[capture_sqr.index()][captured_piece.index()];
@@ -197,7 +160,6 @@ impl Board {
                 self.color_bitboards[self.move_color_idx].clear_square(castling_rook_from.square());
                 // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
 
-                self.get_piece_list_mut(rook_piece).move_piece(castling_rook_from, castling_rook_to);
                 // println!("{:?} ({}): {:?}", castling_rook_from, castling_rook_from.square(), self.square[castling_rook_from.index()]);
                 self.square[castling_rook_from.index()] = Piece::NULL;
                 self.square[castling_rook_to.index()] = rook_piece;
@@ -218,8 +180,6 @@ impl Board {
             let prom_piece = Piece::new(prom_ptype | self.move_color);
             self.piece_bitboards[moved_piece.index()].toggle_square(target_sqr.square());
             self.piece_bitboards[prom_piece.index()].toggle_square(target_sqr.square());
-            self.get_piece_list_mut(moved_piece).remove_piece(target_sqr);
-            self.get_piece_list_mut(prom_piece).add_piece(target_sqr);
             self.square[target_sqr.index()] = prom_piece;
         }
 
@@ -310,8 +270,6 @@ impl Board {
             let pawn_piece = Piece::new(Piece::PAWN | self.move_color);
             self.total_pieces_no_pawns_kings -= 1;
 
-            self.get_piece_list_mut(promoted_piece).remove_piece(move_to);
-            self.get_piece_list_mut(moved_piece).add_piece(move_to);
             self.piece_bitboards[promoted_piece.index()].toggle_square(move_to.square());
             self.piece_bitboards[pawn_piece.index()].toggle_square(move_to.square());
         }
@@ -331,7 +289,6 @@ impl Board {
 
             self.piece_bitboards[captured_piece.index()].toggle_square(capture_square.square());
             self.color_bitboards[self.opponent_color_idx].toggle_square(capture_square.square());
-            self.get_piece_list_mut(captured_piece).add_piece(capture_square);
             self.square[capture_square.index()] = captured_piece;
         }
 
@@ -354,7 +311,6 @@ impl Board {
                 // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
                 self.square[rook_square_after_castling.index()] = Piece::NULL;
                 self.square[rook_square_before_castling.index()] = rook_piece;
-                self.get_piece_list_mut(rook_piece).move_piece(rook_square_after_castling, rook_square_before_castling);
             }
         }
 
@@ -427,7 +383,6 @@ impl Board {
                 if ptype == Piece::KING {
                     board.king_square[color_idx] = sqr;
                 }
-                board.get_piece_list_mut(piece).add_piece(sqr);
                 board.total_pieces_no_pawns_kings += if ptype == Piece::KING || ptype == Piece::PAWN { 0 } else { 1 };
             }
         }
@@ -504,7 +459,6 @@ impl Board {
         self.piece_bitboards[piece.index()].toggle_squares(start.square(), target.square());
         self.color_bitboards[piece.color_index()].toggle_squares(start.square(), target.square());
 
-        self.get_piece_list_mut(piece).move_piece(start, target);
         self.square[start.index()] = Piece::NULL;
         self.square[target.index()] = piece;
     }
