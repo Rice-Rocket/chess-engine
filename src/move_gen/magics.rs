@@ -34,13 +34,13 @@ impl MagicBitBoards {
     }
 
     pub fn get_rook_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
-        let key = ((blockers & self.rook_mask[square.index()]).0.wrapping_mul(Self::ROOK_MAGICS[square.index()])).wrapping_shr(Self::ROOK_SHIFTS[square.index()]);
-        self.rook_attacks[square.index()][key as usize]
+        let key = ((blockers & self.rook_mask[square]).0.wrapping_mul(Self::ROOK_MAGICS[square])).wrapping_shr(Self::ROOK_SHIFTS[square]);
+        self.rook_attacks[square][key as usize]
     }
 
     pub fn get_bishop_attacks(&self, square: Coord, blockers: BitBoard) -> BitBoard {
-        let key = ((blockers & self.bishop_mask[square.index()]).0.wrapping_mul(Self::BISHOP_MAGICS[square.index()])).wrapping_shr(Self::BISHOP_SHIFTS[square.index()]);
-        self.bishop_attacks[square.index()][key as usize]
+        let key = ((blockers & self.bishop_mask[square]).0.wrapping_mul(Self::BISHOP_MAGICS[square])).wrapping_shr(Self::BISHOP_SHIFTS[square]);
+        self.bishop_attacks[square][key as usize]
     }
 
     pub fn create_blocker_bitboards(move_mask: BitBoard) -> Vec<BitBoard> {
@@ -118,8 +118,8 @@ impl Default for MagicBitBoards {
         let mut bishop_mask: [BitBoard; 64] = [BitBoard(0); 64];
 
         for sqr in Coord::iter_squares() {
-            rook_mask[sqr.index()] = Self::create_movement_mask(sqr, true);
-            bishop_mask[sqr.index()] = Self::create_movement_mask(sqr, false);
+            rook_mask[sqr] = Self::create_movement_mask(sqr, true);
+            bishop_mask[sqr] = Self::create_movement_mask(sqr, false);
         };
 
         const EMPTY_VEC: Vec<BitBoard> = Vec::new();
@@ -127,8 +127,8 @@ impl Default for MagicBitBoards {
         let mut bishop_attacks: [Vec<BitBoard>; 64] = [EMPTY_VEC; 64];
 
         for sqr in Coord::iter_squares() {
-            rook_attacks[sqr.index()] = Self::create_table(sqr, true, Self::ROOK_MAGICS[sqr.index()], Self::ROOK_SHIFTS[sqr.index()]);
-            bishop_attacks[sqr.index()] = Self::create_table(sqr, false, Self::BISHOP_MAGICS[sqr.index()], Self::BISHOP_SHIFTS[sqr.index()]);
+            rook_attacks[sqr] = Self::create_table(sqr, true, Self::ROOK_MAGICS[sqr.index()], Self::ROOK_SHIFTS[sqr.index()]);
+            bishop_attacks[sqr] = Self::create_table(sqr, false, Self::BISHOP_MAGICS[sqr.index()], Self::BISHOP_SHIFTS[sqr.index()]);
         }
 
         MagicBitBoards {

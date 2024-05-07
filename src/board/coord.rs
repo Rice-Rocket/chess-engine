@@ -1,5 +1,5 @@
 use crate::{utils::representation::square_name_from_coord, bitboard::bb::BitBoard};
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 // First 4 bits: rank, last 4 bits: file
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -163,6 +163,34 @@ impl From<(i8, i8)> for Coord {
 impl From<Coord> for (i8, i8) {
     fn from(value: Coord) -> Self {
         (value.file(), value.rank())
+    }
+}
+
+impl<T> Index<Coord> for Vec<T> {
+    type Output = T;
+
+    fn index(&self, index: Coord) -> &Self::Output {
+        &self[index.index()]
+    }
+}
+
+impl<T> IndexMut<Coord> for Vec<T> {
+    fn index_mut(&mut self, index: Coord) -> &mut Self::Output {
+        &mut self[index.index()]
+    }
+}
+
+impl<T> Index<Coord> for [T] {
+    type Output = T;
+
+    fn index(&self, index: Coord) -> &Self::Output {
+        &self[index.index()]
+    }
+}
+
+impl<T> IndexMut<Coord> for [T] {
+    fn index_mut(&mut self, index: Coord) -> &mut Self::Output {
+        &mut self[index.index()]
     }
 }
 

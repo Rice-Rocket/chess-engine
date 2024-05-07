@@ -104,9 +104,9 @@ impl Board {
         let is_promotion: bool = mov.is_promotion();
         let is_en_passant: bool = move_flag == Move::EN_PASSANT_CAPTURE;
 
-        let moved_piece = self.square[start_sqr.index()];
+        let moved_piece = self.square[start_sqr];
         let moved_ptype = moved_piece.piece_type();
-        let captured_piece = if is_en_passant { Piece::new(Piece::PAWN | self.opponent_color) } else { self.square[target_sqr.index()] };
+        let captured_piece = if is_en_passant { Piece::new(Piece::PAWN | self.opponent_color) } else { self.square[target_sqr] };
         let captured_ptype = captured_piece.piece_type();
 
         let prev_castle_state = self.current_state.castling_rights;
@@ -121,15 +121,15 @@ impl Board {
             let mut capture_sqr = target_sqr;
             if is_en_passant {
                 capture_sqr = target_sqr + if self.white_to_move { -8 } else { 8 };
-                self.square[capture_sqr.index()] = Piece::NULL;
+                self.square[capture_sqr] = Piece::NULL;
             }
             if captured_ptype != Piece::PAWN {
                 self.total_pieces_no_pawns_kings -= 1;
             }
 
-            self.piece_bitboards[captured_piece.index()].toggle_square(capture_sqr.square());
+            self.piece_bitboards[captured_piece].toggle_square(capture_sqr.square());
             self.color_bitboards[self.opponent_color_idx].toggle_square(capture_sqr.square());
-            new_zobrist_key ^= zobrist.pieces_array[capture_sqr.index()][captured_piece.index()];
+            new_zobrist_key ^= zobrist.pieces_array[capture_sqr][captured_piece.index()];
         }
 
         if moved_ptype == Piece::KING {
@@ -154,18 +154,18 @@ impl Board {
                 // ! What is happening: 
                 // ! Castle move is unmade
                 // ! 
-                self.piece_bitboards[rook_piece.index()].set_square(castling_rook_to.square());
-                self.piece_bitboards[rook_piece.index()].clear_square(castling_rook_from.square());
+                self.piece_bitboards[rook_piece].set_square(castling_rook_to.square());
+                self.piece_bitboards[rook_piece].clear_square(castling_rook_from.square());
                 self.color_bitboards[self.move_color_idx].set_square(castling_rook_to.square());
                 self.color_bitboards[self.move_color_idx].clear_square(castling_rook_from.square());
                 // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
 
                 // println!("{:?} ({}): {:?}", castling_rook_from, castling_rook_from.square(), self.square[castling_rook_from.index()]);
-                self.square[castling_rook_from.index()] = Piece::NULL;
-                self.square[castling_rook_to.index()] = rook_piece;
+                self.square[castling_rook_from] = Piece::NULL;
+                self.square[castling_rook_to] = rook_piece;
                 
-                new_zobrist_key ^= zobrist.pieces_array[castling_rook_from.index()][rook_piece.index()];
-                new_zobrist_key ^= zobrist.pieces_array[castling_rook_to.index()][rook_piece.index()];
+                new_zobrist_key ^= zobrist.pieces_array[castling_rook_from][rook_piece.index()];
+                new_zobrist_key ^= zobrist.pieces_array[castling_rook_to][rook_piece.index()];
             }
         }
         if is_promotion {
@@ -178,9 +178,9 @@ impl Board {
                 _ => Piece::NONE,
             };
             let prom_piece = Piece::new(prom_ptype | self.move_color);
-            self.piece_bitboards[moved_piece.index()].toggle_square(target_sqr.square());
-            self.piece_bitboards[prom_piece.index()].toggle_square(target_sqr.square());
-            self.square[target_sqr.index()] = prom_piece;
+            self.piece_bitboards[moved_piece].toggle_square(target_sqr.square());
+            self.piece_bitboards[prom_piece].toggle_square(target_sqr.square());
+            self.square[target_sqr] = prom_piece;
         }
 
         if move_flag == Move::PAWN_TWO_FORWARD {
@@ -202,8 +202,8 @@ impl Board {
         }
 
         new_zobrist_key ^= zobrist.side_to_move;
-        new_zobrist_key ^= zobrist.pieces_array[start_sqr.index()][moved_piece.index()];
-        new_zobrist_key ^= zobrist.pieces_array[target_sqr.index()][self.square[target_sqr.index()].index()];
+        new_zobrist_key ^= zobrist.pieces_array[start_sqr][moved_piece];
+        new_zobrist_key ^= zobrist.pieces_array[target_sqr][self.square[target_sqr]];
         new_zobrist_key ^= zobrist.en_passant_file[prev_en_passant_file as usize];
 
         if new_castling_rights != prev_castle_state {
@@ -261,17 +261,17 @@ impl Board {
         let undoing_promotion = mov.is_promotion();
         let undoing_capture = self.current_state.captured_ptype != Piece::NONE;
         
-        let moved_piece = if undoing_promotion { Piece::new(Piece::PAWN | self.move_color) } else { self.square[move_to.index()] };
+        let moved_piece = if undoing_promotion { Piece::new(Piece::PAWN | self.move_color) } else { self.square[move_to] };
         let moved_ptype = moved_piece.piece_type();
         let captured_ptype = self.current_state.captured_ptype;
 
         if undoing_promotion {
-            let promoted_piece = self.square[move_to.index()];
+            let promoted_piece = self.square[move_to];
             let pawn_piece = Piece::new(Piece::PAWN | self.move_color);
             self.total_pieces_no_pawns_kings -= 1;
 
-            self.piece_bitboards[promoted_piece.index()].toggle_square(move_to.square());
-            self.piece_bitboards[pawn_piece.index()].toggle_square(move_to.square());
+            self.piece_bitboards[promoted_piece].toggle_square(move_to.square());
+            self.piece_bitboards[pawn_piece].toggle_square(move_to.square());
         }
 
         self.move_piece(moved_piece, move_to, move_from);
@@ -287,9 +287,9 @@ impl Board {
                 self.total_pieces_no_pawns_kings += 1;
             }
 
-            self.piece_bitboards[captured_piece.index()].toggle_square(capture_square.square());
+            self.piece_bitboards[captured_piece].toggle_square(capture_square.square());
             self.color_bitboards[self.opponent_color_idx].toggle_square(capture_square.square());
-            self.square[capture_square.index()] = captured_piece;
+            self.square[capture_square] = captured_piece;
         }
 
         if moved_ptype == Piece::KING {
@@ -304,13 +304,13 @@ impl Board {
                 // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
                 // self.piece_bitboards[rook_piece.index()].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
                 // self.color_bitboards[self.move_color_idx].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
-                self.piece_bitboards[rook_piece.index()].clear_square(rook_square_after_castling.square());
-                self.piece_bitboards[rook_piece.index()].set_square(rook_square_before_castling.square());
+                self.piece_bitboards[rook_piece].clear_square(rook_square_after_castling.square());
+                self.piece_bitboards[rook_piece].set_square(rook_square_before_castling.square());
                 self.color_bitboards[self.move_color_idx].clear_square(rook_square_after_castling.square());
                 self.color_bitboards[self.move_color_idx].set_square(rook_square_before_castling.square());
                 // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
-                self.square[rook_square_after_castling.index()] = Piece::NULL;
-                self.square[rook_square_before_castling.index()] = rook_piece;
+                self.square[rook_square_after_castling] = Piece::NULL;
+                self.square[rook_square_before_castling] = rook_piece;
             }
         }
 
@@ -372,13 +372,13 @@ impl Board {
 
         for sqr_idx in 0i8..64i8 {
             let sqr = Coord::from_idx(sqr_idx);
-            let piece = Piece::new(loaded_pos.squares[sqr.index()]);
+            let piece = Piece::new(loaded_pos.squares[sqr]);
             let ptype = piece.piece_type();
             let color_idx = if piece.is_color(Piece::WHITE) { Board::WHITE_INDEX } else { Board::BLACK_INDEX };
-            board.square[sqr.index()] = piece;
+            board.square[sqr] = piece;
     
             if ptype != Piece::NONE {
-                board.piece_bitboards[piece.index()].set_square(sqr_idx);
+                board.piece_bitboards[piece].set_square(sqr_idx);
                 board.color_bitboards[color_idx].set_square(sqr_idx);
                 if ptype == Piece::KING {
                     board.king_square[color_idx] = sqr;
@@ -442,13 +442,13 @@ impl Board {
             }
         }
 
-        let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color).index()];
-        if (bbutils.knight_attacks[king_sqr.index()] & enemy_knights).0 != 0 {
+        let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color)];
+        if (bbutils.knight_attacks[king_sqr] & enemy_knights).0 != 0 {
             return true;
         }
 
-        let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color).index()];
-        let pawn_attack_mask = if self.white_to_move { bbutils.white_pawn_attacks[king_sqr.index()] } else { bbutils.black_pawn_attacks[king_sqr.index()] };
+        let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color)];
+        let pawn_attack_mask = if self.white_to_move { bbutils.white_pawn_attacks[king_sqr] } else { bbutils.black_pawn_attacks[king_sqr] };
         if (pawn_attack_mask & enemy_pawns).0 != 0 {
             return true;
         }
@@ -457,25 +457,25 @@ impl Board {
     }
 
     fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {
-        self.piece_bitboards[piece.index()].toggle_squares(start.square(), target.square());
+        self.piece_bitboards[piece].toggle_squares(start.square(), target.square());
         self.color_bitboards[piece.color_index()].toggle_squares(start.square(), target.square());
 
-        self.square[start.index()] = Piece::NULL;
-        self.square[target.index()] = piece;
+        self.square[start] = Piece::NULL;
+        self.square[target] = piece;
     }
 
     fn update_slider_bitboards(&mut self) {
         let friendly_rook = Piece::new(Piece::ROOK | self.move_color);
         let friendly_queen = Piece::new(Piece::QUEEN | self.move_color);
         let friendly_bishop = Piece::new(Piece::BISHOP | self.move_color);
-        self.friendly_orthogonal_sliders = self.piece_bitboards[friendly_rook.index()] | self.piece_bitboards[friendly_queen.index()];
-        self.friendly_diagonal_sliders = self.piece_bitboards[friendly_bishop.index()] | self.piece_bitboards[friendly_queen.index()];
+        self.friendly_orthogonal_sliders = self.piece_bitboards[friendly_rook] | self.piece_bitboards[friendly_queen];
+        self.friendly_diagonal_sliders = self.piece_bitboards[friendly_bishop] | self.piece_bitboards[friendly_queen];
 
         let enemy_rook = Piece::new(Piece::ROOK | self.opponent_color);
         let enemy_queen = Piece::new(Piece::QUEEN | self.opponent_color);
         let enemy_bishop = Piece::new(Piece::BISHOP | self.opponent_color);
-        self.enemy_orthogonal_sliders = self.piece_bitboards[enemy_rook.index()] | self.piece_bitboards[enemy_queen.index()];
-        self.enemy_diagonal_sliders = self.piece_bitboards[enemy_bishop.index()] | self.piece_bitboards[enemy_queen.index()];
+        self.enemy_orthogonal_sliders = self.piece_bitboards[enemy_rook] | self.piece_bitboards[enemy_queen];
+        self.enemy_diagonal_sliders = self.piece_bitboards[enemy_bishop] | self.piece_bitboards[enemy_queen];
     }
 }
 

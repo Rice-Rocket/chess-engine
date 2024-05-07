@@ -57,31 +57,31 @@ impl BitBoardUtils {
                     let diag_y = y + diag_dir[dir_idx].1;
 
                     if let Some(ortho_target_idx) = valid_index(ortho_x, ortho_y) {
-                        king_moves[sqr.index()] |= 1 << ortho_target_idx;
+                        king_moves[sqr] |= 1 << ortho_target_idx;
                     }
                     if let Some(diag_target_idx) = valid_index(diag_x, diag_y) {
-                        king_moves[sqr.index()] |= 1 << diag_target_idx;
+                        king_moves[sqr] |= 1 << diag_target_idx;
                     }
 
                     for knight_jump in knight_jumps.iter() {
                         let knight_x = x + knight_jump.0;
                         let knight_y = y + knight_jump.1;
                         if let Some(knight_target_idx) = valid_index(knight_x, knight_y) {
-                            knight_attacks[sqr.index()] |= 1 << knight_target_idx;
+                            knight_attacks[sqr] |= 1 << knight_target_idx;
                         }
                     }
 
                     if let Some(white_pawn_right) = valid_index(x + 1, y + 1) {
-                        white_pawn_attacks[sqr.index()] |= 1 << white_pawn_right;
+                        white_pawn_attacks[sqr] |= 1 << white_pawn_right;
                     }
                     if let Some(white_pawn_left) = valid_index(x - 1, y + 1) {
-                        white_pawn_attacks[sqr.index()] |= 1 << white_pawn_left;
+                        white_pawn_attacks[sqr] |= 1 << white_pawn_left;
                     }
                     if let Some(black_pawn_right) = valid_index(x + 1, y - 1) {
-                        black_pawn_attacks[sqr.index()] |= 1 << black_pawn_right;
+                        black_pawn_attacks[sqr] |= 1 << black_pawn_right;
                     }
                     if let Some(black_pawn_left) = valid_index(x - 1, y - 1) {
-                        black_pawn_attacks[sqr.index()] |= 1 << black_pawn_left;
+                        black_pawn_attacks[sqr] |= 1 << black_pawn_left;
                     }
                 }
             };

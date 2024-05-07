@@ -58,17 +58,17 @@ impl PrecomputedBits {
             let white_forward_mask = BitBoard(!(u64::MAX >> (64 - 8 * (rank + 1))));
             let black_forward_mask = BitBoard((1 << (8 * rank)) - 1);
 
-            white_passed_pawn_mask[sqr.index()] = (BitBoard::FILE_A << file as usize | adjacent_files) & white_forward_mask;
-            black_passed_pawn_mask[sqr.index()] = (BitBoard::FILE_A << file as usize | adjacent_files) & black_forward_mask;
+            white_passed_pawn_mask[sqr] = (BitBoard::FILE_A << file as usize | adjacent_files) & white_forward_mask;
+            black_passed_pawn_mask[sqr] = (BitBoard::FILE_A << file as usize | adjacent_files) & black_forward_mask;
 
             let adjacent = ((
                 if sqr.index() == 0 { BitBoard(0) } else { BitBoard(1 << (sqr.index() - 1)) }
             ) | (if sqr.index() == 63 { 0 } else { 1 << (sqr.index() + 1) })) & adjacent_files;
-            white_pawn_support_mask[sqr.index()] = adjacent | adjacent.shifted(-8);
-            black_pawn_support_mask[sqr.index()] = adjacent | adjacent.shifted(8);
+            white_pawn_support_mask[sqr] = adjacent | adjacent.shifted(-8);
+            black_pawn_support_mask[sqr] = adjacent | adjacent.shifted(8);
 
-            white_forward_file_mask[sqr.index()] = white_forward_mask & file_mask[file as usize];
-            black_forward_file_mask[sqr.index()] = black_forward_mask & file_mask[rank as usize];
+            white_forward_file_mask[sqr] = white_forward_mask & file_mask[file as usize];
+            black_forward_file_mask[sqr] = black_forward_mask & file_mask[rank as usize];
         };
 
         let mut king_safety_mask: [BitBoard; 64] = [BitBoard(0); 64];

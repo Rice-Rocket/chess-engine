@@ -1,4 +1,4 @@
-use std::ops::{BitOr, BitOrAssign};
+use std::ops::{BitOr, BitOrAssign, Index, IndexMut};
 
 use super::Board;
 
@@ -105,6 +105,35 @@ impl Piece {
 
     pub fn color_index(self) -> usize {
         if self.is_white() { Board::WHITE_INDEX } else { Board::BLACK_INDEX }
+    }
+}
+
+
+impl<T> Index<Piece> for Vec<T> {
+    type Output = T;
+    
+    fn index(&self, index: Piece) -> &Self::Output {
+        &self[index.index()]
+    }
+}
+
+impl<T> IndexMut<Piece> for Vec<T> {
+    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
+        &mut self[index.index()]
+    }
+}
+
+impl<T> Index<Piece> for [T] {
+    type Output = T;
+
+    fn index(&self, index: Piece) -> &Self::Output {
+        &self[index.index()]
+    }
+}
+
+impl<T> IndexMut<Piece> for [T] {
+    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
+        &mut self[index.index()]
     }
 }
 

@@ -177,12 +177,12 @@ impl PrecomputedMoveData {
         for sqr_a in Coord::iter_squares() {
             let file_center_dst = (3 - sqr_a.file() as i32).max(sqr_a.file() as i32 - 4) as u32;
             let rank_center_dst = (3 - sqr_a.rank() as i32).max(sqr_a.rank() as i32 - 4) as u32;
-            center_manhattan_distance[sqr_a.index()] = file_center_dst + rank_center_dst;
+            center_manhattan_distance[sqr_a] = file_center_dst + rank_center_dst;
             for sqr_b in Coord::iter_squares() {
                 let file_dst = (sqr_a.file() as i32 - sqr_b.file() as i32).abs();
                 let rank_dst = (sqr_a.rank() as i32 - sqr_b.rank() as i32).abs();
-                manhattan_distance[sqr_a.index()][sqr_b.index()] = (file_dst + rank_dst) as u32;
-                king_distance[sqr_a.index()][sqr_b.index()] = file_dst.max(rank_dst) as u32;
+                manhattan_distance[sqr_a][sqr_b] = (file_dst + rank_dst) as u32;
+                king_distance[sqr_a][sqr_b] = file_dst.max(rank_dst) as u32;
             }
         };
 
@@ -194,7 +194,7 @@ impl PrecomputedMoveData {
                 for i in -8..8 {
                     let c = sqr_a + dir * i;
                     if c.is_valid() {
-                        align_mask[sqr_a.index()][sqr_b.index()] |= 1 << c.index();
+                        align_mask[sqr_a][sqr_b] |= 1 << c.index();
                     }
                 }
             }
@@ -206,7 +206,7 @@ impl PrecomputedMoveData {
                 for i in 0..8 {
                     let c = sqr + *offset_2d * i;
                     if c.is_valid() {
-                        dir_ray_mask[sqr.index()][dir_idx] |= 1 << c.index();
+                        dir_ray_mask[sqr][dir_idx] |= 1 << c.index();
                     }
                 }
             }

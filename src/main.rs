@@ -7,9 +7,11 @@ mod utils;
 mod game;
 mod prelude;
 mod cli;
+mod eval;
 
 use std::fmt;
 
+use board::{zobrist::Zobrist, Board};
 use clap::{Parser, Subcommand, CommandFactory, ValueEnum};
 
 
@@ -55,7 +57,10 @@ fn main() {
             fen,
             depth,
         } => {
-            todo!();
+            let mut zobrist = Zobrist::new();
+            let board = Board::load_position(Some(fen), &mut zobrist);
+            let eval = board.evaluate();
+            println!("evaluation: {}", eval);
         },
         Commands::Play {
             white_player,
