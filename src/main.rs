@@ -25,6 +25,9 @@ struct Cli {
 enum Commands {
     Eval {
         fen: String,
+
+        #[arg(long, short, value_name = "DEPTH", default_value = "4")]
+        depth: u16,
     },
     Play {
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
@@ -50,6 +53,7 @@ fn main() {
     match cli_input.command {
         Commands::Eval {
             fen,
+            depth,
         } => {
             todo!();
         },

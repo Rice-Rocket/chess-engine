@@ -17,6 +17,7 @@ impl GameState {
         let mask = if white { 1 } else { 4 };
         (self.castling_rights & mask) != 0
     }
+
     pub fn has_queenside_castle_right(&self, white: bool) -> bool {
         let mask = if white { 2 } else { 8 };
         (self.castling_rights & mask) != 0

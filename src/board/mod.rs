@@ -424,6 +424,7 @@ impl Board {
         self.has_cached_in_check_val = true;
         self.cached_in_check_val
     }
+
     fn get_in_check_state(&self, magic: &MagicBitBoards, bbutils: &BitBoardUtils) -> bool {
         let king_sqr = self.king_square[self.move_color_idx];
         let blockers = self.all_pieces_bitboard;
@@ -462,6 +463,7 @@ impl Board {
         self.square[start.index()] = Piece::NULL;
         self.square[target.index()] = piece;
     }
+
     fn update_slider_bitboards(&mut self) {
         let friendly_rook = Piece::new(Piece::ROOK | self.move_color);
         let friendly_queen = Piece::new(Piece::QUEEN | self.move_color);

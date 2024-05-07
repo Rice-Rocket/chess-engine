@@ -50,8 +50,7 @@ impl PrecomputedBits {
         let mut white_forward_file_mask: [BitBoard; 64] = [BitBoard(0); 64];
         let mut black_forward_file_mask: [BitBoard; 64] = [BitBoard(0); 64];
 
-        for sqr_idx in 0..64 {
-            let sqr = Coord::from_idx(sqr_idx);
+        for sqr in Coord::iter_squares() {
             let file = sqr.file();
             let rank = sqr.rank();
             let adjacent_files = PrecomputedBits::FILE_A << (file - 1).max(0) | PrecomputedBits::FILE_A << (file + 1).max(7);
@@ -62,7 +61,9 @@ impl PrecomputedBits {
             white_passed_pawn_mask[sqr.index()] = (BitBoard::FILE_A << file as usize | adjacent_files) & white_forward_mask;
             black_passed_pawn_mask[sqr.index()] = (BitBoard::FILE_A << file as usize | adjacent_files) & black_forward_mask;
 
-            let adjacent = ((if sqr_idx == 0 { BitBoard(0) } else { BitBoard(1 << (sqr_idx - 1)) }) | (if sqr_idx == 63 { 0 } else { 1 << (sqr_idx + 1) })) & adjacent_files;
+            let adjacent = ((
+                if sqr.index() == 0 { BitBoard(0) } else { BitBoard(1 << (sqr.index() - 1)) }
+            ) | (if sqr.index() == 63 { 0 } else { 1 << (sqr.index() + 1) })) & adjacent_files;
             white_pawn_support_mask[sqr.index()] = adjacent | adjacent.shifted(-8);
             black_pawn_support_mask[sqr.index()] = adjacent | adjacent.shifted(8);
 

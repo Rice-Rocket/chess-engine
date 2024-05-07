@@ -39,6 +39,7 @@ impl PrecomputedMoveData {
     pub fn num_rook_moves_to_sqr(&self, start_sqr: u32, target_sqr: u32) -> u32 {
         self.manhattan_distance[start_sqr as usize][target_sqr as usize]
     }
+
     pub fn num_king_moves_to_sqr(&self, start_sqr: u32, target_sqr: u32) -> u32 {
         self.king_distance[start_sqr as usize][target_sqr as usize]
     }
@@ -173,31 +174,27 @@ impl PrecomputedMoveData {
         let mut manhattan_distance: [[u32; 64]; 64] = [[0; 64]; 64];
         let mut king_distance: [[u32; 64]; 64] = [[0; 64]; 64];
         let mut center_manhattan_distance: [u32; 64] = [0; 64];
-        for sqr_a in 0..64 {
-            let coord_a = Coord::from_idx(sqr_a);
-            let file_center_dst = (3 - coord_a.file() as i32).max(coord_a.file() as i32 - 4) as u32;
-            let rank_center_dst = (3 - coord_a.rank() as i32).max(coord_a.rank() as i32 - 4) as u32;
-            center_manhattan_distance[sqr_a as usize] = file_center_dst + rank_center_dst;
-            for sqr_b in 0..64 {
-                let coord_b = Coord::from_idx(sqr_b);
-                let file_dst = (coord_a.file() as i32 - coord_b.file() as i32).abs();
-                let rank_dst = (coord_a.rank() as i32 - coord_b.rank() as i32).abs();
-                manhattan_distance[sqr_a as usize][sqr_b as usize] = (file_dst + rank_dst) as u32;
-                king_distance[sqr_a as usize][sqr_b as usize] = file_dst.max(rank_dst) as u32;
+        for sqr_a in Coord::iter_squares() {
+            let file_center_dst = (3 - sqr_a.file() as i32).max(sqr_a.file() as i32 - 4) as u32;
+            let rank_center_dst = (3 - sqr_a.rank() as i32).max(sqr_a.rank() as i32 - 4) as u32;
+            center_manhattan_distance[sqr_a.index()] = file_center_dst + rank_center_dst;
+            for sqr_b in Coord::iter_squares() {
+                let file_dst = (sqr_a.file() as i32 - sqr_b.file() as i32).abs();
+                let rank_dst = (sqr_a.rank() as i32 - sqr_b.rank() as i32).abs();
+                manhattan_distance[sqr_a.index()][sqr_b.index()] = (file_dst + rank_dst) as u32;
+                king_distance[sqr_a.index()][sqr_b.index()] = file_dst.max(rank_dst) as u32;
             }
         };
 
         let mut align_mask: [[BitBoard; 64]; 64] = [[BitBoard(0); 64]; 64];
-        for sqr_a in 0..64 {
-            for sqr_b in 0..64 {
-                let ca = Coord::from_idx(sqr_a);
-                let cb = Coord::from_idx(sqr_b);
-                let delta = ca.delta(cb);
+        for sqr_a in Coord::iter_squares() {
+            for sqr_b in Coord::iter_squares() {
+                let delta = sqr_a.delta(sqr_b);
                 let dir = Coord::new(delta.file().signum(), delta.rank().signum());
                 for i in -8..8 {
-                    let c = ca + dir * i;
+                    let c = sqr_a + dir * i;
                     if c.is_valid() {
-                        align_mask[ca.index()][cb.index()] |= 1 << c.index();
+                        align_mask[sqr_a.index()][sqr_b.index()] |= 1 << c.index();
                     }
                 }
             }
@@ -205,8 +202,7 @@ impl PrecomputedMoveData {
 
         let mut dir_ray_mask: [[BitBoard; 8]; 64] = [[BitBoard(0); 8]; 64];
         for (dir_idx, offset_2d) in dir_offsets_2d.iter().enumerate() {
-            for sqr_idx in 0..64 {
-                let sqr = Coord::from_idx(sqr_idx);
+            for sqr in Coord::iter_squares() {
                 for i in 0..8 {
                     let c = sqr + *offset_2d * i;
                     if c.is_valid() {

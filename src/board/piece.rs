@@ -6,9 +6,7 @@ const TYPE_MASK: u8 = 0b0111;
 const COLOR_MASK: u8 = 0b1000;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Piece {
-    val: u8,
-}
+pub struct Piece(u8);
 
 impl Piece {
     pub const NONE: u8 = 0;   // 000
@@ -44,55 +42,67 @@ impl Piece {
         Piece::BLACK_PAWN, Piece::BLACK_KNIGHT, Piece::BLACK_BISHOP, Piece::BLACK_ROOK, Piece::BLACK_QUEEN, Piece::BLACK_KING,
     ];
 
-    pub const NULL: Self = Self { val: 0 };
+    pub const NULL: Self = Self(0);
 
     pub fn new(val: u8) -> Piece {
-        Piece {
-            val
-        }
+        Piece(val)
     }
+
     pub fn value(self) -> u8 {
-        self.val
+        self.0
     }
+
     pub fn is_color(self, color: u8) -> bool {
-        (self.val & COLOR_MASK) == color && self.val != 0
+        (self.0 & COLOR_MASK) == color && self.0 != 0
     }
+
     pub fn color(self) -> u8 {
-        self.val & COLOR_MASK
+        self.0 & COLOR_MASK
     }
+
     pub fn is_white(self) -> bool {
         self.color() == Piece::WHITE
     }
+
     pub fn piece_type(self) -> u8 {
-        self.val & TYPE_MASK
+        self.0 & TYPE_MASK
     }
+
     pub fn is_not_pawn_king(self) -> bool {
         self.piece_type() > 1 && self.piece_type() < 6
     }
+
     pub fn is_not_pawn(self) -> bool {
         self.piece_type() > 1
     }
+
     pub fn is_not_king(self) -> bool {
         self.piece_type() > 0 && self.piece_type() < 6
     }
+
     pub fn is_rook_or_queen(self) -> bool {
         self.piece_type() == Self::QUEEN || self.piece_type() == Self::ROOK
     }
+
     pub fn is_bishop_or_queen(self) -> bool {
         self.piece_type() == Self::QUEEN || self.piece_type() == Self::BISHOP
     }
+
     pub fn is_sliding_piece(self) -> bool {
         self.is_bishop_or_queen() || self.piece_type() == Self::ROOK
     }
+
     pub fn index(self) -> usize {
-        self.val as usize
+        self.0 as usize
     }
+
     pub fn ptype_index(self) -> Option<usize> {
         if self.piece_type() == Piece::NONE {
             return None;
         }
         Some(self.piece_type() as usize - 1)
     }
+
     pub fn color_index(self) -> usize {
         if self.is_white() { Board::WHITE_INDEX } else { Board::BLACK_INDEX }
     }
@@ -102,13 +112,13 @@ impl Piece {
 impl BitOr for Piece {
     type Output = Piece;
     fn bitor(self, rhs: Self) -> Self::Output {
-        Piece::new(self.val | rhs.val)
+        Piece::new(self.0 | rhs.0)
     }
 }
 
 impl BitOrAssign for Piece {
     fn bitor_assign(&mut self, rhs: Self) {
-        self.val |= rhs.val
+        self.0 |= rhs.0
     }
 }
 
