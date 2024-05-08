@@ -1,6 +1,7 @@
 use std::ops::Index;
 
-use crate::board::Board;
+use crate::board::{coord::Coord, Board};
+use crate::color::Color;
 
 
 pub struct State<'a> {
@@ -21,32 +22,6 @@ impl<'a> State<'a> {
             color: self.color.flip(),
             ..self
         }
-    }
-}
-
-
-pub struct Color(usize);
-
-impl Color {
-    pub fn white() -> Self {
-        Self(Board::WHITE_INDEX)
-    }
-
-    pub fn black() -> Self {
-        Self(Board::BLACK_INDEX)
-    }
-
-    pub fn flip(self) -> Self {
-        Self(1 - self.0)
-    }
-}
-
-
-impl<T> Index<Color> for Vec<T> {
-    type Output = T;
-
-    fn index(&self, index: Color) -> &Self::Output {
-        &self[index.0]
     }
 }
 
@@ -87,13 +62,13 @@ macro_rules! sum_sqrs {
 macro_rules! assert_eval {
     ($f:ident, [$file:expr, $rank:expr], $w:expr, $b:expr, $fen:literal $(; $($arg:expr),*)?) => {
         assert_eq!($f(
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::white()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::White), 
             $($($arg,)*)? 
             Coord::new($file, $rank)
         ), $w);
 
         assert_eq!($f(
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::black()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::Black), 
             $($($arg,)*)? 
             Coord::new($file, $rank)
         ), $b);
@@ -102,25 +77,25 @@ macro_rules! assert_eval {
     ($f:ident, $w:expr, $b:expr, $fen:literal $(; $($arg:expr),*)?) => {
         assert_eq!(sum_sqrs!(
             $f:
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::white()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::White), 
             $($($arg,)*)? 
         ), $w);
 
         assert_eq!(sum_sqrs!(
             $f:
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::black()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::Black), 
             $($($arg,)*)? 
         ), $b);
     };
 
     (- $f:ident, $w:expr, $b:expr, $fen:literal $(; $($arg:expr),*)?) => {
         assert_eq!($f(
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::white()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::White), 
             $($($arg,)*)? 
         ), $w);
 
         assert_eq!($f(
-            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::black()), 
+            &State::new(&Board::load_position(Some(String::from($fen)), &mut Zobrist::new()), Color::Black), 
             $($($arg,)*)? 
         ), $b);
     };

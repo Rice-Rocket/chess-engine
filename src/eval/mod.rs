@@ -16,6 +16,12 @@ mod winnable;
 
 
 impl Board {
+    /// Evaluation function adapted from the [Stockfish Evaluation Guide](https://hxim.github.io/Stockfish-Evaluation-Guide/).
+    ///
+    /// Notes to self: 
+    ///
+    /// - Capital letters represent white pieces.
+    /// - The ranks are inverted, meaning when it says `y + 1`, it should be `Color::down()`.
     pub fn evaluate(&self) -> i32 {
         let mg = middle_game_eval(self) as f32;
         let mut eg = end_game_eval(self) as f32;

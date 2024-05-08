@@ -8,6 +8,7 @@ mod game;
 mod prelude;
 mod cli;
 mod eval;
+mod color;
 
 use std::fmt;
 

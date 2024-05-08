@@ -3,7 +3,7 @@ use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 // First 4 bits: rank, last 4 bits: file
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Coord(i8);
+pub struct Coord(u8);
 
 impl Coord {
     pub const ROOK_DIRECTIONS: [Self; 4] = [Coord::new(-1, 0), Coord::new(1, 0), Coord::new(0, 1), Coord::new(0, -1)];
@@ -39,8 +39,8 @@ impl Coord {
     #[inline]
     const fn new_unchecked(file: i8, rank: i8) -> Self {
         let sign_file = if file.signum() == -1 { 0b00001000 } else { 0 };
-        let sign_rank = if rank.signum() == -1 { -128i8 /* 0b10000000 */ } else { 0 };
-        Self(((rank & 0b00001111) << 4) | (file & 0b00001111) | sign_file | sign_rank)
+        let sign_rank = if rank.signum() == -1 { 0b10000000 } else { 0 };
+        Self(((rank.unsigned_abs() & 0b00001111) << 4) | (file.unsigned_abs() & 0b00001111) | sign_file | sign_rank)
     }
 
     #[inline]
@@ -61,12 +61,12 @@ impl Coord {
 
     #[inline]
     pub const fn rank(self) -> i8 {
-        ((self.0 & 0b01110000) >> 4) * (if self.0 >> 7  == 0 { 1 } else { -1 })
+        ((self.0 & 0b01110000) >> 4) as i8 * (if self.0 >> 7  == 0 { 1 } else { -1 })
     }
 
     #[inline]
     pub const fn file(self) -> i8 {
-        (self.0 & 0b00000111) * (if (self.0 & 0b00001000) >> 3 == 0 { 1 } else { -1 })
+        (self.0 & 0b00000111) as i8 * (if (self.0 & 0b00001000) >> 3 == 0 { 1 } else { -1 })
     }
 
     pub fn is_light_square(self) -> bool {
@@ -82,7 +82,7 @@ impl Coord {
     /// The square index of the coord (i8)
     #[inline]
     pub const fn square(self) -> i8 {
-        ((self.0 & 0b01110000) >> 1) + (self.0 & 0b00000111)
+        ((self.0 & 0b01110000) >> 1) as i8 + (self.0 & 0b00000111) as i8
     }
 
     /// Performs other - self
@@ -94,7 +94,7 @@ impl Coord {
     /// Checks if coord is inside bounds
     #[inline]
     pub fn is_valid(&self) -> bool {
-        (self.0 & -128 /* 0b10000000 */) == 0 && (self.0 & 0b00001000) == 0
+        (self.0 & 0b10000000) == 0 && (self.0 & 0b00001000) == 0
     }
 
     /// Converts the coord into a bitboard with only that square
