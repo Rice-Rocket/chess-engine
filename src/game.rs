@@ -15,11 +15,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(start_fen: Option<String>) -> Self {
         let precomp = PrecomputedMoveData::new();
         let bbutils = BitBoardUtils::new();
         let mut zobrist = Zobrist::new();
-        let board = Board::load_position(None, &mut zobrist);
+        let board = Board::load_position(start_fen, &mut zobrist);
         let magics = MagicBitBoards::default();
         let precomp_bits = PrecomputedBits::new(&bbutils);
         let movegen = MoveGenerator::default();

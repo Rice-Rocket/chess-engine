@@ -83,7 +83,7 @@ pub fn start() {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
 
-    let mut game = Game::new();
+    let mut game = Game::new(None);
     let mut cursor = (1, 1);
     let mut selected: Option<(i8, i8)> = None;
     let mut valid_moves: Vec<Move> = vec![];
