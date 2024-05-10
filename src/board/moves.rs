@@ -1,3 +1,4 @@
+use crate::utils::representation;
 use crate::utils::representation::square_name_from_idx;
 
 use super::piece::*;
@@ -47,6 +48,24 @@ impl Move {
         a.0 == b.0
     }
 
+    pub fn same_move_and_prom(mut self, mut rhs: Self) -> bool {
+        if self.0 == rhs.0 {
+            true
+        } else {
+            let flag1 = self.move_flag();
+            let flag2 = rhs.move_flag();
+            self.0 &= !FLAG_MASK;
+            rhs.0 &= !FLAG_MASK;
+            self.0 |= if (3..=6).contains(&flag1) {
+                (flag1 as u16) << 12
+            } else { 0 };
+            rhs.0 |= if (3..=6).contains(&flag2) {
+                (flag2 as u16) << 12
+            } else { 0 };
+            self.0 == rhs.0
+        }
+    }
+
     pub fn start_idx(&self) -> i8 {
         (self.0 & START_SQUARE_MASK) as i8
     }
@@ -91,6 +110,13 @@ impl Move {
     }
 
     pub fn name(&self) -> String {
-        "Not implemented. In: move.rs/Move/name".to_string()
+        match self.move_flag() {
+            Move::CASTLING => if self.target().file() == 6 { String::from("O-O") } else { String::from("O-O-O") },
+            Move::KNIGHT_PROMOTION => format!("{:?}{:?}n", self.start(), self.target()),
+            Move::BISHOP_PROMOTION => format!("{:?}{:?}b", self.start(), self.target()),
+            Move::ROOK_PROMOTION => format!("{:?}{:?}r", self.start(), self.target()),
+            Move::QUEEN_PROMOTION => format!("{:?}{:?}q", self.start(), self.target()),
+            _ => format!("{:?}{:?}", self.start(), self.target()),
+        }
     }
 }

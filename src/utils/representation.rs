@@ -15,3 +15,10 @@ pub fn square_name_from_idx(square: i8) -> String {
     let coordinate = Coord::from_idx(square);
     square_name_from_coord(coordinate.file(), coordinate.rank())
 }
+
+pub fn coord_from_name(name: &str) -> Option<Coord> {
+    Some(Coord::new(
+        FILE_NAMES.chars().position(|c| c == if let Some(v) = name.chars().next() { v } else { ' ' })? as i8,
+        RANK_NAMES.chars().position(|c| c == if let Some(v) = name.chars().nth(1) { v } else { ' ' })? as i8,
+    ))
+}

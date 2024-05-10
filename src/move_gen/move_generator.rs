@@ -120,8 +120,8 @@ impl MoveGenerator {
                 if piece != Piece::NULL {
                     if piece.is_color(self.friendly_color) {
                         if !is_friendly_piece_along_ray {
-                            is_friendly_piece_along_ray = true;
-                        } else { break; }
+                            is_friendly_piece_along_ray = true
+                        } else { break };
                     } else if (is_diagonal && piece.is_bishop_or_queen()) || (!is_diagonal && piece.is_rook_or_queen()) {
                         if is_friendly_piece_along_ray {
                             self.pin_rays |= ray_mask;
@@ -378,7 +378,10 @@ impl MoveGenerator {
                 let mut pawns_that_can_ep = pawns & BitBoardUtils::pawn_attacks(BitBoard(1 << target_sqr), !self.white_to_move);
                 while pawns_that_can_ep.0 != 0 {
                     let start_sqr = pawns_that_can_ep.pop_lsb() as i8;
-                    if (!self.is_pinned(Coord::from_idx(start_sqr)) || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()]) && !self.in_check_after_ep(board, magic, start_sqr, target_sqr, captured_pawn_sqr) {
+                    if (!self.is_pinned(Coord::from_idx(start_sqr)) 
+                    || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] 
+                    == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()]) 
+                    && !self.in_check_after_ep(board, magic, start_sqr, target_sqr, captured_pawn_sqr) {
                         self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::EN_PASSANT_CAPTURE));
                     }
                 }
@@ -402,7 +405,7 @@ impl MoveGenerator {
     fn in_check_after_ep(&self, board: &Board, magic: &MagicBitBoards, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
         let enemy_ortho = board.enemy_orthogonal_sliders;
         if enemy_ortho.0 != 0 {
-            let masked_blockers = self.all_pieces ^ (1 << captured_pawn_sqr | 1 << start_sqr | 1 << target_sqr);
+            let masked_blockers = self.all_pieces ^ ((1 << captured_pawn_sqr) | (1 << start_sqr) | (1 << target_sqr));
             let rook_attacks = magic.get_rook_attacks(self.friendly_king_sqr, masked_blockers);
             return (rook_attacks & enemy_ortho).0 != 0;
         }

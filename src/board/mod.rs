@@ -16,6 +16,7 @@ use crate::{utils::fen, move_gen::magics::MagicBitBoards};
 use crate::bitboard::bbutils::*;
 
 
+#[derive(Clone)]
 pub struct Board {
     pub square: [Piece; 64],
     pub king_square: [Coord; 2],
