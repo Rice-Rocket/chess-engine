@@ -11,9 +11,9 @@ use zobrist::Zobrist;
 use coord::Coord;
 use game_state::GameState;
 
+use crate::precomp::PrecomputedData;
 use crate::prelude::*;
 use crate::{utils::fen, move_gen::magics::MagicBitBoards};
-use crate::bitboard::bbutils::*;
 
 
 #[derive(Clone)]
@@ -142,26 +142,11 @@ impl Board {
                 let castling_rook_from = if kingside { target_sqr + 1 } else { target_sqr - 2 };
                 let castling_rook_to = if kingside { target_sqr - 1 } else { target_sqr + 1 };
 
-                // println!("make move");
-                // ! Somehow the rook h8 bit magically disappears before this and after unmaking castle move
-                // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
-                // self.piece_bitboards[rook_piece.index()].toggle_squares(castling_rook_from.square(), castling_rook_to.square());
-                // ! Crudely trying to fix this issue, but other issues arise (may still be connected to the thing mention above)
-                // ! AKA this might not actually solve the problem because it seems like that bit magically reappears after unmaking the move again
-                // ! Issue might be able to be found in ai search
-                // ! Running move generation test suite may reveal the problem (probably not though)
-                // ! It is probably caused by a sequence of moves and unmoves
-
-                // ! What is happening: 
-                // ! Castle move is unmade
-                // ! 
                 self.piece_bitboards[rook_piece].set_square(castling_rook_to.square());
                 self.piece_bitboards[rook_piece].clear_square(castling_rook_from.square());
                 self.color_bitboards[self.move_color_idx].set_square(castling_rook_to.square());
                 self.color_bitboards[self.move_color_idx].clear_square(castling_rook_from.square());
-                // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
 
-                // println!("{:?} ({}): {:?}", castling_rook_from, castling_rook_from.square(), self.square[castling_rook_from.index()]);
                 self.square[castling_rook_from] = Piece::NULL;
                 self.square[castling_rook_to] = rook_piece;
                 
@@ -301,15 +286,11 @@ impl Board {
                 let rook_square_before_castling = if kingside { move_to + 1 } else { move_to - 2 };
                 let rook_square_after_castling = if kingside { move_to - 1 } else { move_to + 1 };
 
-                // println!("unmake move");
-                // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
-                // self.piece_bitboards[rook_piece.index()].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
-                // self.color_bitboards[self.move_color_idx].toggle_squares(rook_square_after_castling.square(), rook_square_before_castling.square());
                 self.piece_bitboards[rook_piece].clear_square(rook_square_after_castling.square());
                 self.piece_bitboards[rook_piece].set_square(rook_square_before_castling.square());
                 self.color_bitboards[self.move_color_idx].clear_square(rook_square_after_castling.square());
                 self.color_bitboards[self.move_color_idx].set_square(rook_square_before_castling.square());
-                // println!("{:?}", self.piece_bitboards[rook_piece.index()]);
+
                 self.square[rook_square_after_castling] = Piece::NULL;
                 self.square[rook_square_before_castling] = rook_piece;
             }
@@ -417,16 +398,16 @@ impl Board {
         board
     }
 
-    pub fn in_check(&mut self, magic: &MagicBitBoards, bbutils: &BitBoardUtils) -> bool {
+    pub fn in_check(&mut self, magic: &MagicBitBoards, precomp: &PrecomputedData) -> bool {
         if self.has_cached_in_check_val {
             return self.cached_in_check_val;
         }
-        self.cached_in_check_val = self.get_in_check_state(magic, bbutils);
+        self.cached_in_check_val = self.get_in_check_state(magic, precomp);
         self.has_cached_in_check_val = true;
         self.cached_in_check_val
     }
 
-    fn get_in_check_state(&self, magic: &MagicBitBoards, bbutils: &BitBoardUtils) -> bool {
+    fn get_in_check_state(&self, magic: &MagicBitBoards, precomp: &PrecomputedData) -> bool {
         let king_sqr = self.king_square[self.move_color_idx];
         let blockers = self.all_pieces_bitboard;
 
@@ -444,12 +425,12 @@ impl Board {
         }
 
         let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color)];
-        if (bbutils.knight_attacks[king_sqr] & enemy_knights).0 != 0 {
+        if (precomp.knight_moves[king_sqr] & enemy_knights).0 != 0 {
             return true;
         }
 
         let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color)];
-        let pawn_attack_mask = if self.white_to_move { bbutils.white_pawn_attacks[king_sqr] } else { bbutils.black_pawn_attacks[king_sqr] };
+        let pawn_attack_mask = if self.white_to_move { precomp.white_pawn_attacks[king_sqr] } else { precomp.black_pawn_attacks[king_sqr] };
         if (pawn_attack_mask & enemy_pawns).0 != 0 {
             return true;
         }

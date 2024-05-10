@@ -1,6 +1,5 @@
 use crate::board::coord::Coord;
-
-use super::{bbutils::BitBoardUtils, bb::BitBoard};
+use crate::bitboard::bb::BitBoard;
 
 
 pub struct PrecomputedBits {
@@ -26,7 +25,7 @@ impl PrecomputedBits {
     pub const WHITE_QUEENSIDE_MASK: BitBoard = BitBoard(Self::WHITE_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B1.index());
     pub const BLACK_QUEENSIDE_MASK: BitBoard = BitBoard(Self::BLACK_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B8.index());
 
-    pub fn new(bbutils: &BitBoardUtils) -> Self {
+    pub fn new() -> Self {
         let mut file_mask: [BitBoard; 8] = [BitBoard(0); 8];
         let mut adjacent_file_mask: [BitBoard; 8] = [BitBoard(0); 8];
 

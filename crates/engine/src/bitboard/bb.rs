@@ -36,6 +36,28 @@ impl BitBoard {
     pub const RANK_7: BitBoard = BitBoard(RANK_7);
     pub const RANK_8: BitBoard = BitBoard(RANK_8);
 
+    pub const FILES: [BitBoard; 8] = [
+        Self::FILE_A,
+        Self::FILE_B,
+        Self::FILE_C,
+        Self::FILE_D,
+        Self::FILE_E,
+        Self::FILE_F,
+        Self::FILE_G,
+        Self::FILE_H,
+    ];
+
+    pub const RANKS: [BitBoard; 8] = [
+        Self::RANK_1,
+        Self::RANK_2,
+        Self::RANK_3,
+        Self::RANK_4,
+        Self::RANK_5,
+        Self::RANK_6,
+        Self::RANK_7,
+        Self::RANK_8,
+    ];
+
     pub const DARK_SQUARES: BitBoard = BitBoard(DARK_SQUARES);
     pub const LIGHT_SQUARES: BitBoard = BitBoard(LIGHT_SQUARES);
     pub const ALL: BitBoard = BitBoard(!0);

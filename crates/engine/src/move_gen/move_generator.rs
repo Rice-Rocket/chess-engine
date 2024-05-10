@@ -1,10 +1,8 @@
 use crate::board::{coord::Coord, moves::Move, Board, piece::Piece};
-use crate::move_gen::precomp_move_data::*;
 
 use crate::bitboard::bb::BitBoard;
-use crate::bitboard::bbutils::BitBoardUtils;
 use super::magics::MagicBitBoards;
-use crate::bitboard::precomp_bits::PrecomputedBits;
+use crate::precomp::PrecomputedData;
 
 
 #[derive(Default, PartialEq)]
@@ -50,16 +48,16 @@ pub struct MoveGenerator {
 }
 
 impl MoveGenerator {
-    pub fn generate_moves(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards, captures_only: bool) {
+    pub fn generate_moves(&mut self, board: &Board, precomp: &PrecomputedData, magic: &MagicBitBoards, captures_only: bool) {
         self.moves.clear();
         self.gen_quiet_moves = !captures_only;
 
-        self.init(board, precomp, bbutils, magic);
-        self.gen_king_moves(board, bbutils);
+        self.init(board, precomp, magic);
+        self.gen_king_moves(board, precomp);
 
         if !self.in_double_check {
             self.gen_sliding_moves(board, magic, precomp);
-            self.gen_knight_moves(board, bbutils);
+            self.gen_knight_moves(board, precomp);
             self.gen_pawn_moves(board, precomp, magic);
         }
     }
@@ -68,7 +66,7 @@ impl MoveGenerator {
         self.in_check
     }
     
-    fn init(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards) {
+    fn init(&mut self, board: &Board, precomp: &PrecomputedData, magic: &MagicBitBoards) {
         self.in_check = false;
         self.in_double_check = false;
         self.check_ray_bitmask = BitBoard(0);
@@ -88,10 +86,10 @@ impl MoveGenerator {
         self.empty_or_enemy_sqrs = self.empty_sqrs | self.enemy_pieces;
         self.move_type_mask = if self.gen_quiet_moves { BitBoard::ALL } else { self.enemy_pieces };
 
-        self.calc_attack_data(board, precomp, bbutils, magic);
+        self.calc_attack_data(board, precomp, magic);
     }
 
-    fn calc_attack_data(&mut self, board: &Board, precomp: &PrecomputedMoveData, bbutils: &BitBoardUtils, magic: &MagicBitBoards) {
+    fn calc_attack_data(&mut self, board: &Board, precomp: &PrecomputedData, magic: &MagicBitBoards) {
         self.gen_sliding_attack_map(board, magic);
         let mut start_dir_idx = 0;
         let mut end_dir_idx = 8;
@@ -144,7 +142,7 @@ impl MoveGenerator {
 
         while knights.0 != 0 {
             let knight_sqr = knights.pop_lsb();
-            let knight_attacks = bbutils.knight_attacks[knight_sqr as usize];
+            let knight_attacks = precomp.knight_moves[knight_sqr as usize];
             opponent_knight_attacks |= knight_attacks;
 
             if (knight_attacks & friendly_king_bitboard).0 != 0 {
@@ -155,18 +153,18 @@ impl MoveGenerator {
         }
 
         let enemy_pawns_bitboard = board.piece_bitboards[Piece::new(Piece::PAWN | self.enemy_color)];
-        self.enemy_pawn_attack_map = BitBoardUtils::pawn_attacks(enemy_pawns_bitboard, !self.white_to_move);
+        self.enemy_pawn_attack_map = PrecomputedData::pawn_attacks(enemy_pawns_bitboard, !self.white_to_move);
         if self.enemy_pawn_attack_map.contains_square(self.friendly_king_sqr.square()) {
             self.in_double_check = self.in_check;
             self.in_check = true;
-            let possible_pawn_attack_origins = if board.white_to_move { bbutils.white_pawn_attacks[self.friendly_king_sqr] } else {
-                bbutils.black_pawn_attacks[self.friendly_king_sqr]};
+            let possible_pawn_attack_origins = if board.white_to_move { precomp.white_pawn_attacks[self.friendly_king_sqr] } else {
+                precomp.black_pawn_attacks[self.friendly_king_sqr]};
             let pawn_check_map = enemy_pawns_bitboard & possible_pawn_attack_origins;
             self.check_ray_bitmask |= pawn_check_map;
         }
 
         let enemy_king_sqr = board.king_square[self.enemy_idx];
-        self.enemy_attack_map_no_pawns = self.enemy_sliding_attack_map | opponent_knight_attacks | bbutils.king_moves[enemy_king_sqr];
+        self.enemy_attack_map_no_pawns = self.enemy_sliding_attack_map | opponent_knight_attacks | precomp.king_moves[enemy_king_sqr];
         self.enemy_attack_map = self.enemy_attack_map_no_pawns | self.enemy_pawn_attack_map;
 
         if !self.in_check {
@@ -193,7 +191,7 @@ impl MoveGenerator {
         ((self.pin_rays >> sqr.index()) & 1).0 != 0
     }
 
-    fn gen_king_moves(&mut self, board: &Board, bbutils: &BitBoardUtils) {
+    fn gen_king_moves(&mut self, board: &Board, bbutils: &PrecomputedData) {
         let legal_mask = !(self.enemy_attack_map | self.friendly_pieces);
         let mut king_moves = bbutils.king_moves[self.friendly_king_sqr] & legal_mask & self.move_type_mask;
         while king_moves.0 != 0 {
@@ -204,15 +202,15 @@ impl MoveGenerator {
         if !self.in_check && self.gen_quiet_moves {
             let castle_blockers = self.enemy_attack_map | board.all_pieces_bitboard;
             if board.current_state.has_kingside_castle_right(self.white_to_move) {
-                let castle_mask = if self.white_to_move { PrecomputedBits::WHITE_KINGSIDE_MASK } else { PrecomputedBits::BLACK_KINGSIDE_MASK };
+                let castle_mask = if self.white_to_move { PrecomputedData::WHITE_KINGSIDE_MASK } else { PrecomputedData::BLACK_KINGSIDE_MASK };
                 if (castle_mask & castle_blockers).0 == 0 {
                     let target = if self.white_to_move { Coord::G1 } else { Coord::G8 };
                     self.moves.push(Move::from_start_end_flagged(self.friendly_king_sqr.square(), target.square(), Move::CASTLING));
                 }
             }
             if board.current_state.has_queenside_castle_right(self.white_to_move) {
-                let castle_mask = if self.white_to_move { PrecomputedBits::WHITE_QUEENSIDE_MASK_2 } else { PrecomputedBits::BLACK_QUEENSIDE_MASK_2 };
-                let castle_block_mask = if self.white_to_move { PrecomputedBits::WHITE_QUEENSIDE_MASK } else { PrecomputedBits::BLACK_QUEENSIDE_MASK };
+                let castle_mask = if self.white_to_move { PrecomputedData::WHITE_QUEENSIDE_MASK_2 } else { PrecomputedData::BLACK_QUEENSIDE_MASK_2 };
+                let castle_block_mask = if self.white_to_move { PrecomputedData::WHITE_QUEENSIDE_MASK } else { PrecomputedData::BLACK_QUEENSIDE_MASK };
                 if (castle_mask & castle_blockers).0 == 0 && (castle_block_mask & board.all_pieces_bitboard).0 == 0 {
                     let target = if self.white_to_move { Coord::C1 } else { Coord::C8 };
                     self.moves.push(Move::from_start_end_flagged(self.friendly_king_sqr.square(), target.square(), Move::CASTLING));
@@ -221,7 +219,7 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_sliding_moves(&mut self, board: &Board, magic: &MagicBitBoards, precomp: &PrecomputedMoveData) {
+    fn gen_sliding_moves(&mut self, board: &Board, magic: &MagicBitBoards, precomp: &PrecomputedData) {
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
         let mut orthogonal_sliders = board.friendly_orthogonal_sliders;
         let mut diagonal_sliders = board.friendly_diagonal_sliders;
@@ -233,12 +231,6 @@ impl MoveGenerator {
 
         while orthogonal_sliders.0 != 0 {
             let start = Coord::from_idx(orthogonal_sliders.pop_lsb() as i8);
-            // ! Incredibly stange bug where H8 is considered a legal starting position even though
-            // ! there is no rook there. Probably has to do with castling. 
-            // if board.square[start.index()].piece_type() == Piece::NONE {
-            //     log_debug(format!("Tried to generate {:?} rook move\n{}", start, crate::fen::fen_from_position(board)));
-            //     continue;
-            // };
             let mut move_sqrs = magic.get_rook_attacks(start, self.all_pieces) & move_mask;
             if self.is_pinned(start) {
                 move_sqrs &= precomp.align_mask[start][self.friendly_king_sqr];
@@ -262,14 +254,14 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_knight_moves(&mut self, board: &Board, bbutils: &BitBoardUtils) {
+    fn gen_knight_moves(&mut self, board: &Board, precomp: &PrecomputedData) {
         let friendly_knight_piece = Piece::new(Piece::KNIGHT | self.friendly_color);
         let mut knights = board.piece_bitboards[friendly_knight_piece] & self.not_pin_rays;
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
 
         while knights.0 != 0 {
             let knight_sqr = knights.pop_lsb() as i8;
-            let mut move_sqrs = bbutils.knight_attacks[knight_sqr as usize] & move_mask;
+            let mut move_sqrs = precomp.knight_moves[knight_sqr as usize] & move_mask;
             while move_sqrs.0 != 0 {
                 let target = move_sqrs.pop_lsb() as i8;
                 self.moves.push(Move::from_start_end(knight_sqr, target));
@@ -277,19 +269,19 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_pawn_moves(&mut self, board: &Board, precomp: &PrecomputedMoveData, magic: &MagicBitBoards) {
+    fn gen_pawn_moves(&mut self, board: &Board, precomp: &PrecomputedData, magic: &MagicBitBoards) {
         let push_dir = if self.white_to_move { 1i8 } else { -1i8 };
         let push_offset = push_dir * 8;
 
         let friendly_pawn_piece = Piece::new(Piece::PAWN | self.friendly_color);
         let pawns = board.piece_bitboards[friendly_pawn_piece];
 
-        let prom_rank_mask = if self.white_to_move { BitBoardUtils::RANK_8 } else { BitBoardUtils::RANK_1 };
+        let prom_rank_mask = if self.white_to_move { BitBoard::RANK_8 } else { BitBoard::RANK_1 };
         let single_push = pawns.shifted(push_offset) & self.empty_sqrs;
         let mut push_proms = single_push & prom_rank_mask & self.check_ray_bitmask;
 
-        let capture_edge_file_mask = if self.white_to_move { BitBoardUtils::NOT_FILE_A } else { BitBoardUtils::NOT_FILE_H };
-        let capture_edge_file_mask_2 = if self.white_to_move { BitBoardUtils::NOT_FILE_H } else { BitBoardUtils::NOT_FILE_A };
+        let capture_edge_file_mask = if self.white_to_move { !BitBoard::FILE_A } else { !BitBoard::FILE_H };
+        let capture_edge_file_mask_2 = if self.white_to_move { !BitBoard::FILE_H } else { !BitBoard::FILE_A };
         let mut capture_a = (pawns & capture_edge_file_mask).shifted(push_dir * 7) & self.enemy_pieces;
         let mut capture_b = (pawns & capture_edge_file_mask_2).shifted(push_dir * 9) & self.enemy_pieces;
 
@@ -311,7 +303,7 @@ impl MoveGenerator {
                 }
             }
 
-            let double_push_target_rank_mask = if self.white_to_move { BitBoardUtils::RANK_4 } else { BitBoardUtils::RANK_5 };
+            let double_push_target_rank_mask = if self.white_to_move { BitBoard::RANK_4 } else { BitBoard::RANK_5 };
             let mut double_push = single_push.shifted(push_offset) & self.empty_sqrs & double_push_target_rank_mask & self.check_ray_bitmask;
             while double_push.0 != 0 {
                 let target_sqr = double_push.pop_lsb() as i8;
@@ -336,7 +328,7 @@ impl MoveGenerator {
         while capture_b.0 != 0 {
             let target_sqr = capture_b.pop_lsb() as i8;
             let start_sqr = target_sqr - push_dir * 9;
-            if !self.is_pinned(Coord::from_idx(start_sqr)) 
+            if !self.is_pinned(Coord::from_idx(start_sqr))
             || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
             == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
                 self.moves.push(Move::from_start_end(start_sqr, target_sqr));
@@ -375,7 +367,7 @@ impl MoveGenerator {
             let target_sqr = ep_rank_idx * 8 + ep_file_idx;
             let captured_pawn_sqr = target_sqr - push_offset;
             if self.check_ray_bitmask.contains_square(captured_pawn_sqr) {
-                let mut pawns_that_can_ep = pawns & BitBoardUtils::pawn_attacks(BitBoard(1 << target_sqr), !self.white_to_move);
+                let mut pawns_that_can_ep = pawns & PrecomputedData::pawn_attacks(BitBoard(1 << target_sqr), !self.white_to_move);
                 while pawns_that_can_ep.0 != 0 {
                     let start_sqr = pawns_that_can_ep.pop_lsb() as i8;
                     if (!self.is_pinned(Coord::from_idx(start_sqr)) 
