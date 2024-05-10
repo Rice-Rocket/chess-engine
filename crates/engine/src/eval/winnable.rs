@@ -16,12 +16,19 @@ pub fn winnable_total_eg(state: &State, v: i32) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sum_sqrs, assert_eval, color::Color, board::{Board, zobrist::Zobrist}};
+    use crate::eval::state::test_prelude::*;
     use super::*;
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     fn test_winnable() {
-        assert_eval!(winnable, 58, 58, "n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9");
+        let precomp = PrecomputedData::new();
+        let magics = MagicBitBoards::default();
+        let board = Board::load_position(Some(String::from("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")), &mut Zobrist::new());
+        let mut movegen = MoveGenerator::default();
+        movegen.generate_moves(&board, &precomp, &magics, false);
+        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+
+        assert_eval!(winnable, 58, 58, state);
     }
 }
