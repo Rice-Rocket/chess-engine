@@ -16,7 +16,7 @@ pub fn winnable_total_eg(state: &State, v: i32) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sum_sqrs, assert_eval, color::Color, Board, Zobrist};
+    use crate::{sum_sqrs, assert_eval, color::Color, board::{Board, zobrist::Zobrist}};
     use super::*;
 
     #[test]

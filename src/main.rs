@@ -8,7 +8,7 @@ mod cli;
 
 #[derive(Parser)]
 #[command(version, author, about)]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
@@ -77,7 +77,7 @@ async fn main() {
     match cli_input.command {
         Commands::Eval {
             fen,
-            depth,
+            depth: _,
         } => {
             let mut zobrist = Zobrist::new();
             let board = Board::load_position(Some(fen), &mut zobrist);
@@ -108,13 +108,16 @@ async fn main() {
                             ErrorKind::InvalidValue,
                             format!("position {} does not exist. valid positions are from 1-6", position),
                             );
-                        err.print();
+                        let _ = err.print();
                         return;
                     },
                 }.to_string()
             };
 
-            perft::expected_depth(position, depth);
+            match perft::expected_depth(position, depth) {
+                Ok(_) => (),
+                Err(_) => return,
+            }
 
             if fen_str.is_some() {
                 println!("testing fen = {}", fen);
@@ -127,30 +130,36 @@ async fn main() {
                 let mut cmd = std::process::Command::new("stockfish").spawn();
                 match &mut cmd {
                     Ok(proc) => proc.kill().unwrap(),
-                    Err(e) => {
+                    Err(_) => {
                         let err = Cli::command().error(
                             ErrorKind::Io,
                             "stockfish executable not found. make sure stockfish is installed and in your PATH"
                         );
-                        err.print();
+                        let _ = err.print();
                         return;
                     }
                 };
 
                 perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.bbutils, &game.magics, depth).await;
             } else if all {
-                for i in 1..=depth {
-                    perft::test_perft(position, depth, &fen, expand_branches, false).await;
+                for _ in 1..=depth {
+                    match perft::test_perft(position, depth, &fen, expand_branches, false).await {
+                        Ok(_) => (),
+                        Err(_) => return
+                    }
                 }
             } else {
                 if compare { expand_branches = true };
-                perft::test_perft(position, depth, &fen, expand_branches, compare).await;
+                match perft::test_perft(position, depth, &fen, expand_branches, compare).await {
+                    Ok(_) => (),
+                    Err(_) => return,
+                }
             }
         },
         Commands::Play {
             fen,
-            white_player,
-            black_player,
+            white_player: _,
+            black_player: _,
         } => {
             cli::start(fen);
         }

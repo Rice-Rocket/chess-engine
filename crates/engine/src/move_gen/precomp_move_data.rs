@@ -236,3 +236,9 @@ impl PrecomputedMoveData {
         }
     }
 }
+
+impl Default for PrecomputedMoveData {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -28,8 +28,8 @@ pub struct LoadedPositionInfo {
     pub move_count: u32,
 }
 
-impl LoadedPositionInfo {
-    pub fn default() -> Self {
+impl Default for LoadedPositionInfo {
+    fn default() -> Self {
         Self {
             squares: [0; 64],
             white_castle_kingside: true,

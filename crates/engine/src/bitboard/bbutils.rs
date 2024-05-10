@@ -102,3 +102,10 @@ impl BitBoardUtils {
         }
     }
 }
+
+
+impl Default for BitBoardUtils {
+    fn default() -> Self {
+        Self::new()
+    }
+}

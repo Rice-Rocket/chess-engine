@@ -18,9 +18,9 @@ fn display_board(
         sqr = sqr.flip_rank();
         if sqr.square() % 8 == 0 {
             if sqr.rank() == 7 {
-                write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset));
+                write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
             } else {
-                write!(stdout, "\n\r{}┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset));
+                write!(stdout, "\n\r{}┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
             }
         }
 
@@ -38,30 +38,30 @@ fn display_board(
                 "{}┃{}",
                 color::Fg(color::LightBlack),
                 color::Fg(color::Reset),
-            );
+            ).unwrap();
         }
 
         if (sqr.rank() + sqr.file()) % 2 == 0 {
-            write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite));
+            write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite)).unwrap();
         } else {
-            write!(stdout, "{}{}", color::Bg(color::White), color::Fg(color::Black));
+            write!(stdout, "{}{}", color::Bg(color::White), color::Fg(color::Black)).unwrap();
         }
 
         if let Some(p) = selected {
             if sqr.rank() == p.1 && sqr.file() == p.0 {
-                write!(stdout, "{}{}", color::Bg(color::LightGreen), color::Fg(color::Black));
+                write!(stdout, "{}{}", color::Bg(color::LightGreen), color::Fg(color::Black)).unwrap();
             }
         }
 
         for m in valid_moves.iter() {
             if m.target() == sqr {
-                write!(stdout, "{}{}", color::Bg(color::LightRed), color::Fg(color::Black));
+                write!(stdout, "{}{}", color::Bg(color::LightRed), color::Fg(color::Black)).unwrap();
                 break;
             }
         }
 
         if sqr.rank() == cursor.1 && sqr.file() == cursor.0 {
-            write!(stdout, "{}{}", color::Bg(color::LightYellow), color::Fg(color::Black));
+            write!(stdout, "{}{}", color::Bg(color::LightYellow), color::Fg(color::Black)).unwrap();
         }
 
         write!(
@@ -70,10 +70,10 @@ fn display_board(
             s, color::Bg(color::Reset),
             color::Fg(color::LightBlack),
             color::Fg(color::Reset),
-        );
+        ).unwrap();
     }
 
-    write!(stdout, "\n\r{}┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset));
+    write!(stdout, "\n\r{}┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
 
     stdout.flush().unwrap();
 }
@@ -103,7 +103,7 @@ pub fn start(fen: String) {
             Key::Char('k') | Key::Up => cursor.1 += 1,
             Key::Char('h') | Key::Left => cursor.0 -= 1,
             Key::Char('l') | Key::Right => cursor.0 += 1,
-            Key::Char(' ') | Key::Char('o') => if let Some(pos) = selected {
+            Key::Char(' ') | Key::Char('o') => if let Some(_pos) = selected {
                 if let Some(i) = valid_moves.iter().position(|m| m.target() == cursor.into()) {
                     game.make_move(valid_moves[i]);
                     valid_moves.clear();

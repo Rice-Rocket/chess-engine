@@ -1,10 +1,11 @@
 use std::{future::Future, pin::Pin, time::Instant};
+use crate::Cli;
 
-use clap::error::ErrorKind;
+use clap::{error::ErrorKind, CommandFactory};
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
-use engine::{bitboard::bbutils::BitBoardUtils, board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData}, utils::{fen, representation}, Cli};
+use engine::{bitboard::bbutils::BitBoardUtils, board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData}, utils::{fen, representation}};
 
 pub fn movegen_test(
     board: &mut Board,
@@ -20,7 +21,7 @@ pub fn movegen_test(
     movegen.generate_moves(board, precomp, bbutils, magics, false);
     let mut nodes = 0;
 
-    for (i, m) in movegen.moves.clone().into_iter().enumerate() {
+    for m in movegen.moves.clone().into_iter() {
         board.make_move(m, false, zobrist);
         let n = movegen_test(board, zobrist, movegen, precomp, bbutils, magics, depth - 1);
         nodes += n;
@@ -43,9 +44,9 @@ pub fn movegen_test_expand(
 
     movegen.generate_moves(board, precomp, bbutils, magics, false);
     let mut nodes = 0;
-    let mut move_nodes = vec![(Move::NULL, 0); movegen.moves.len()];
+    let move_nodes = vec![(Move::NULL, 0); movegen.moves.len()];
 
-    for (i, m) in movegen.moves.clone().into_iter().enumerate() {
+    for m in movegen.moves.clone().into_iter() {
         board.make_move(m, false, zobrist);
         let n = movegen_test_expand(board, zobrist, movegen, precomp, bbutils, magics, depth - 1).0;
         nodes += n;
@@ -329,7 +330,7 @@ pub fn test_perft_recursive<'a>(
 
         let mut expected_nodes = parse_compare_data(stockfish_nodes.await.unwrap()).unwrap();
 
-        for (m, n) in move_nodes {
+        for (m, _n) in move_nodes {
             let Some(matching_idx) = expected_nodes.iter().position(|(m1, _)| m1.same_move_and_prom(m)) else {
                 println!("    found problematic move {:?} | fen = {}", m, current_fen);
                 continue;
@@ -338,7 +339,7 @@ pub fn test_perft_recursive<'a>(
             expected_nodes.remove(matching_idx);
         }
 
-        for (m, n) in expected_nodes {
+        for (m, _n) in expected_nodes {
             println!("    found missing move {:?} | fen = {}", m, current_fen);
         }
 

@@ -36,7 +36,7 @@ pub fn psqt_eg(state: &State, sqr: Coord) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sum_sqrs, assert_eval, color::Color, Board, Zobrist};
+    use crate::{sum_sqrs, assert_eval, color::Color, board::{Board, zobrist::Zobrist}};
     use super::*;
 
     #[test]
