@@ -1,22 +1,9 @@
-#![allow(unused)]
-
-mod bitboard;
-mod board;
-mod move_gen;
-mod utils;
-mod game;
-mod prelude;
-mod cli;
-mod eval;
-mod color;
-mod perft;
-
-use std::{fmt, path::PathBuf, time::{Duration, Instant}};
-use board::{zobrist::Zobrist, Board};
+use engine::board::{zobrist::Zobrist, Board};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
-use external_uci::{ExternalUci, ExternalUciCapable};
-use termion::color as tcolor;
-use game::Game;
+use engine::game::Game;
+
+mod perft;
+mod cli;
 
 
 #[derive(Parser)]

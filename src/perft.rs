@@ -1,10 +1,10 @@
-use std::{future::Future, path::PathBuf, pin::Pin, time::Instant};
+use std::{future::Future, pin::Pin, time::Instant};
 
-use clap::{error::ErrorKind, CommandFactory};
+use clap::error::ErrorKind;
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
-use crate::{bitboard::bbutils::BitBoardUtils, board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData}, utils::{fen, representation}, Cli};
+use engine::{bitboard::bbutils::BitBoardUtils, board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator, precomp_move_data::PrecomputedMoveData}, utils::{fen, representation}, Cli};
 
 pub fn movegen_test(
     board: &mut Board,

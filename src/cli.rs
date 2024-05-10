@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Stdout, Write};
-use termion::{clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}, style};
+use termion::{clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use crate::{board::{coord::Coord, moves::Move, piece::Piece, Board}, game::Game};
+use engine::{board::{coord::Coord, moves::Move, piece::Piece, Board}, game::Game};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
