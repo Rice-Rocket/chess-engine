@@ -102,6 +102,16 @@ impl Coord {
         BitBoard(1u64 << self.index())
     }
 
+    pub fn distance(self, rhs: Self) -> i8 {
+        let dx = (self.rank() - rhs.rank()).abs();
+        let dy = (self.file() - rhs.file()).abs();
+        if dx > dy {
+            dx
+        } else {
+            dy
+        }
+    }
+
     pub fn flip_rank(self) -> Coord {
         Coord::new(self.file(), 7 - self.rank())
     }

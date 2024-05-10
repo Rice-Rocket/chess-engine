@@ -142,8 +142,8 @@ async fn main() {
 
                 perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.bbutils, &game.magics, depth).await;
             } else if all {
-                for _ in 1..=depth {
-                    match perft::test_perft(position, depth, &fen, expand_branches, false).await {
+                for i in 1..=depth {
+                    match perft::test_perft(position, i, &fen, expand_branches, false).await {
                         Ok(_) => (),
                         Err(_) => return
                     }
