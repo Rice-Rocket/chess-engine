@@ -84,12 +84,16 @@ impl Default for PrecomputedData {
         Self {
             align_mask: [[BitBoard(0); 64]; 64],
             dir_ray_mask: [[BitBoard(0); 8]; 64],
-            direction_offsets: [0; 8],
-            dir_offsets_2d: [Coord::A1; 8],
+            direction_offsets: [8, -8, -1, 1, 7, -7, 9, -9],
+            dir_offsets_2d: [
+                Coord::new(0, 1), Coord::new(0, -1),
+                Coord::new(-1, 0), Coord::new(1, 0),
+                Coord::new(-1, 1), Coord::new(1, -1),
+                Coord::new(1, 1), Coord::new(-1, -1)],
             num_sqrs_to_edge: [[0; 8]; 64],
             knight_moves: [BitBoard(0); 64],
             king_moves: [BitBoard(0); 64],
-            pawn_attack_dirs: [[Coord::A1; 2]; 2],
+            pawn_attack_dirs: [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]],
             white_pawn_attacks: [BitBoard(0); 64],
             black_pawn_attacks: [BitBoard(0); 64],
             direction_lookup: [0; 127],
@@ -312,15 +316,6 @@ impl PrecomputedData {
 
     pub fn new() -> Self {
         let mut data = Self::default();
-
-        data.pawn_attack_dirs = [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]];
-        data.direction_offsets = [8, -8, -1, 1, 7, -7, 9, -9];
-        data.dir_offsets_2d = [
-            Coord::new(0, 1), Coord::new(0, -1),
-            Coord::new(-1, 0), Coord::new(1, 0),
-            Coord::new(-1, 1), Coord::new(1, -1),
-            Coord::new(1, 1), Coord::new(-1, -1)
-        ];
 
         data.calc_num_sqrs_to_edge();
         data.calc_pseudo_legal_moves();

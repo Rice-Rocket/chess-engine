@@ -140,7 +140,7 @@ async fn main() {
                     }
                 };
 
-                perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.bbutils, &game.magics, depth).await;
+                perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth).await;
             } else if all {
                 for i in 1..=depth {
                     match perft::test_perft(position, i, &fen, expand_branches, false).await {
