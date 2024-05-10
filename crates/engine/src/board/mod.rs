@@ -457,12 +457,33 @@ impl Board {
         false
     }
 
-    fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {
+    pub fn move_piece(&mut self, piece: Piece, start: Coord, target: Coord) {
         self.piece_bitboards[piece].toggle_squares(start.square(), target.square());
         self.color_bitboards[piece.color_index()].toggle_squares(start.square(), target.square());
 
         self.square[start] = Piece::NULL;
         self.square[target] = piece;
+    }
+
+    pub fn set_piece(&mut self, piece: Piece, square: Coord) {
+        let prev_piece = self.square[square];
+
+        self.piece_bitboards[prev_piece].clear_square(square.square());
+        self.piece_bitboards[piece].set_square(square.square());
+        self.color_bitboards[prev_piece.color_index()].clear_square(square.square());
+        self.color_bitboards[piece.color_index()].set_square(square.square());
+        self.square[square] = piece;
+        self.update_slider_bitboards();
+    }
+
+    pub fn remove_piece(&mut self, square: Coord) {
+        let piece = self.square[square];
+
+        self.piece_bitboards[piece].clear_square(square.square());
+        self.color_bitboards[piece.color_index()].clear_square(square.square());
+        self.all_pieces_bitboard.clear_square(square.square());
+        self.square[square] = Piece::NULL;
+        self.update_slider_bitboards();
     }
 
     fn update_slider_bitboards(&mut self) {
