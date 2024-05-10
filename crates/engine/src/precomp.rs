@@ -322,6 +322,7 @@ impl PrecomputedData {
         data.calc_direction_lookup();
         data.calc_manhattan_distance();
         data.calc_dir_ray_mask();
+        data.calc_align_mask();
         data.calc_pawn_structure_masks();
 
         data

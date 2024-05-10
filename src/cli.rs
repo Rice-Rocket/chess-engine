@@ -246,6 +246,10 @@ pub fn start(fen: String) {
                         overlayed_bitboard = Some(game.magics.get_bishop_attacks(cursor.into(), game.board.all_pieces_bitboard));
                         mode = InputMode::Normal;
                     },
+                    Key::Char('p') => {
+                        overlayed_bitboard = Some(game.movegen.pin_rays);
+                        mode = InputMode::Normal;
+                    },
                     _ => mode = InputMode::Normal,
                 }
             },
