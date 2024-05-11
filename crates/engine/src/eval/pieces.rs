@@ -1,76 +1,96 @@
+use proc_macro_utils::flipped_eval;
+
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
+    #[flipped_eval]
     pub fn outpost(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn outpost_square(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn reachable_outpost(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn minor_behind_pawn(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn bishop_pawns(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn rook_on_file(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn trapped_rook(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn weak_queen(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_protector(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn long_diagonal_bishop(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn outpost_total(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn rook_on_queen_file(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn bishop_xray_pawns(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn rook_on_king_ring(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn bishop_on_king_ring(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn queen_infiltration(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn pieces_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn pieces_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }

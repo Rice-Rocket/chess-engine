@@ -1,60 +1,76 @@
+use proc_macro_utils::flipped_eval;
+
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
+    #[flipped_eval]
     pub fn isolated(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn opposed(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn phalanx(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn supported(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn backward(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn doubled(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn connected(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn connected_bonus(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn weak_unopposed_pawn(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn weak_lever(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn blocked(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn doubled_isolated(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn pawns_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn pawns_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }

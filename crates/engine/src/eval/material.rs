@@ -1,36 +1,45 @@
+use proc_macro_utils::flipped_eval;
+
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
+    #[flipped_eval]
     pub fn non_pawn_material(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn piece_value_bonus(&self, mg: bool, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn psqt_bonus(&self, mg: bool, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
+    #[flipped_eval]
     pub fn piece_value_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
+    #[flipped_eval]
     pub fn piece_value_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
+    #[flipped_eval]
     pub fn psqt_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
+    #[flipped_eval]
     pub fn psqt_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }

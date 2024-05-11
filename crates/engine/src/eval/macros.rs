@@ -15,7 +15,19 @@ macro_rules! sum_sqrs {
 
             sum
         }
-    }
+    };
+    
+    (+ $eval:ident, $f:ident: $($arg:expr),* $(,)*) => {
+        {
+            let mut sum = 0i32;
+            
+            for sqr in Coord::iter_squares() {
+                sum += $eval.$f($($arg,)* sqr).count() as i32;
+            }
+
+            sum
+        }
+    };
 }
 
 /// assert_eval!(`f`, [[`file`, `rank`]], `white_eval`, `black_eval`, `fen`; {`args`})
@@ -39,12 +51,24 @@ macro_rules! assert_eval {
             Coord::new($file, $rank)
         ), $w);
         
-        // $state.color = Color::Black;
-        // assert_eq!($f(
-        //     &$state,
-        //     $($($arg,)*)? 
-        //     Coord::new($file, $rank)
-        // ), $b);
+        $eval.color = Color::Black;
+        assert_eq!($eval.$f(
+            $($($arg,)*)? 
+            Coord::new($file, $rank)
+        ), $b);
+    };
+
+    (+ $f:ident, [$file:expr, $rank:expr], $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
+        $eval.color = Color::White;
+        $eval.init();
+        assert_eq!(if $eval.$f(
+            $($($arg,)*)? 
+        ).contains_square(Coord::new($file, $rank).square()) { 1 } else { 0 }, $w);
+        
+        $eval.color = Color::Black;
+        assert_eq!(if $eval.$f(
+            $($($arg,)*)? 
+        ).contains_square(Coord::new($file, $rank).square()) { 1 } else { 0 }, $b);
     };
 
     ($f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
@@ -55,12 +79,26 @@ macro_rules! assert_eval {
             $($($arg,)*)? 
         ), $w);
 
-        // $state.color = Color::Black;
-        // assert_eq!(sum_sqrs!(
-        //     $f:
-        //     &$state,
-        //     $($($arg,)*)? 
-        // ), $b);
+        $eval.color = Color::Black;
+        assert_eq!(sum_sqrs!(
+            $eval, $f:
+            $($($arg,)*)? 
+        ), $b);
+    };
+
+    (+ $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
+        $eval.color = Color::White;
+        $eval.init();
+        assert_eq!(sum_sqrs!( +
+            $eval, $f:
+            $($($arg,)*)? 
+        ), $w);
+
+        $eval.color = Color::Black;
+        assert_eq!(sum_sqrs!( +
+            $eval, $f:
+            $($($arg,)*)? 
+        ), $b);
     };
 
     (- $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
@@ -70,11 +108,10 @@ macro_rules! assert_eval {
             $($($arg,)*)? 
         ), $w);
 
-        // $state.color = Color::Black;
-        // assert_eq!($f(
-        //     &$state,
-        //     $($($arg,)*)? 
-        // ), $b);
+        $eval.color = Color::Black;
+        assert_eq!($eval.$f(
+            $($($arg,)*)? 
+        ), $b);
     };
 }
 

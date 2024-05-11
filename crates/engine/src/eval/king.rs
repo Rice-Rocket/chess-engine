@@ -1,92 +1,116 @@
+use proc_macro_utils::flipped_eval;
+
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
+    #[flipped_eval]
     pub fn pawnless_flank(&self) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn strength_square(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn storm_square(&self, eg: bool, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn shelter_strength(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn shelter_storm(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_pawn_distance(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn check(&self, ty: u8, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn safe_check(&self, ty: u8, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_attackers_count(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_attackers_weight(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_attacks(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn weak_bonus(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn weak_squares(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn unsafe_checks(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn knight_defender(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn endgame_shelter(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn blockers_for_king(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn flank_attack(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn flank_defense(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_danger(&self) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_mg(&self) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn king_eg(&self) -> i32 {
         todo!();
     }

@@ -20,29 +20,34 @@ pub struct Evaluation<'a> {
     pub precomp: &'a PrecomputedData,
     pub magics: &'a MagicBitBoards,
     pub color: Color,
-    pub flipped: Option<Box<Evaluation<'a>>>,
 
-    king_square: Coord,
-    pin_rays: BitBoard,
+    pin_rays: [BitBoard; 2],
+    king_ring: [BitBoard; 2],
 }
 
 impl<'a> Evaluation<'a> {
-    pub fn new(board: &'a Board, precomp: &'a PrecomputedData, magics: &'a MagicBitBoards, color: Color) -> Self {
+    pub fn new(
+        board: &'a Board,
+        precomp: &'a PrecomputedData,
+        magics: &'a MagicBitBoards,
+        color: Color,
+    ) -> Self {
         Self {
             board,
             precomp,
             magics,
             color,
-            flipped: None,
 
-            king_square: Coord::default(),
-            pin_rays: BitBoard(0),
+            pin_rays: [BitBoard(0); 2],
+            king_ring: [BitBoard(0); 2],
         }
     }
 
     pub fn init(&mut self) {
-        self.king_square = self.king_square();
-        self.pin_rays = self.pin_rays();
+        self.pin_rays[self.color] = self.pin_rays();
+        self.pin_rays[self.color.flip()] = self.flip_pin_rays();
+        self.king_ring[self.color] = self.king_ring(false);
+        self.king_ring[self.color] = self.flip_king_ring(false);
     }
 
     /// Evaluation function adapted from the [Stockfish Evaluation Guide](https://hxim.github.io/Stockfish-Evaluation-Guide/).

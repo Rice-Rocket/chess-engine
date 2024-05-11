@@ -58,6 +58,14 @@ impl Color {
             Color::Black => Coord::new(file, 7 - rank),
         }
     }
+
+    #[inline]
+    pub fn is_white(self) -> bool {
+        match self {
+            Color::White => true,
+            Color::Black => false,
+        }
+    }
 }
 
 impl Default for Color {

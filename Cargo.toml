@@ -8,8 +8,12 @@ edition = "2021"
 [workspace]
 members = [ 
     "crates/engine",
-    "crates/external-uci"
+    "crates/external-uci", 
+    "crates/proc_macro_utils"
 ]
+
+[workspace.dependencies]
+proc_macro_utils = { path = "crates/proc_macro_utils" }
 
 [dependencies]
 engine = { path = "crates/engine" }

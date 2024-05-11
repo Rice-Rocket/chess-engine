@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Stdout, Write};
 use termion::{clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, game::Game, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::Color, eval::Evaluation, game::Game, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -273,9 +273,9 @@ pub fn start(fen: String) {
                     },
                     // change this when needed for debugging
                     Key::Char('e') => {
-                        // let sqr = Coord::from(cursor);
-                        // let state = State::new(&game.board, &game.precomp, &game.movegen, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
-                        // overlayed_bitboard = Some(eval::attack::bishop_xray_attack(&state, None, sqr));
+                        let sqr = Coord::from(cursor);
+                        let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
+                        overlayed_bitboard = Some(eval.king_ring(false));
                     },
                     _ => ()
                 };

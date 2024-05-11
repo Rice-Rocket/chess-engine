@@ -61,6 +61,7 @@ pub struct PrecomputedData {
     pub white_forward_file_mask: [BitBoard; 64],
     pub black_forward_file_mask: [BitBoard; 64],
     pub triple_file_mask: [BitBoard; 8],
+    pub king_ring: [BitBoard; 64],
 }
 
 impl PrecomputedData {
@@ -93,7 +94,7 @@ impl Default for PrecomputedData {
             num_sqrs_to_edge: [[0; 8]; 64],
             knight_moves: [BitBoard(0); 64],
             king_moves: [BitBoard(0); 64],
-            pawn_attack_dirs: [[Coord::from_idx(4), Coord::from_idx(6)], [Coord::from_idx(7), Coord::from_idx(5)]],
+            pawn_attack_dirs: [[Coord::new(1, 1), Coord::new(-1, 1)], [Coord::new(1, -1), Coord::new(-1, -1)]],
             white_pawn_attacks: [BitBoard(0); 64],
             black_pawn_attacks: [BitBoard(0); 64],
             direction_lookup: [0; 127],
@@ -112,6 +113,7 @@ impl Default for PrecomputedData {
             white_forward_file_mask: [BitBoard(0); 64],
             black_forward_file_mask: [BitBoard(0); 64],
             triple_file_mask: [BitBoard(0); 8],
+            king_ring: [BitBoard(0); 64],
         }
     }
 }
@@ -314,6 +316,19 @@ impl PrecomputedData {
         }
     }
 
+    fn calc_king_ring(&mut self) {
+        for sqr in Coord::iter_squares() {
+            for ix in -2..=2 {
+                for iy in -2..=2 {
+                    if ((-1..=1).contains(&ix) || sqr.file() == 0 || sqr.file() == 7)
+                    && ((-1..=1).contains(&iy) || sqr.rank() == 0 || sqr.rank() == 7) {
+                        self.king_ring[sqr].set_square(Coord::new_clamp(sqr.file() + ix, sqr.rank() + iy).square());
+                    }
+                }
+            }
+        }
+    }
+
     pub fn new() -> Self {
         let mut data = Self::default();
 
@@ -324,6 +339,7 @@ impl PrecomputedData {
         data.calc_dir_ray_mask();
         data.calc_align_mask();
         data.calc_pawn_structure_masks();
+        data.calc_king_ring();
 
         data
     }

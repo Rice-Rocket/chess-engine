@@ -1,16 +1,21 @@
+use proc_macro_utils::flipped_eval;
+
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
+    #[flipped_eval]
     pub fn winnable(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn winnable_total_mg(&self, v: i32) -> i32 {
         todo!();
     }
 
+    #[flipped_eval]
     pub fn winnable_total_eg(&self, v: i32) -> i32 {
         todo!();
     }

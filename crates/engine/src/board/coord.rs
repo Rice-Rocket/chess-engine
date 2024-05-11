@@ -85,6 +85,12 @@ impl Coord {
         ((self.0 & 0b01110000) >> 1) as i8 + (self.0 & 0b00000111) as i8
     }
 
+    #[inline]
+    pub const fn offset(self) -> i8 {
+        ((self.0 & 0b01110000) >> 1) as i8 * (if self.0 & 0b10000000 == 0 { 1 } else { -1 })
+            + (self.0 & 0b00000111) as i8 * (if self.0 & 0b00001000 == 0 { 1 } else { -1 })
+    }
+
     /// Performs other - self
     #[inline]
     pub fn delta(self, other: Coord) -> Coord {
