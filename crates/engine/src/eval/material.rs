@@ -47,7 +47,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(non_pawn_material, 11335, 11577, state);
     }
@@ -60,7 +60,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(piece_value_bonus, 12203, 12197, state; true);
         assert_eval!(piece_value_bonus, 13630, 13485, state; false);
@@ -74,7 +74,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(psqt_bonus, 146, 32, state; true);
         assert_eval!(psqt_bonus, -126, 26, state; false);

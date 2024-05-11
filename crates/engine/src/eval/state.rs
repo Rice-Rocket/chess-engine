@@ -12,15 +12,17 @@ pub struct State<'a> {
     pub board: &'a Board,
     pub precomp: &'a PrecomputedData,
     pub movegen: &'a MoveGenerator,
+    pub magics: &'a MagicBitBoards,
     pub color: Color,
 }
 
 impl<'a> State<'a> {
-    pub fn new(board: &'a Board, precomp: &'a PrecomputedData, movegen: &'a MoveGenerator, color: Color) -> Self {
+    pub fn new(board: &'a Board, precomp: &'a PrecomputedData, movegen: &'a MoveGenerator, magics: &'a MagicBitBoards, color: Color) -> Self {
         Self {
             board, 
             precomp,
             movegen,
+            magics,
             color,
         }
     }
@@ -124,4 +126,29 @@ macro_rules! assert_eval {
             $($($arg,)*)? 
         ), $b);
     };
+}
+
+
+#[macro_export]
+macro_rules! dbg_sqr_vals {
+    ($f:ident, $state:ident $(; $($arg:expr),*)?) => {
+        {
+            let mut s = String::from("\n\r");
+            for rank in (0..8).rev() {
+                let mut row = String::from("");
+                for file in 0..8 {
+                    let sqr = Coord::new(file, rank);
+                    let v = $f(&$state $($(,$arg)*)? , sqr);
+                    if v == 0 {
+                        row += "• ";
+                    } else {
+                        row += &format!("{} ", v);
+                    }
+                }
+                s += &row;
+                s += "\n\r";
+            };
+            println!("{}", s);
+        }
+    }
 }

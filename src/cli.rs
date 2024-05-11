@@ -93,6 +93,7 @@ enum InputMode {
     Replace,
     SelectPieceOverlay(u8, Box<InputMode>),
     SelectPieceReplace(u8, Box<InputMode>),
+    SelectPrecompBitBoard,
 }
 
 
@@ -250,8 +251,35 @@ pub fn start(fen: String) {
                         overlayed_bitboard = Some(game.movegen.pin_rays);
                         mode = InputMode::Normal;
                     },
+                    Key::Char('e') => {
+                        mode = InputMode::SelectPrecompBitBoard;
+                    },
                     _ => mode = InputMode::Normal,
                 }
+            },
+            InputMode::SelectPrecompBitBoard => {
+                match c.unwrap() {
+                    Key::Char('s') => {
+                        overlayed_bitboard = Some(game.precomp.white_pawn_support_mask[Coord::from(cursor)]);
+                    },
+                    Key::Char('S') => {
+                        overlayed_bitboard = Some(game.precomp.black_pawn_support_mask[Coord::from(cursor)]);
+                    },
+                    Key::Char('p') => {
+                        overlayed_bitboard = Some(game.precomp.white_pawn_attacks[Coord::from(cursor)]);
+                    },
+                    Key::Char('P') => {
+                        overlayed_bitboard = Some(game.precomp.black_pawn_attacks[Coord::from(cursor)]);
+                    },
+                    // change this when needed for debugging
+                    Key::Char('e') => {
+                        // let sqr = Coord::from(cursor);
+                        // let state = State::new(&game.board, &game.precomp, &game.movegen, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
+                        // overlayed_bitboard = Some(eval::attack::bishop_xray_attack(&state, None, sqr));
+                    },
+                    _ => ()
+                };
+                mode = InputMode::Normal;
             },
             InputMode::Replace => {
                 match c.unwrap() {

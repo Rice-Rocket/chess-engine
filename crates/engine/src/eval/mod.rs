@@ -1,18 +1,18 @@
 use crate::board::Board;
 
-mod state;
-mod attack;
-mod utils;
-mod imbalance;
-mod king;
-mod material;
-mod mobility;
-mod passed_pawns;
-mod pawns;
-mod pieces;
-mod space;
-mod threats;
-mod winnable;
+pub mod state;
+pub mod attack;
+pub mod utils;
+pub mod imbalance;
+pub mod king;
+pub mod material;
+pub mod mobility;
+pub mod passed_pawns;
+pub mod pawns;
+pub mod pieces;
+pub mod space;
+pub mod threats;
+pub mod winnable;
 
 
 impl Board {

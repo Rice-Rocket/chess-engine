@@ -1,7 +1,8 @@
 use std::ops::{Index, IndexMut};
 
-use crate::board::{coord::Coord, Board};
+use crate::board::{coord::Coord, piece::Piece, Board};
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Color {
     White,
     Black
@@ -13,6 +14,22 @@ impl Color {
         match self {
             Color::White => Color::Black,
             Color::Black => Color::White,
+        }
+    }
+
+    #[inline]
+    pub fn piece(self, ptype: u8) -> Piece {
+        match self {
+            Color::White => Piece::new(ptype | Piece::WHITE),
+            Color::Black => Piece::new(ptype | Piece::BLACK),
+        }
+    }
+
+    #[inline]
+    pub fn piece_color(self) -> u8 {
+        match self {
+            Color::White => Piece::WHITE,
+            Color::Black => Piece::BLACK,
         }
     }
 

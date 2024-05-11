@@ -103,7 +103,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("3q4/4p1p1/bn1rpPp1/kr3bNp/2NPnP1P/3P2P1/3PPR2/1RBQKB2 w KQkq - 2 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(- pawnless_flank, 1, 0, state);
     }
@@ -116,7 +116,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(strength_square, -2768, -956, state);
     }
@@ -129,7 +129,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(storm_square, 672, 2579, state; false);
     }
@@ -142,7 +142,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(shelter_strength, -2, 76, state);
     }
@@ -155,7 +155,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(shelter_storm, -27, 17, state);
     }
@@ -168,7 +168,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(king_pawn_distance, 2, 1, state);
     }
@@ -181,7 +181,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(check, 11, 2, state; 0);
     }
@@ -194,7 +194,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(safe_check, 2, 1, state; 0);
     }
@@ -207,7 +207,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(king_attackers_count, 4, 4, state);
     }
@@ -220,7 +220,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(king_attackers_weight, 54, 135, state);
     }
@@ -233,7 +233,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(king_attacks, 6, 1, state);
     }
@@ -246,7 +246,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(weak_bonus, 1, 2, state);
     }
@@ -259,7 +259,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(weak_squares, 22, 20, state);
     }
@@ -272,7 +272,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("3q4/4p1p1/bn1rpPp1/kr1n1bNp/P1N2P1P/3P2R1/3PP1P1/1RBQKB2 b KQkq - 3 3")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(unsafe_checks, 2, 0, state);
     }
@@ -285,7 +285,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK w Qkq - 5 4")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(knight_defender, 1, 6, state);
     }
@@ -298,7 +298,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK b kq - 8 5")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(endgame_shelter, 5, 11, state);
     }
@@ -311,7 +311,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(blockers_for_king, 2, 1, state);
     }
@@ -324,7 +324,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(flank_attack, 17, 16, state);
     }
@@ -337,7 +337,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(flank_defense, 19, 11, state);
     }
@@ -350,7 +350,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(- king_danger, 2640, 3448, state);
     }
@@ -363,7 +363,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(- king_mg, 1812, 3168, state);
     }
@@ -376,7 +376,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
         let mut movegen = MoveGenerator::default();
         movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, Color::White);
+        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
 
         assert_eval!(- king_eg, 138, 210, state);
     }

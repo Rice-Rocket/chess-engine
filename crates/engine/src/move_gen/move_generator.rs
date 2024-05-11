@@ -21,7 +21,7 @@ pub struct MoveGenerator {
     pub white_to_move: bool,
     pub friendly_color: u8,
     pub enemy_color: u8,
-    friendly_king_sqr: Coord,
+    pub friendly_king_sqr: Coord,
     friendly_idx: usize,
     enemy_idx: usize,
 
@@ -187,7 +187,7 @@ impl MoveGenerator {
         }
     }
 
-    fn is_pinned(&self, sqr: Coord) -> bool {
+    pub fn is_pinned(&self, sqr: Coord) -> bool {
         ((self.pin_rays >> sqr.index()) & 1).0 != 0
     }
 
