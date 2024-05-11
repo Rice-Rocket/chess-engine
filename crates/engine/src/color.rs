@@ -60,6 +60,12 @@ impl Color {
     }
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Self::White
+    }
+}
+
 impl<T> Index<Color> for Vec<T> {
     type Output = T;
 

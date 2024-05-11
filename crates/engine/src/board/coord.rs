@@ -204,6 +204,12 @@ impl<T> IndexMut<Coord> for [T] {
     }
 }
 
+impl Default for Coord {
+    fn default() -> Self {
+        Self::A1
+    }
+}
+
 
 pub struct CoordIterator {
     curr: i8,

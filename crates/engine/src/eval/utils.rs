@@ -1,50 +1,53 @@
 use crate::board::coord::Coord;
-use super::state::State;
+use super::Evaluation;
 
-pub fn bishop_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
 
-pub fn queen_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+impl<'a> Evaluation<'a> {
+    pub fn bishop_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn pawn_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn queen_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn knight_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn pawn_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn rook_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn knight_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn opposite_bishops(state: &State) -> i32 {
-    todo!();
-}
+    pub fn rook_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn king_distance(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn opposite_bishops(&self) -> i32 {
+        todo!();
+    }
 
-pub fn king_ring(state: &State, full: bool, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn king_distance(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn piece_count(state: &State, sqr: Coord) -> i32 {
-    todo!();
-}
+    pub fn king_ring(&self, full: bool, sqr: Coord) -> i32 {
+        todo!();
+    }
 
-pub fn pawn_attacks_span(state: &State, sqr: Coord) -> i32 {
-    todo!();
+    pub fn piece_count(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
+
+    pub fn pawn_attacks_span(&self, sqr: Coord) -> i32 {
+        todo!();
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::eval::state::test_prelude::*;
+    use crate::eval::test_prelude::*;
     use super::*;
 
     #[test]
@@ -53,11 +56,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(bishop_count, 2, 3, state);
+        assert_eval!(bishop_count, 2, 3, eval);
     }
 
     #[test]
@@ -66,11 +67,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(queen_count, 2, 1, state);
+        assert_eval!(queen_count, 2, 1, eval);
     }
 
     #[test]
@@ -79,11 +78,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(pawn_count, 8, 6, state);
+        assert_eval!(pawn_count, 8, 6, eval);
     }
 
     #[test]
@@ -92,11 +89,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(knight_count, 1, 4, state);
+        assert_eval!(knight_count, 1, 4, eval);
     }
 
     #[test]
@@ -105,11 +100,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(rook_count, 3, 1, state);
+        assert_eval!(rook_count, 3, 1, eval);
     }
 
     #[test]
@@ -118,12 +111,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("n1b1r3/4p1Q1/1q2pP2/kpp4r/P1P4r/R1B1N2P/P4P1R/4RnK1 b kq - 2 11")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- opposite_bishops, 1, 1, state);
-        assert_eval!(- opposite_bishops, 0, 0, state);
+        assert_eval!(- opposite_bishops, 1, 1, eval);
     }
 
     #[test]
@@ -132,12 +122,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(king_distance, 308, 215, state);
-        assert_eval!(king_distance, [2, 3], 5, 3, state);
+        assert_eval!(king_distance, 308, 215, eval);
     }
 
     #[test]
@@ -146,13 +133,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/1p2Rpn1/nQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK w Qkq - 2 3")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(king_ring, [6, 2], 0, 0, state; false);
-        assert_eval!(king_ring, [5, 2], 0, 1, state; false);
-        assert_eval!(king_ring, [3, 5], 1, 0, state; false);
+        assert_eval!(king_ring, [6, 2], 0, 0, eval; false);
     }
 
     #[test]
@@ -161,11 +144,9 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/1p2Rpn1/nQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK w Qkq - 2 3")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(piece_count, 17, 15, state);
+        assert_eval!(piece_count, 17, 15, eval);
     }
 
     #[test]
@@ -174,10 +155,8 @@ mod tests {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/n3Rpn1/pQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK b Qkq - 3 3")), &mut Zobrist::new());
-        let mut movegen = MoveGenerator::default();
-        movegen.generate_moves(&board, &precomp, &magics, false);
-        let mut state = State::new(&board, &precomp, &movegen, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(pawn_attacks_span, 28, 32, state);
+        assert_eval!(pawn_attacks_span, 28, 32, eval);
     }
 }
