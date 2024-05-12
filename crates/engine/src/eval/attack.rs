@@ -390,82 +390,50 @@ mod tests {
     use super::*;
 
     #[test]
+    #[evaluation_test("nb2kb1R/pppppppp/6n1/4R2B/Qb2P3/4r3/PPPP1PPP/2BNK1Rq b KQkq e3 0 1")]
     fn test_knight_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb2kb1R/pppppppp/6n1/4R2B/Qb2P3/4r3/PPPP1PPP/2BNK1Rq b KQkq e3 0 1")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_knight_attack, 4, 8, eval; None);
     }
 
     #[test]
+    #[evaluation_test("rnb1k1nr/pppp1ppp/8/4p2B/1qb1PPQ1/8/PPPB1PPP/RN2K1NR b KQkq - 1 2")]
     fn test_bishop_xray_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("rnb1k1nr/pppp1ppp/8/4p2B/1qb1PPQ1/8/PPPB1PPP/RN2K1NR b KQkq - 1 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ enemy_bishop_xray_attack, 12, 10, eval; None);
     }
 
     #[test]
+    #[evaluation_test("2p1kbn1/pp1bpppr/r7/3p1q1B/Q7/P2R4/PPP1PPPP/1N2KBNR w KQkq d6 0 2")]
     fn test_rook_xray_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("2p1kbn1/pp1bpppr/r7/3p1q1B/Q7/P2R4/PPP1PPPP/1N2KBNR w KQkq d6 0 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_rook_xray_attack, 13, 15, eval; None);
     }
 
     #[test]
+    #[evaluation_test("nb2kb1R/pppppppp/6n1/4R2B/1bPP1q2/Q3r3/PPP2PPP/2BNK1R1 b KQkq e3 0 1")]
     fn test_queen_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb2kb1R/pppppppp/6n1/4R2B/1bPP1q2/Q3r3/PPP2PPP/2BNK1R1 b KQkq e3 0 1")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_queen_attack, 11, 15, eval; None);
     }
 
     #[test]
+    #[evaluation_test("nb2kb1R/p1p1n2p/1p3pn1/n3R2B/1bPP1qpP/QP2r1P1/P1P2P2/2BNK1R1 w KQkq - 0 2")]
     fn test_pawn_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb2kb1R/p1p1n2p/1p3pn1/n3R2B/1bPP1qpP/QP2r1P1/P1P2P2/2BNK1R1 w KQkq - 0 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_pawn_attack, 14, 10, eval; None);
     }
 
     #[test]
+    #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_king_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_king_attack, 3, 8, eval; None);
     }
 
     #[test]
+    #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_attack, 51, 73, eval);
     }
 
     #[test]
+    #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_queen_attack_diagonal() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ friendly_queen_attack_diagonal, 3, 7, eval; None);
     }
 }

@@ -334,226 +334,142 @@ mod tests {
     use super::*;
 
     #[test]
+    #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr3bNp/2NPnP1P/3P2P1/3PPR2/1RBQKB2 w KQkq - 2 3")]
     fn test_pawnless_flank() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("3q4/4p1p1/bn1rpPp1/kr3bNp/2NPnP1P/3P2P1/3PPR2/1RBQKB2 w KQkq - 2 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_pawnless_flank, true, false, eval);
     }
 
     #[test]
+    #[evaluation_test("2b1k3/1ppp1ppr/r1nb4/pB1Np1qp/3n1P2/4PQ1N/PPPP2PP/R1B2RK1 w Q - 8 8")]
     fn test_strength_square() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("2b1k3/1ppp1ppr/r1nb4/pB1Np1qp/3n1P2/4PQ1N/PPPP2PP/R1B2RK1 w Q - 8 8")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_strength_square, -660, -1578, eval);
     }
 
     #[test]
+    #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_storm_square() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_storm_square, 672, 2579, eval; false);
     }
 
     #[test]
+    #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_shelter_strength_storm() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_shelter_strength_storm, (-2, -27), (76, 17), eval);
     }
 
     #[test]
+    #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_pawn_distance() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_king_pawn_distance, 2, 1, eval);
     }
 
     #[test]
+    #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_check() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ - friendly_check, 11, 2, eval; CheckType::All);
     }
 
     #[test]
+    #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_safe_check() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ - friendly_safe_check, 2, 1, eval; CheckType::All);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")]
     fn test_king_attackers_origin() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(* [0, 1] friendly_king_attackers_origin, (2, 3), (7, 0), eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attackers_weight() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_king_attackers_weight, 54, 135, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attacks() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_king_attacks, 6, 1, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_bonus() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_weak_bonus, 1, 2, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_squares() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(+ - friendly_weak_squares, 22, 20, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr1n1bNp/P1N2P1P/3P2R1/3PP1P1/1RBQKB2 b KQkq - 3 3")]
     fn test_unsafe_checks() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("3q4/4p1p1/bn1rpPp1/kr1n1bNp/P1N2P1P/3P2R1/3PP1P1/1RBQKB2 b KQkq - 3 3")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_unsafe_checks, 2, 0, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK w Qkq - 5 4")]
     fn test_knight_defender() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK w Qkq - 5 4")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_knight_defender, 1, 6, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK b kq - 8 5")]
     fn test_endgame_shelter() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK b kq - 8 5")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_endgame_shelter, 5, 11, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_blockers_for_king() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_blockers_for_king, 2, 1, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_flank_attack() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_flank_attack, 17, 16, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_flank_defense() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_flank_defense, 19, 11, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_danger() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_king_danger, 2640, 3448, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_mg() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_king_mg, 1812, 3168, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_eg() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(- friendly_king_eg, 138, 210, eval);
     }
 }

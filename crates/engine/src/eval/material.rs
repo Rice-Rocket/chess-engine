@@ -53,34 +53,22 @@ mod tests {
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_non_pawn_material() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_non_pawn_material, 11335, 11577, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_piece_value_bonus() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_piece_value_bonus, 12203, 12197, eval; true);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_psqt_bonus() {
-        let precomp = PrecomputedData::new();
-        let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-
         assert_eval!(friendly_psqt_bonus, 146, 32, eval; true);
     }
 }

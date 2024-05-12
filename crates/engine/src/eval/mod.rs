@@ -114,4 +114,5 @@ pub(crate) mod test_prelude {
     pub use crate::eval::Evaluation;
     pub use crate::assert_eval;
     pub use crate::sum_sqrs;
+    pub use proc_macro_utils::evaluation_test;
 }
