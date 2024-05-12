@@ -159,6 +159,19 @@ macro_rules! assert_eval {
             $($($arg,)*)? 
         ).count() as i32, $b);
     };
+
+    (* - [$($count:tt),+] $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
+        $eval.color = Color::White;
+        $eval.init();
+        $(
+            assert_eq!($eval.$f().$count.count() as i32, $w.$count);
+        )*
+
+        $eval.color = Color::Black;
+        $(
+            assert_eq!($eval.$f().$count.count() as i32, $b.$count);
+        )*
+    };
 }
 
 

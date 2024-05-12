@@ -176,7 +176,7 @@ impl<'a> Evaluation<'a> {
     // TODO: Cache this
     #[evaluation_fn]
     pub fn check(&self, ty: CheckType) -> BitBoard {
-        let king = self.friendly_king_square();
+        let king = self.enemy_king_square();
         let blockers = self.board.all_pieces_bitboard & !self.board.piece_bitboards[self.color.flip().piece(Piece::QUEEN)];
         let mut checks = BitBoard(0);
 
@@ -256,14 +256,39 @@ impl<'a> Evaluation<'a> {
     /// the king ring are part of a separate bitboard. 
     ///
     /// Returns: `(attackers (+ double pawns attacks), double pawn attacks)`
+    // TODO: Cache this
     #[evaluation_fn]
-    pub fn king_attackers_origin(&self, sqr: Coord) -> (BitBoard, BitBoard) {
-        todo!();
+    pub fn king_attackers_origin(&self) -> (BitBoard, BitBoard) {
+        let mut attacked = BitBoard(0);
+        let mut pawn_attacked = BitBoard(0);
+        let mut double_pawn_attacked = BitBoard(0);
+        let mut attacked_king_ring = self.precomp.king_ring[self.enemy_king_square()] & self.friendly_all_attacks();
+
+        while attacked_king_ring.0 != 0 {
+            let sqr = Coord::from_idx(attacked_king_ring.pop_lsb() as i8);
+            let pawn_attacks = self.friendly_pawn_attack(None, sqr);
+            attacked |= pawn_attacks
+                | self.friendly_knight_attack(None, sqr)
+                | self.friendly_bishop_xray_attack(None, sqr)
+                | self.friendly_rook_xray_attack(None, sqr)
+                | self.friendly_queen_attack(None, sqr);
+
+            double_pawn_attacked |= pawn_attacked & pawn_attacks;
+            pawn_attacked |= pawn_attacks;
+        }
+
+        (attacked | double_pawn_attacked, double_pawn_attacked)
     }
 
+    const KING_ATTACK_WEIGHTS: [i32; 4] = [81, 52, 44, 10]; // Knight, bishop, rook, queen
     #[evaluation_fn]
     pub fn king_attackers_weight(&self, sqr: Coord) -> i32 {
-        todo!();
+        let attacks = self.friendly_king_attackers_origin().0;
+
+        (attacks & self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[0]
+        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::BISHOP)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[1]
+        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::ROOK)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[2]
+        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::QUEEN)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[3]
     }
 
     #[evaluation_fn]
@@ -370,16 +395,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_safe_check() {
         assert_eval!(+ - friendly_safe_check, 2, 1, eval; CheckType::All);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")]
     fn test_king_attackers_origin() {
-        assert_eval!(* [0, 1] friendly_king_attackers_origin, (2, 3), (7, 0), eval);
+        assert_eval!(* - [0, 1] friendly_king_attackers_origin, (3, 1), (7, 0), eval);
     }
 
     #[test]

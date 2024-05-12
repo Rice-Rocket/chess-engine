@@ -73,7 +73,7 @@ impl<'a> Evaluation<'a> {
 
     /// Returns `(all_attacks, double_attacks)`
     // TODO: Cache this and use if to elimate squares early on for `knight_attack`.
-    // Same with all other attack functions.
+    // Same with all other all attacks functions.
     #[evaluation_fn]
     pub fn all_knight_attacks(&self) -> (BitBoard, BitBoard) {
         let mut knights = self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)];

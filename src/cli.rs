@@ -284,7 +284,7 @@ pub fn start(fen: String) {
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
                         let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
-                        overlayed_bitboard = Some(eval.friendly_king_ring(false));
+                        overlayed_bitboard = Some(eval.friendly_check(engine::eval::king::CheckType::All));
                     },
                     _ => ()
                 };
