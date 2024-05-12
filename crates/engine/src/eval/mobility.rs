@@ -1,33 +1,33 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn mobility(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn mobility_area(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn mobility_bonus(&self, mg: bool, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn mobility_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
     #[inline]
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn mobility_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }

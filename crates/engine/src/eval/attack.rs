@@ -1,18 +1,18 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::{board::{coord::Coord, piece::Piece}, color::Color, prelude::BitBoard};
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_square(&self) -> Coord {
         self.board.king_square[self.color]
     }
 
     /// Requires: `king_square`
     // TODO: Save this data from move generation
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn pin_rays(&self) -> BitBoard {
         let mut pin_rays = BitBoard(0);
         let mut start_dir_idx = 0;
@@ -66,32 +66,36 @@ impl<'a> Evaluation<'a> {
     /// Checks if a piece is pinned. 
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn pinned(&self, sqr: Coord) -> bool {
         ((self.pin_rays[self.color] >> sqr.index()) & 1).0 != 0
     }
 
+    /// Returns `(all_attacks, double_attacks)`
     // TODO: Cache this and use if to elimate squares early on for `knight_attack`.
     // Same with all other attack functions.
-    #[flipped_eval]
-    pub fn all_knight_attacks(&self) -> BitBoard {
+    #[evaluation_fn]
+    pub fn all_knight_attacks(&self) -> (BitBoard, BitBoard) {
         let mut knights = self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)];
         knights &= !self.pin_rays[self.color];
         let mut attacks = BitBoard(0);
+        let mut doubled = BitBoard(0);
 
         while knights.0 != 0 {
             let sqr = Coord::from_idx(knights.pop_lsb() as i8);
-            attacks |= self.precomp.knight_moves[sqr];
+            let moves = self.precomp.knight_moves[sqr];
+            doubled |= attacks & moves;
+            attacks |= moves;
         }
 
-        attacks
+        (attacks, doubled)
     }
 
     /// Calculates the friendly knights attacking `sqr`. If s2 specified, only counts attacks coming
     /// from that square. 
     /// 
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn knight_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)];
         attacks &= !self.pin_rays[self.color];
@@ -101,31 +105,34 @@ impl<'a> Evaluation<'a> {
         attacks
     }
 
-    #[flipped_eval]
-    pub fn all_bishop_xray_attacks(&self) -> BitBoard {
+    #[evaluation_fn]
+    pub fn all_bishop_xray_attacks(&self) -> (BitBoard, BitBoard) {
         let mut bishops = self.board.piece_bitboards[self.color.piece(Piece::BISHOP)];
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
         let mut attacks = BitBoard(0);
+        let mut doubled = BitBoard(0);
         
         while bishops.0 != 0 {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers);
-            if self.friendly_pinned(sqr) {
-                attacks |= moves & self.pin_rays[self.color];
+            let valid = if self.friendly_pinned(sqr) {
+                moves & self.pin_rays[self.color]
             } else {
-                attacks |= moves;
-            }
+                moves
+            };
+            doubled |= attacks & valid;
+            attacks |= valid;
         }
-        attacks
+        (attacks, doubled)
     }
 
     /// Calculates the friendly bishops attacking `sqr`, including xray attacks through queens. 
     /// If s2 specified, only counts attacks coming from that square.  
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn bishop_xray_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
@@ -146,31 +153,34 @@ impl<'a> Evaluation<'a> {
         res
     }
 
-    #[flipped_eval]
-    pub fn all_rook_xray_attacks(&self) -> BitBoard {
+    #[evaluation_fn]
+    pub fn all_rook_xray_attacks(&self) -> (BitBoard, BitBoard) {
         let mut rooks = self.board.piece_bitboards[self.color.piece(Piece::ROOK)];
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
         let mut attacks = BitBoard(0);
+        let mut doubled = BitBoard(0);
         
         while rooks.0 != 0 {
             let sqr = Coord::from_idx(rooks.pop_lsb() as i8);
             let moves = self.magics.get_rook_attacks(sqr, blockers);
-            if self.friendly_pinned(sqr) {
-                attacks |= moves & self.pin_rays[self.color];
+            let valid = if self.friendly_pinned(sqr) {
+                moves & self.pin_rays[self.color]
             } else {
-                attacks |= moves;
-            }
+                moves
+            };
+            doubled |= attacks & valid;
+            attacks |= valid;
         }
-        attacks
+        (attacks, doubled)
     }
 
     /// Calculates the friendly rooks attacking `sqr`, including xray attacks through queens. 
     /// If s2 specified, only counts attacks coming from that square.  
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn rook_xray_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
@@ -191,29 +201,32 @@ impl<'a> Evaluation<'a> {
         res
     }
 
-    #[flipped_eval]
-    pub fn all_queen_xray_attacks(&self) -> BitBoard {
+    #[evaluation_fn]
+    pub fn all_queen_attacks(&self) -> (BitBoard, BitBoard) {
         let mut queens = self.board.piece_bitboards[self.color.piece(Piece::QUEEN)];
         let blockers = self.board.all_pieces_bitboard;
         let mut attacks = BitBoard(0);
+        let mut doubled = BitBoard(0);
         
         while queens.0 != 0 {
             let sqr = Coord::from_idx(queens.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
-            if self.friendly_pinned(sqr) {
-                attacks |= moves & self.pin_rays[self.color];
+            let valid = if self.friendly_pinned(sqr) {
+                moves & self.pin_rays[self.color]
             } else {
-                attacks |= moves;
-            }
+                moves
+            };
+            doubled |= attacks & valid;
+            attacks |= valid;
         }
-        attacks
+        (attacks, doubled)
     }
 
     /// Calculates the friendly queens attacking `sqr`. If s2 specified, only counts attacks coming
     /// from that square. 
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn queen_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard;
         let mut attacks = (self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers))
@@ -232,13 +245,34 @@ impl<'a> Evaluation<'a> {
         res
     }
 
+    // TODO: Maybe remove considering pins here and below...
+    #[evaluation_fn]
+    pub fn all_pawn_attacks(&self) -> (BitBoard, BitBoard) {
+        let mut pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
+        let mut attacks = BitBoard(0);
+        let mut doubled = BitBoard(0);
+        
+        while pawns.0 != 0 {
+            let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
+            let moves = if self.color.is_white() { self.precomp.white_pawn_attacks[sqr] } else { self.precomp.black_pawn_attacks[sqr] };
+            let valid = if self.friendly_pinned(sqr) {
+                moves & self.pin_rays[self.color]
+            } else {
+                moves
+            };
+            doubled |= attacks & valid;
+            attacks |= valid;
+        }
+        (attacks, doubled)
+    }
+
     /// Calculates the friendly pawns attacking `sqr`, excluding pins and en-passant. 
     /// If s2 specified, only counts attacks coming from that square. 
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn pawn_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
-        let map = if self.color == Color::White { self.precomp.black_pawn_attacks[sqr] } else { self.precomp.white_pawn_attacks[sqr] };
+        let map = if self.color.is_white() { self.precomp.black_pawn_attacks[sqr] } else { self.precomp.white_pawn_attacks[sqr] };
         let mut attacks = map & self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
         if let Some(s) = s2 {
             attacks &= s.to_bitboard();
@@ -254,9 +288,22 @@ impl<'a> Evaluation<'a> {
         res
     }
 
+    /// Does not return the doubled attacks, as it is impossible.
+    #[evaluation_fn]
+    pub fn all_king_attacks(&self) -> BitBoard {
+        let mut kings = self.board.piece_bitboards[self.color.piece(Piece::KING)];
+        let mut attacks = BitBoard(0);
+        
+        while kings.0 != 0 {
+            let sqr = Coord::from_idx(kings.pop_lsb() as i8);
+            attacks |= self.precomp.king_moves[sqr];
+        }
+        attacks
+    }
+
     /// Calculates the friendly kings attacking `sqr`. If s2 specified, only counts attacks coming
     /// from that square. 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.king_moves[sqr] & self.board.piece_bitboards[self.color.piece(Piece::KING)];
         if let Some(s) = s2 {
@@ -265,10 +312,43 @@ impl<'a> Evaluation<'a> {
         attacks
     }
 
+    #[evaluation_fn]
+    pub fn all_attacks(&self) -> BitBoard {
+        self.friendly_all_pawn_attacks().0
+            | self.friendly_all_king_attacks()
+            | self.friendly_all_knight_attacks().0
+            | self.friendly_all_bishop_xray_attacks().0
+            | self.friendly_all_rook_xray_attacks().0
+            | self.friendly_all_queen_attacks().0
+    }
+
+    #[evaluation_fn]
+    pub fn all_doubled_attacks(&self) -> BitBoard {
+        let pawns = self.friendly_all_pawn_attacks();
+        let knights = self.friendly_all_knight_attacks();
+        let bishops = self.friendly_all_bishop_xray_attacks();
+        let rooks = self.friendly_all_rook_xray_attacks();
+        let queens = self.friendly_all_queen_attacks();
+        
+        let mut doubled = pawns.1
+            | knights.1
+            | bishops.1
+            | rooks.1
+            | queens.1;
+
+        doubled |= pawns.0
+            & knights.0
+            & bishops.0
+            & rooks.0
+            & queens.0;
+
+        doubled
+    }
+
     /// Calculates the friendly attacks on `sqr` by all pieces.
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn attack(&self, sqr: Coord) -> BitBoard {
         self.friendly_pawn_attack(None, sqr)
             | self.friendly_king_attack(None, sqr)
@@ -282,7 +362,7 @@ impl<'a> Evaluation<'a> {
     /// attacks coming from that square. 
     ///
     /// Requires: `pin_rays`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn queen_attack_diagonal(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard{
         let blockers = self.board.all_pieces_bitboard;
         let mut attacks = self.magics.get_bishop_attacks(sqr, blockers)

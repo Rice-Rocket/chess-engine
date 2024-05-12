@@ -1,4 +1,4 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::{board::{coord::Coord, piece::Piece}, precomp::PrecomputedData, prelude::BitBoard};
 use super::Evaluation;
@@ -6,31 +6,31 @@ use super::Evaluation;
 
 impl<'a> Evaluation<'a> {
     /// The number of friendly bishops.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn bishop_count(&self) -> i32 {
         self.board.piece_bitboards[self.color.piece(Piece::BISHOP)].count() as i32
     }
 
     /// The number of friendly queens.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn queen_count(&self) -> i32 {
         self.board.piece_bitboards[self.color.piece(Piece::QUEEN)].count() as i32
     }
 
     /// The number of friendly pawns.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn pawn_count(&self) -> i32 {
         self.board.piece_bitboards[self.color.piece(Piece::PAWN)].count() as i32
     }
 
     /// The number of friendly knights.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn knight_count(&self) -> i32 {
         self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)].count() as i32
     }
 
     /// The number of friendly rooks.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn rook_count(&self) -> i32 {
         self.board.piece_bitboards[self.color.piece(Piece::ROOK)].count() as i32
     }
@@ -50,13 +50,13 @@ impl<'a> Evaluation<'a> {
     /// Counts the distance to the friendly king. 
     ///
     /// Requires: `king_square`
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_distance(&self, sqr: Coord) -> i32 {
         self.precomp.king_distance[self.friendly_king_square()][sqr] as i32
     }
 
     /// The enemy's king ring. Squares defended by two pawns are excluded. 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_ring(&self, full: bool) -> BitBoard {;
         let mut king_ring = self.precomp.king_ring[self.enemy_king_square()];
         if full { return king_ring };
@@ -69,12 +69,12 @@ impl<'a> Evaluation<'a> {
     }
 
     /// The number of friendly pieces.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn piece_count(&self) -> i32 {
         self.board.color_bitboards[self.color].count() as i32
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn pawn_attacks_span(&self) -> BitBoard {
         todo!();
     }

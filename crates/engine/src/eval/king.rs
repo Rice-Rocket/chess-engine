@@ -1,4 +1,4 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::{board::{coord::Coord, piece::Piece}, prelude::BitBoard};
 use super::Evaluation;
@@ -19,7 +19,8 @@ impl<'a> Evaluation<'a> {
     /// Whether or not the enemy king is on a pawnless flank. 
     ///
     /// A pawnless flank is defined as a flank with no enemy pawns. 
-    #[flipped_eval]
+    // TODO: Cache this
+    #[evaluation_fn]
     pub fn pawnless_flank(&self) -> bool {
         let kx = self.enemy_king_square().file();
         let pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
@@ -47,7 +48,7 @@ impl<'a> Evaluation<'a> {
         [-39, -13, -29, -52, -48, -67, -166]
     ];
     /// King shelter strength for each square on the board.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn strength_square(&self, sqr: Coord) -> i32 {
         let mut v = 5;
         let kx = sqr.file().max(1).min(6);
@@ -90,7 +91,7 @@ impl<'a> Evaluation<'a> {
         [0, 0, 78,  15, 10,  6,  2]
     ];
     /// Enemy pawns storm for each square on the board. 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn storm_square(&self, eg: bool, sqr: Coord) -> i32 {
         let mut blocked_idx = if eg { 1 } else { 0 };
         let mut v = 0;
@@ -129,7 +130,7 @@ impl<'a> Evaluation<'a> {
 
     /// Returns `(shelter_strength, shelter_storm)`
     // TODO: Cache the result of this function.
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn shelter_strength_storm(&self) -> (i32, i32) {
         let mut w = 0;
         let mut s = 1024;
@@ -155,7 +156,8 @@ impl<'a> Evaluation<'a> {
     }
 
     /// The minimum distance from the friendly king to a friendly pawn
-    #[flipped_eval]
+    // TODO: Cache this
+    #[evaluation_fn]
     pub fn king_pawn_distance(&self) -> i32 {
         let k = self.friendly_king_square();
         let mut pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
@@ -171,90 +173,155 @@ impl<'a> Evaluation<'a> {
     }
 
     /// The positions to which friendly pieces could move to deliver check.
-    #[flipped_eval]
-    pub fn check(&self, ty: CheckType, sqr: Coord) -> BitBoard {
+    // TODO: Cache this
+    #[evaluation_fn]
+    pub fn check(&self, ty: CheckType) -> BitBoard {
+        let king = self.friendly_king_square();
         let blockers = self.board.all_pieces_bitboard & !self.board.piece_bitboards[self.color.flip().piece(Piece::QUEEN)];
         let mut checks = BitBoard(0);
 
-        // if ty == CheckType::Rook || ty == CheckType::All || ty == CheckType::NotQueen {
-        //     
-        // }
+        if ty == CheckType::Rook || ty == CheckType::All || ty == CheckType::NotQueen {
+            let mut moves = self.friendly_all_rook_xray_attacks().0;
+
+            while moves.0 != 0 {
+                let sqr = Coord::from_idx(moves.pop_lsb() as i8);
+                let attacks = self.magics.get_rook_attacks(sqr, blockers);
+                if attacks.contains_square(king.square()) {
+                    checks.set_square(sqr.square());
+                }
+            }
+        }
+
+        if ty == CheckType::Bishop || ty == CheckType::All || ty == CheckType::NotQueen {
+            let mut moves = self.friendly_all_bishop_xray_attacks().0;
+
+            while moves.0 != 0 {
+                let sqr = Coord::from_idx(moves.pop_lsb() as i8);
+                let attacks = self.magics.get_bishop_attacks(sqr, blockers);
+                if attacks.contains_square(king.square()) {
+                    checks.set_square(sqr.square());
+                }
+            }
+        }
+
+        if ty == CheckType::Knight || ty == CheckType::All || ty == CheckType::NotQueen {
+            let mut moves = self.friendly_all_knight_attacks().0;
+
+            while moves.0 != 0 {
+                let sqr = Coord::from_idx(moves.pop_lsb() as i8);
+                let attacks = self.precomp.knight_moves[sqr];
+                if attacks.contains_square(king.square()) {
+                    checks.set_square(sqr.square());
+                }
+            }
+        }
+
+        if ty == CheckType::All {
+            let mut moves = self.friendly_all_queen_attacks().0;
+
+            while moves.0 != 0 {
+                let sqr = Coord::from_idx(moves.pop_lsb() as i8);
+                let attacks = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
+                if attacks.contains_square(king.square()) {
+                    checks.set_square(sqr.square());
+                }
+            }
+        }
 
         checks
     }
 
     /// The positions to which friendly pieces could move to deliver check without being captured. 
-    #[flipped_eval]
-    pub fn safe_check(&self, ty: CheckType, sqr: Coord) -> BitBoard {
+    // TODO: Cache this
+    #[evaluation_fn]
+    pub fn safe_check(&self, ty: CheckType) -> BitBoard {
+        let mut checks = self.friendly_check(ty);
+
+        if ty == CheckType::Queen {
+            checks &= !self.friendly_safe_check(CheckType::Rook);
+        } else if ty == CheckType::Bishop {
+            checks &= !self.friendly_safe_check(CheckType::Queen);
+        }
+        
+        checks &= (!self.enemy_all_attacks() | (self.friendly_weak_squares() & self.enemy_all_doubled_attacks()));
+
+        if ty == CheckType::Queen {
+            checks &= !self.enemy_all_queen_attacks().0;
+        }
+
+        checks
+    }
+
+    /// The friendly pieces that attack squares in the king ring. Pawns which attack two squares in
+    /// the king ring are part of a separate bitboard. 
+    ///
+    /// Returns: `(attackers (+ double pawns attacks), double pawn attacks)`
+    #[evaluation_fn]
+    pub fn king_attackers_origin(&self, sqr: Coord) -> (BitBoard, BitBoard) {
         todo!();
     }
 
-    #[flipped_eval]
-    pub fn king_attackers_count(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_attackers_weight(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_attacks(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn weak_bonus(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
-    pub fn weak_squares(&self, sqr: Coord) -> i32 {
+    #[evaluation_fn]
+    pub fn weak_squares(&self) -> BitBoard {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn unsafe_checks(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn knight_defender(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn endgame_shelter(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn blockers_for_king(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn flank_attack(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn flank_defense(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_danger(&self) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_mg(&self) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_eg(&self) -> i32 {
         todo!();
     }
@@ -307,7 +374,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     fn test_king_pawn_distance() {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
@@ -318,36 +384,34 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     fn test_check() {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(+ friendly_check, 11, 2, eval; CheckType::All);
+        assert_eval!(+ - friendly_check, 11, 2, eval; CheckType::All);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     fn test_safe_check() {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(+ friendly_safe_check, 2, 1, eval; CheckType::All);
+        assert_eval!(+ - friendly_safe_check, 2, 1, eval; CheckType::All);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
-    fn test_king_attackers_count() {
+    fn test_king_attackers_origin() {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
-        let board = Board::load_position(Some(String::from("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
+        let board = Board::load_position(Some(String::from("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(friendly_king_attackers_count, 4, 4, eval);
+        assert_eval!(* [0, 1] friendly_king_attackers_origin, (2, 3), (7, 0), eval);
     }
 
     #[test]
@@ -391,7 +455,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(friendly_weak_squares, 22, 20, eval);
+        assert_eval!(+ - friendly_weak_squares, 22, 20, eval);
     }
 
     #[test]

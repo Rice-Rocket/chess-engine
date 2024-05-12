@@ -1,16 +1,16 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn space_area(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn space(&self, sqr: Coord) -> i32 {
         todo!();
     }

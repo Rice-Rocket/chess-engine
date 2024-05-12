@@ -1,21 +1,21 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn imbalance(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn bishop_pair(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn imbalance_total(&self) -> i32 {
         todo!();
     }

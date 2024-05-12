@@ -1,46 +1,46 @@
-use proc_macro_utils::flipped_eval;
+use proc_macro_utils::evaluation_fn;
 
 use crate::board::coord::Coord;
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn candidate_passed(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn king_proximity(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_block(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_file(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_rank(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_leverable(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_mg(&self, sqr: Coord) -> i32 {
         todo!();
     }
 
-    #[flipped_eval]
+    #[evaluation_fn]
     pub fn passed_eg(&self, sqr: Coord) -> i32 {
         todo!();
     }

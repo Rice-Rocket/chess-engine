@@ -6,7 +6,7 @@ mod flip_eval;
 
 
 #[proc_macro_attribute]
-pub fn flipped_eval(_args: TokenStream, item: TokenStream) -> TokenStream {
+pub fn evaluation_fn(_args: TokenStream, item: TokenStream) -> TokenStream {
     let mut item = parse_macro_input!(item as ItemFn);
     let gen = flip_eval::expand(item.clone());
 

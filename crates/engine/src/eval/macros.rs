@@ -28,6 +28,24 @@ macro_rules! sum_sqrs {
             sum
         }
     };
+
+    (* [$($count:tt),+ $(,)*] $eval:ident, $f:ident: $($arg:expr),* $(,)*) => {
+        {
+            let mut sums = ($($count,)*);
+
+            $(
+                let mut sum = 0i32;
+
+                for sqr in Coord::iter_squares() {
+                    sum += $eval.$f(sqr).$count.count() as i32;
+                }
+
+                sums.$count = sum;
+            )*
+
+            sums
+        }
+    }
 }
 
 /// assert_eval!(`f`, [[`file`, `rank`]], `white_eval`, `black_eval`, `fen`; {`args`})
@@ -101,6 +119,21 @@ macro_rules! assert_eval {
         ), $b);
     };
 
+    (* [$($count:tt),+] $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
+        $eval.color = Color::White;
+        $eval.init();
+        assert_eq!(sum_sqrs!( * [$($count,)+]
+            $eval, $f:
+            $($($arg,)*)?
+        ), $w);
+
+        $eval.color = Color::Black;
+        assert_eq!(sum_sqrs!( * [$($count,)+]
+            $eval, $f:
+            $($($arg,)*)?
+        ), $w);
+    };
+
     (- $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
         $eval.color = Color::White;
         $eval.init();
@@ -112,6 +145,19 @@ macro_rules! assert_eval {
         assert_eq!($eval.$f(
             $($($arg,)*)? 
         ), $b);
+    };
+
+    (+ - $f:ident, $w:expr, $b:expr, $eval:ident $(; $($arg:expr),*)?) => {
+        $eval.color = Color::White;
+        $eval.init();
+        assert_eq!($eval.$f(
+            $($($arg,)*)? 
+        ).count() as i32, $w);
+
+        $eval.color = Color::Black;
+        assert_eq!($eval.$f(
+            $($($arg,)*)? 
+        ).count() as i32, $b);
     };
 }
 
