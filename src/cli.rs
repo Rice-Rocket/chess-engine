@@ -199,6 +199,15 @@ pub fn start(fen: String) {
                         write!(stdout, "{}{}\n\r", clear::CurrentLine, &game.zobrist.calc_zobrist_key(&game.board)).unwrap();
                         printed_dbg_len = Some(1);
                     },
+                    Key::Char('e') => {
+                        let sqr = Coord::from(cursor);
+                        let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
+                        let v = eval.friendly_strength_square(sqr);
+
+                        if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
+                        write!(stdout, "{}{}\n\r", clear::CurrentLine, v).unwrap();
+                        printed_dbg_len = Some(1);
+                    },
                     _ => (),
                 }
                 mode = InputMode::Normal;
@@ -275,7 +284,7 @@ pub fn start(fen: String) {
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
                         let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
-                        overlayed_bitboard = Some(eval.king_ring(false));
+                        overlayed_bitboard = Some(eval.friendly_king_ring(false));
                     },
                     _ => ()
                 };

@@ -44,10 +44,10 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn init(&mut self) {
-        self.pin_rays[self.color] = self.pin_rays();
-        self.pin_rays[self.color.flip()] = self.flip_pin_rays();
-        self.king_ring[self.color] = self.king_ring(false);
-        self.king_ring[self.color] = self.flip_king_ring(false);
+        self.pin_rays[self.color] = self.friendly_pin_rays();
+        self.pin_rays[self.color.flip()] = self.enemy_pin_rays();
+        self.king_ring[self.color] = self.friendly_king_ring(false);
+        self.king_ring[self.color.flip()] = self.enemy_king_ring(false);
     }
 
     /// Evaluation function adapted from the [Stockfish Evaluation Guide](https://hxim.github.io/Stockfish-Evaluation-Guide/).
@@ -56,6 +56,8 @@ impl<'a> Evaluation<'a> {
     ///
     /// - Capital letters represent white pieces.
     /// - The ranks are inverted, meaning when it says `y + 1`, it should be `Color::down()`.
+    /// - Castling rights go in order: [white kingside, white queenside, black kingside, black
+    /// queenside]
     pub fn evaluate(&mut self) -> i32 {
         self.init();
 

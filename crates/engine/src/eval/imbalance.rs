@@ -35,7 +35,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/n3Rpn1/pQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK b Qkq - 3 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(imbalance, 9878, 14273, eval);
+        assert_eval!(friendly_imbalance, 9878, 14273, eval);
     }
 
     #[test]
@@ -46,7 +46,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1pkn3/n3Rpn1/pQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK b Qkq - 3 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(bishop_pair, 1438, 0, eval);
+        assert_eval!(friendly_bishop_pair, 1438, 0, eval);
     }
 
     #[test]
@@ -57,6 +57,6 @@ mod tests {
         let board = Board::load_position(Some(String::from("nr3q1R/p1pkn3/n3Rpn1/pQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK b Qkq - 3 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- imbalance_total, -181, 181, eval);
+        assert_eval!(- friendly_imbalance_total, -181, 181, eval);
     }
 }

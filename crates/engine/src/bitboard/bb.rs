@@ -109,6 +109,14 @@ impl BitBoard {
         ((self.0 >> sqr_idx) & 1) != 0
     }
 
+    pub fn get_square(&self, sqr: Coord) -> bool {
+        if sqr.is_valid() {
+            ((self.0 >> sqr.square()) & 1) != 0
+        } else {
+            false
+        }
+    }
+
     pub fn shifted(self, n: i8) -> BitBoard {
         if n > 0 {
             self << n as usize

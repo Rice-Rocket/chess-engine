@@ -35,6 +35,6 @@ mod tests {
         let board = Board::load_position(Some(String::from("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(winnable, 58, 58, eval);
+        assert_eval!(friendly_winnable, 58, 58, eval);
     }
 }

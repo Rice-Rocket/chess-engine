@@ -37,7 +37,7 @@ impl Coord {
     }
 
     #[inline]
-    const fn new_unchecked(file: i8, rank: i8) -> Self {
+    pub const fn new_unchecked(file: i8, rank: i8) -> Self {
         let sign_file = if file.signum() == -1 { 0b00001000 } else { 0 };
         let sign_rank = if rank.signum() == -1 { 0b10000000 } else { 0 };
         Self(((rank.unsigned_abs() & 0b00001111) << 4) | (file.unsigned_abs() & 0b00001111) | sign_file | sign_rank)
@@ -124,6 +124,10 @@ impl Coord {
 
     pub fn flip_file(self) -> Coord {
         Coord::new(7 - self.file(), self.rank())
+    }
+
+    pub const fn to_index(file: i8, rank: i8) -> i8 {
+        rank * 8 + file
     }
 }
 

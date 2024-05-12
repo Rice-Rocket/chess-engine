@@ -52,13 +52,13 @@ impl<'a> Evaluation<'a> {
     /// Requires: `king_square`
     #[flipped_eval]
     pub fn king_distance(&self, sqr: Coord) -> i32 {
-        self.precomp.king_distance[self.king_square()][sqr] as i32
+        self.precomp.king_distance[self.friendly_king_square()][sqr] as i32
     }
 
     /// The enemy's king ring. Squares defended by two pawns are excluded. 
     #[flipped_eval]
     pub fn king_ring(&self, full: bool) -> BitBoard {;
-        let mut king_ring = self.precomp.king_ring[self.flip_king_square()];
+        let mut king_ring = self.precomp.king_ring[self.enemy_king_square()];
         if full { return king_ring };
 
         let pawns = self.board.piece_bitboards[self.color.flip().piece(Piece::PAWN)];
@@ -75,7 +75,7 @@ impl<'a> Evaluation<'a> {
     }
 
     #[flipped_eval]
-    pub fn pawn_attacks_span(&self, sqr: Coord) -> i32 {
+    pub fn pawn_attacks_span(&self) -> BitBoard {
         todo!();
     }
 }
@@ -93,7 +93,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- bishop_count, 2, 3, eval);
+        assert_eval!(- friendly_bishop_count, 2, 3, eval);
     }
 
     #[test]
@@ -103,7 +103,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- queen_count, 2, 1, eval);
+        assert_eval!(- friendly_queen_count, 2, 1, eval);
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- pawn_count, 8, 6, eval);
+        assert_eval!(- friendly_pawn_count, 8, 6, eval);
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- knight_count, 1, 4, eval);
+        assert_eval!(- friendly_knight_count, 1, 4, eval);
     }
 
     #[test]
@@ -133,7 +133,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- rook_count, 3, 1, eval);
+        assert_eval!(- friendly_rook_count, 3, 1, eval);
     }
 
     #[test]
@@ -153,7 +153,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(king_distance, 308, 215, eval);
+        assert_eval!(friendly_king_distance, 308, 215, eval);
     }
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/1p2Rpn1/nQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK w Qkq - 2 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(+ king_ring, [6, 2], 0, 0, eval; false);
+        assert_eval!(+ friendly_king_ring, [6, 2], 0, 0, eval; false);
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/1p2Rpn1/nQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK w Qkq - 2 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(- piece_count, 17, 15, eval);
+        assert_eval!(- friendly_piece_count, 17, 15, eval);
     }
 
     #[test]
@@ -184,6 +184,6 @@ mod tests {
         let board = Board::load_position(Some(String::from("nb3b1R/p1pkn3/n3Rpn1/pQ5B/1bPP1qpP/QP2r3/P1P2P1P/2BN2RK b Qkq - 3 3")), &mut Zobrist::new());
         let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
 
-        assert_eval!(pawn_attacks_span, 28, 32, eval);
+        // assert_eval!(+ pawn_attacks_span, 28, 32, eval);
     }
 }

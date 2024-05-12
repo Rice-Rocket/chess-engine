@@ -4,7 +4,7 @@ use syn::{parse_quote, punctuated::Punctuated, ItemFn};
 
 pub fn expand(mut item: ItemFn) -> TokenStream {
     item.attrs.push(parse_quote!(#[must_use]));
-    item.sig.ident = format_ident!("flip_{}", item.sig.ident);
+    item.sig.ident = format_ident!("enemy_{}", item.sig.ident);
     
     for stmt in item.block.stmts.iter_mut() {
         expand_stmt(stmt);
@@ -57,6 +57,17 @@ fn expand_expr(expr: &mut syn::Expr) {
             expand_expr(expr_call.receiver.as_mut());
             for arg in expr_call.args.iter_mut() {
                 expand_expr(arg);
+            }
+
+            let mut name = expr_call.method.to_string();
+            if name.starts_with("friendly_") {
+                name = name.strip_prefix("friendly_").unwrap().to_string();
+                name.insert_str(0, "enemy_");
+                expr_call.method = syn::parse_str(&name).unwrap();
+            } else if name.starts_with("enemy_") {
+                name = name.strip_prefix("enemy_").unwrap().to_string();
+                name.insert_str(0, "friendly_");
+                expr_call.method = syn::parse_str(&name).unwrap();
             }
         },
         _ => propagate_expansion(expr)
