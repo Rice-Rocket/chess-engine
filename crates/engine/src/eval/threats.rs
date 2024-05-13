@@ -1,22 +1,22 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::board::coord::Coord;
+use crate::{board::coord::Coord, prelude::BitBoard};
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
     #[evaluation_fn]
-    pub fn safe_pawn(&self, sqr: Coord) -> i32 {
+    pub fn safe_pawn(&self) -> BitBoard {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn threat_safe_pawn(&self, sqr: Coord) -> i32 {
+    pub fn threat_safe_pawn(&self) -> BitBoard {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn weak_enemies(&self, sqr: Coord) -> i32 {
+    pub fn weak_enemies(&self) -> BitBoard {
         todo!();
     }
 
@@ -31,37 +31,39 @@ impl<'a> Evaluation<'a> {
     }
 
     #[evaluation_fn]
-    pub fn hanging(&self, sqr: Coord) -> i32 {
+    pub fn hanging(&self) -> BitBoard {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn king_threat(&self, sqr: Coord) -> i32 {
+    pub fn king_threat(&self) -> BitBoard {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn pawn_push_threat(&self, sqr: Coord) -> i32 {
+    pub fn pawn_push_threat(&self) -> BitBoard {
+        todo!();
+    }
+
+    /// Returns `(when at least one friendly queen, when no friendly queens)`
+    #[evaluation_fn]
+    pub fn slider_on_queen(&self) -> (BitBoard, BitBoard) {
+        todo!();
+    }
+
+    /// Returns `(when at least one friendly queen, when no friendly queens)`
+    #[evaluation_fn]
+    pub fn knight_on_queen(&self) -> (BitBoard, BitBoard) {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn slider_on_queen(&self, sqr: Coord) -> i32 {
+    pub fn restricted(&self) -> BitBoard {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn knight_on_queen(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn restricted(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn weak_queen_protection(&self, sqr: Coord) -> i32 {
+    pub fn weak_queen_protection(&self) -> BitBoard {
         todo!();
     }
 
@@ -86,21 +88,21 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/p1p1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 w kq - 3 9")]
     fn test_safe_pawn() {
-        assert_eval!(friendly_safe_pawn, 4, 2, eval);
+        assert_eval!(+ - friendly_safe_pawn, 4, 2, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_threat_safe_pawn() {
-        assert_eval!(friendly_threat_safe_pawn, 1, 2, eval);
+        assert_eval!(+ - friendly_threat_safe_pawn, 1, 2, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_weak_enemies() {
-        assert_eval!(friendly_weak_enemies, 5, 7, eval);
+        assert_eval!(+ - friendly_weak_enemies, 5, 7, eval);
     }
 
     #[test]
@@ -121,49 +123,49 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_hanging() {
-        assert_eval!(friendly_hanging, 4, 5, eval);
+        assert_eval!(+ - friendly_hanging, 4, 5, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/4p2p/p2n2R1/kPp1bP1q/R3qB1r/1NP4P/P4PBR/5nK1 b kq - 0 9")]
     fn test_king_threat() {
-        assert_eval!(friendly_king_threat, 1, 2, eval);
+        assert_eval!(+ - friendly_king_threat, 1, 2, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/2p1p3/p2n2R1/kRp1bP1q/P3qB1r/1NP4P/P4PBR/5nK1 b kq - 0 9")]
     fn test_pawn_push_threat() {
-        assert_eval!(friendly_pawn_push_threat, 1, 2, eval);
+        assert_eval!(+ - friendly_pawn_push_threat, 1, 2, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_slider_on_queen() {
-        assert_eval!(friendly_slider_on_queen, 4, 3, eval);
+        assert_eval!(* - [0, 1] friendly_slider_on_queen, (4, 0), (3, 0), eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n2Br3/2p1p1Q1/p2n4/kRp1bP1r/P1P4r/3BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_knight_on_queen() {
-        assert_eval!(friendly_knight_on_queen, 1, 2, eval);
+        assert_eval!(* - [0, 1] friendly_knight_on_queen, (1, 0), (2, 0), eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_restricted() {
-        assert_eval!(friendly_restricted, 20, 16, eval);
+        assert_eval!(+ - friendly_restricted, 20, 16, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n1n1r3/4p1Q1/1q2pP2/kpp1bB1r/P1PB3r/R3N2P/P4P1R/1B2RnK1 b kq - 2 11")]
     fn test_weak_queen_protection() {
-        assert_eval!(friendly_weak_queen_protection, 3, 1, eval);
+        assert_eval!(+ - friendly_weak_queen_protection, 3, 1, eval);
     }
 
     #[test]

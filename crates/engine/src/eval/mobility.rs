@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::board::coord::Coord;
+use crate::{board::coord::Coord, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -11,7 +11,7 @@ impl<'a> Evaluation<'a> {
     }
 
     #[evaluation_fn]
-    pub fn mobility_area(&self, sqr: Coord) -> i32 {
+    pub fn mobility_area(&self) -> BitBoard {
         todo!();
     }
 
@@ -50,7 +50,7 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_mobility_area() {
-        assert_eval!(friendly_mobility_area, 49, 47, eval);
+        assert_eval!(+ - friendly_mobility_area, 49, 47, eval);
     }
 
     #[test]

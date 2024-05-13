@@ -70,6 +70,7 @@ macro_rules! assert_eval {
         ), $w);
         
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!($eval.$f(
             $($($arg,)*)? 
             Coord::new($file, $rank)
@@ -84,6 +85,7 @@ macro_rules! assert_eval {
         ).contains_square(Coord::new($file, $rank).square()) { 1 } else { 0 }, $w);
         
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!(if $eval.$f(
             $($($arg,)*)? 
         ).contains_square(Coord::new($file, $rank).square()) { 1 } else { 0 }, $b);
@@ -98,6 +100,7 @@ macro_rules! assert_eval {
         ), $w);
 
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!(sum_sqrs!(
             $eval, $f:
             $($($arg,)*)? 
@@ -113,6 +116,7 @@ macro_rules! assert_eval {
         ), $w);
 
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!(sum_sqrs!( +
             $eval, $f:
             $($($arg,)*)? 
@@ -128,6 +132,7 @@ macro_rules! assert_eval {
         ), $w);
 
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!(sum_sqrs!( * [$($count,)+]
             $eval, $f:
             $($($arg,)*)?
@@ -142,6 +147,7 @@ macro_rules! assert_eval {
         ), $w);
 
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!($eval.$f(
             $($($arg,)*)? 
         ), $b);
@@ -155,6 +161,7 @@ macro_rules! assert_eval {
         ).count() as i32, $w);
 
         $eval.color = Color::Black;
+        $eval.init();
         assert_eq!($eval.$f(
             $($($arg,)*)? 
         ).count() as i32, $b);
@@ -168,6 +175,7 @@ macro_rules! assert_eval {
         )*
 
         $eval.color = Color::Black;
+        $eval.init();
         $(
             assert_eq!($eval.$f().$count.count() as i32, $b.$count);
         )*

@@ -35,7 +35,8 @@ pub struct PrecomputedData {
     /// All pseudo-legal black pawn moves from a given square. 
     pub black_pawn_attacks: [BitBoard; 64],
 
-    pub direction_lookup: [i8; 127],
+    pub orthogonal_directions: [BitBoard; 64],
+    pub diagonal_directions: [BitBoard; 64],
     
     pub rook_xray_moves: [BitBoard; 64],
     pub bishop_xray_moves: [BitBoard; 64],
@@ -97,7 +98,8 @@ impl Default for PrecomputedData {
             pawn_attack_dirs: [[Coord::new(1, 1), Coord::new(-1, 1)], [Coord::new(1, -1), Coord::new(-1, -1)]],
             white_pawn_attacks: [BitBoard(0); 64],
             black_pawn_attacks: [BitBoard(0); 64],
-            direction_lookup: [0; 127],
+            orthogonal_directions: [BitBoard(0); 64],
+            diagonal_directions: [BitBoard(0); 64],
             rook_xray_moves: [BitBoard(0); 64],
             bishop_xray_moves: [BitBoard(0); 64],
             queen_xray_moves: [BitBoard(0); 64],
@@ -219,20 +221,19 @@ impl PrecomputedData {
         }
     }
 
-    fn calc_direction_lookup(&mut self) {
-        for i in 0i8..127i8 {
-            let offset = i - 63;
-            let abs_offset = offset.abs();
-            let mut abs_dir = 1;
-            if abs_offset % 9 == 0 {
-                abs_dir = 9;
-            } else if abs_offset % 8 == 0 {
-                abs_dir = 8;
-            } else if abs_offset % 7 == 0 {
-                abs_dir = 7;
+    fn calc_relative_directions(&mut self) {
+        for sqr in Coord::iter_squares() {
+            for (i, dir) in self.dir_offsets_2d.iter().enumerate() {
+                let ortho = i < 4;
+                let s = Coord::new_unchecked(sqr.file() + dir.file(), sqr.rank() + dir.rank());
+                if s.is_valid() {
+                    if ortho {
+                        self.orthogonal_directions[sqr] |= s.to_bitboard();
+                    } else {
+                        self.diagonal_directions[sqr] |= s.to_bitboard();
+                    }
+                }
             }
-
-            self.direction_lookup[i as usize] = abs_dir * if offset >= 0 { if offset == 0 { 0 } else { 1 } } else { -1 };
         }
     }
 
@@ -334,7 +335,7 @@ impl PrecomputedData {
 
         data.calc_num_sqrs_to_edge();
         data.calc_pseudo_legal_moves();
-        data.calc_direction_lookup();
+        data.calc_relative_directions();
         data.calc_manhattan_distance();
         data.calc_dir_ray_mask();
         data.calc_align_mask();

@@ -125,15 +125,16 @@ impl<'a> Evaluation<'a> {
             }
         }
 
-        v
+        if eg { v + 5 } else { v }
     }
 
     /// Returns `(shelter_strength, shelter_storm)`
     // TODO: Cache the result of this function.
     #[evaluation_fn]
-    pub fn shelter_strength_storm(&self) -> (i32, i32) {
+    pub fn shelter_strength_storm_eg(&self) -> (i32, i32, i32) {
         let mut w = 0;
         let mut s = 1024;
+        let mut e = 0;
 
         // TODO: Improve this with bitboards. This loop is disgusting.
         // And more easily: cache the strength_square and storm_square values as well.
@@ -145,14 +146,16 @@ impl<'a> Evaluation<'a> {
                 && sqr.file() == 2 && sqr.rank() == self.color.flip().back_rank()) {
                 let w1 = self.friendly_strength_square(sqr);
                 let s1 = self.friendly_storm_square(false, sqr);
+                let e1 = self.friendly_storm_square(true, sqr);
                 if (s1 - w1 < s - w) {
                     w = w1;
                     s = s1;
+                    e = e1;
                 }
             }
         }
 
-        (w, s)
+        (w, s, e)
     }
 
     /// The minimum distance from the friendly king to a friendly pawn
@@ -235,7 +238,7 @@ impl<'a> Evaluation<'a> {
     // TODO: Cache this
     #[evaluation_fn]
     pub fn safe_check(&self, ty: CheckType) -> BitBoard {
-        let mut checks = self.friendly_check(ty);
+        let mut checks = self.friendly_check(ty) & !self.board.color_bitboards[self.color];
 
         if ty == CheckType::Queen {
             checks &= !self.friendly_safe_check(CheckType::Rook);
@@ -243,7 +246,7 @@ impl<'a> Evaluation<'a> {
             checks &= !self.friendly_safe_check(CheckType::Queen);
         }
         
-        checks &= (!self.enemy_all_attacks() | (self.friendly_weak_squares() & self.enemy_all_doubled_attacks()));
+        checks &= !self.enemy_all_attacks() | (self.friendly_weak_squares() & self.friendly_all_doubled_attacks());
 
         if ty == CheckType::Queen {
             checks &= !self.enemy_all_queen_attacks().0;
@@ -282,7 +285,7 @@ impl<'a> Evaluation<'a> {
 
     const KING_ATTACK_WEIGHTS: [i32; 4] = [81, 52, 44, 10]; // Knight, bishop, rook, queen
     #[evaluation_fn]
-    pub fn king_attackers_weight(&self, sqr: Coord) -> i32 {
+    pub fn king_attackers_weight(&self) -> i32 {
         let attacks = self.friendly_king_attackers_origin().0;
 
         (attacks & self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[0]
@@ -291,48 +294,63 @@ impl<'a> Evaluation<'a> {
         + (attacks & self.board.piece_bitboards[self.color.piece(Piece::QUEEN)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[3]
     }
 
+    // TODO: Switch to using `SquareEvaluations`
     #[evaluation_fn]
     pub fn king_attacks(&self, sqr: Coord) -> i32 {
-        todo!();
+        let mut adjacent = self.precomp.diagonal_directions[self.enemy_king_square()] 
+            | self.precomp.orthogonal_directions[self.enemy_king_square()];
+        
+        let mut v = 0;
+        while adjacent.0 != 0 {
+            let s = Coord::from_idx(adjacent.pop_lsb() as i8);
+            v += self.friendly_knight_attack(Some(sqr), s).count() as i32
+                + self.friendly_bishop_xray_attack(Some(sqr), s).count() as i32
+                + self.friendly_rook_xray_attack(Some(sqr), s).count() as i32
+                + self.friendly_queen_attack(Some(sqr), s).count() as i32;
+        }
+        v
     }
 
     #[evaluation_fn]
-    pub fn weak_bonus(&self, sqr: Coord) -> i32 {
-        todo!();
+    pub fn weak_bonus(&self) -> BitBoard {
+        self.friendly_weak_squares() & self.friendly_king_ring(false)
     }
 
     #[evaluation_fn]
     pub fn weak_squares(&self) -> BitBoard {
+        self.friendly_all_attacks() 
+            & !self.enemy_all_doubled_attacks()
+            & (!self.enemy_all_attacks() | self.enemy_all_king_attacks() | self.enemy_all_queen_attacks().0)
+    }
+
+    #[evaluation_fn]
+    pub fn unsafe_checks(&self) -> BitBoard {
+        (self.friendly_check(CheckType::Knight) 
+            & (if self.friendly_safe_check(CheckType::Knight).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+        | (self.friendly_check(CheckType::Bishop) 
+            & (if self.friendly_safe_check(CheckType::Bishop).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+        | (self.friendly_check(CheckType::Rook) 
+            & (if self.friendly_safe_check(CheckType::Rook).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+    }
+
+    #[evaluation_fn]
+    pub fn knight_defender(&self) -> BitBoard {
+        self.friendly_all_knight_attacks().0 & self.friendly_all_king_attacks()
+    }
+
+    #[evaluation_fn]
+    pub fn blockers_for_king(&self) -> BitBoard {
+        self.pin_rays[self.color.flip()] & self.board.color_bitboards[self.color.flip()]
+    }
+
+    /// Returns `(attacked exactly once, attacked twice)`
+    #[evaluation_fn]
+    pub fn flank_attack(&self) -> (BitBoard, BitBoard) {
         todo!();
     }
 
     #[evaluation_fn]
-    pub fn unsafe_checks(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn knight_defender(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn endgame_shelter(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn blockers_for_king(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn flank_attack(&self, sqr: Coord) -> i32 {
-        todo!();
-    }
-
-    #[evaluation_fn]
-    pub fn flank_defense(&self, sqr: Coord) -> i32 {
+    pub fn flank_defense(&self) -> BitBoard {
         todo!();
     }
 
@@ -379,7 +397,7 @@ mod tests {
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_shelter_strength_storm() {
-        assert_eval!(- friendly_shelter_strength_storm, (-2, -27), (76, 17), eval);
+        assert_eval!(- friendly_shelter_strength_storm_eg, (-2, -27, 5), (76, 17, 5), eval);
     }
 
     #[test]
@@ -395,7 +413,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_safe_check() {
         assert_eval!(+ - friendly_safe_check, 2, 1, eval; CheckType::All);
@@ -408,73 +425,59 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attackers_weight() {
-        assert_eval!(friendly_king_attackers_weight, 54, 135, eval);
+        assert_eval!(- friendly_king_attackers_weight, 54, 135, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attacks() {
         assert_eval!(friendly_king_attacks, 6, 1, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_bonus() {
-        assert_eval!(friendly_weak_bonus, 1, 2, eval);
+        assert_eval!(+ - friendly_weak_bonus, 1, 2, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_squares() {
         assert_eval!(+ - friendly_weak_squares, 22, 20, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr1n1bNp/P1N2P1P/3P2R1/3PP1P1/1RBQKB2 b KQkq - 3 3")]
     fn test_unsafe_checks() {
-        assert_eval!(friendly_unsafe_checks, 2, 0, eval);
+        assert_eval!(+ - friendly_unsafe_checks, 2, 0, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK w Qkq - 5 4")]
     fn test_knight_defender() {
-        assert_eval!(friendly_knight_defender, 1, 6, eval);
+        assert_eval!(+ - friendly_knight_defender, 1, 6, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
-    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK b kq - 8 5")]
-    fn test_endgame_shelter() {
-        assert_eval!(friendly_endgame_shelter, 5, 11, eval);
-    }
-
-    #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_blockers_for_king() {
-        assert_eval!(friendly_blockers_for_king, 2, 1, eval);
+        assert_eval!(+ - friendly_blockers_for_king, 2, 1, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
-    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    #[evaluation_test("1nb2rk1/p2rb3/p5P1/2K3N1/pP1P1BQ1/2Npq3/2P1P1PR/1R3B2 w q - 4 10")]
     fn test_flank_attack() {
-        assert_eval!(friendly_flank_attack, 17, 16, eval);
+        assert_eval!(* - [0, 1] friendly_flank_attack, (4, 8), (8, 1), eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_flank_defense() {
-        assert_eval!(friendly_flank_defense, 19, 11, eval);
+        assert_eval!(+ - friendly_flank_defense, 19, 11, eval);
     }
 
     #[test]

@@ -105,7 +105,7 @@ impl<'a> Evaluation<'a> {
 }
 
 
-pub(crate) mod test_prelude {
+pub(super) mod test_prelude {
     pub use crate::precomp::PrecomputedData;
     pub use crate::board::Board;
     pub use crate::board::zobrist::Zobrist;

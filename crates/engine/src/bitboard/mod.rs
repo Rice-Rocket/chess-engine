@@ -1,5 +1,6 @@
 pub mod masks;
 pub mod bb;
+pub mod square_values;
 
 
 // IDEA: Fuse multiple bitboards together to make a multi bitboard: 
@@ -14,7 +15,8 @@ pub mod bb;
 // assert!(bb.contains_square(18))
 // assert_eq!(bb.get_square(18), 2)
 //
-// Figure out a way to make bitwise operations SIMD stable.
+// Figure out a way to make bitwise operations SIMD stable. (nightly required)
+// Crate that might help: [simba](https://docs.rs/simba/latest/simba/)
 //
 // This could be helpful in speeding up some evaluation functions with larger per-square values. 
 //

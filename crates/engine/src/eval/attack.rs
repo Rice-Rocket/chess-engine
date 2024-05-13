@@ -10,6 +10,24 @@ impl<'a> Evaluation<'a> {
         self.board.king_square[self.color]
     }
 
+    #[evaluation_fn]
+    pub fn diagonal_sliders(&self) -> BitBoard {
+        if self.color.is_white() == self.board.white_to_move {
+            self.board.friendly_diagonal_sliders
+        } else {
+            self.board.enemy_diagonal_sliders
+        }
+    }
+
+    #[evaluation_fn]
+    pub fn orthogonal_sliders(&self) -> BitBoard {
+        if self.color.is_white() == self.board.white_to_move {
+            self.board.friendly_orthogonal_sliders
+        } else {
+            self.board.enemy_orthogonal_sliders
+        }
+    }
+
     /// Requires: `king_square`
     // TODO: Save this data from move generation
     #[evaluation_fn]
@@ -28,7 +46,7 @@ impl<'a> Evaluation<'a> {
 
         for dir in start_dir_idx..end_dir_idx {
             let is_diagonal = dir > 3;
-            let slider = if is_diagonal { self.board.enemy_diagonal_sliders } else { self.board.enemy_orthogonal_sliders };
+            let slider = if is_diagonal { self.enemy_diagonal_sliders() } else { self.enemy_orthogonal_sliders() };
             if (self.precomp.dir_ray_mask[self.friendly_king_square()][dir] & slider).0 == 0 { continue; }
 
             let n = self.precomp.num_sqrs_to_edge[self.friendly_king_square()][dir];
@@ -95,6 +113,7 @@ impl<'a> Evaluation<'a> {
     /// from that square. 
     /// 
     /// Requires: `pin_rays`
+    // TODO: Cache this and switch to `SquareEvaluations`. Same for all below
     #[evaluation_fn]
     pub fn knight_attack(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)];
@@ -329,20 +348,16 @@ impl<'a> Evaluation<'a> {
         let bishops = self.friendly_all_bishop_xray_attacks();
         let rooks = self.friendly_all_rook_xray_attacks();
         let queens = self.friendly_all_queen_attacks();
-        
-        let mut doubled = pawns.1
-            | knights.1
-            | bishops.1
-            | rooks.1
-            | queens.1;
+        let kings = self.friendly_all_king_attacks();
 
-        doubled |= pawns.0
-            & knights.0
-            & bishops.0
-            & rooks.0
-            & queens.0;
+        let mut doubled = pawns.1 | knights.1 | bishops.1 | rooks.1 | queens.1;
 
-        doubled
+        doubled | ((pawns.0 & (knights.0 | bishops.0 | rooks.0 | queens.0 | kings))
+            | (knights.0 & (pawns.0 | bishops.0 | rooks.0 | queens.0 | kings))
+            | (bishops.0 & (pawns.0 | knights.0 | rooks.0 | queens.0 | kings))
+            | (rooks.0 & (pawns.0 | knights.0 | bishops.0 | queens.0 | kings))
+            | (queens.0 & (pawns.0 | knights.0 | bishops.0 | rooks.0 | kings)))
+            | (kings & (pawns.0 | knights.0 | bishops.0 | rooks.0 | queens.0))
     }
 
     /// Calculates the friendly attacks on `sqr` by all pieces.

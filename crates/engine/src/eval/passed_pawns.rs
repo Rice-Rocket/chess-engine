@@ -1,12 +1,12 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::board::coord::Coord;
+use crate::{board::coord::Coord, prelude::BitBoard};
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
     #[evaluation_fn]
-    pub fn candidate_passed(&self, sqr: Coord) -> i32 {
+    pub fn candidate_passed(&self) -> BitBoard {
         todo!();
     }
 
@@ -31,7 +31,7 @@ impl<'a> Evaluation<'a> {
     }
 
     #[evaluation_fn]
-    pub fn passed_leverable(&self, sqr: Coord) -> i32 {
+    pub fn passed_leverable(&self) -> BitBoard {
         todo!();
     }
 
@@ -56,7 +56,7 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_candidate_passed() {
-        assert_eval!(friendly_candidate_passed, 2, 1, eval);
+        assert_eval!(+ - friendly_candidate_passed, 2, 1, eval);
     }
 
     #[test]
@@ -91,7 +91,7 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_leverable() {
-        assert_eval!(friendly_passed_leverable, 2, 1, eval);
+        assert_eval!(+ - friendly_passed_leverable, 2, 1, eval);
     }
 
     #[test]
