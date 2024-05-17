@@ -19,7 +19,6 @@ pub struct Evaluation<'a> {
     pub board: &'a Board,
     pub precomp: &'a PrecomputedData,
     pub magics: &'a MagicBitBoards,
-    pub color: Color,
 
     pin_rays: [BitBoard; 2],
     king_ring: [BitBoard; 2],
@@ -30,27 +29,27 @@ impl<'a> Evaluation<'a> {
         board: &'a Board,
         precomp: &'a PrecomputedData,
         magics: &'a MagicBitBoards,
-        color: Color,
     ) -> Self {
         Self {
             board,
             precomp,
             magics,
-            color,
 
             pin_rays: [BitBoard(0); 2],
             king_ring: [BitBoard(0); 2],
         }
     }
 
-    pub fn init(&mut self) {
-        self.pin_rays[self.color] = self.friendly_pin_rays();
-        self.pin_rays[self.color.flip()] = self.enemy_pin_rays();
-        self.king_ring[self.color] = self.friendly_king_ring(false);
-        self.king_ring[self.color.flip()] = self.enemy_king_ring(false);
+    pub fn init<W: Color, B: Color>(&mut self) {
+        self.pin_rays[W::index()] = self.pin_rays::<W, B>();
+        self.pin_rays[B::index()] = self.pin_rays::<B, W>();
+        self.king_ring[W::index()] = self.king_ring::<W, B>(false);
+        self.king_ring[B::index()] = self.king_ring::<B, W>(false);
     }
 
     /// Evaluation function adapted from the [Stockfish Evaluation Guide](https://hxim.github.io/Stockfish-Evaluation-Guide/).
+    ///
+    /// Parameterized by <Friendly, Enemy>
     ///
     /// Notes to self: 
     ///
@@ -58,8 +57,8 @@ impl<'a> Evaluation<'a> {
     /// - The ranks are inverted, meaning when it says `y + 1`, it should be `Color::down()`.
     /// - Castling rights go in order: [white kingside, white queenside, black kingside, black
     /// queenside]
-    pub fn evaluate(&mut self) -> i32 {
-        self.init();
+    pub fn evaluate<W: Color, B: Color>(&mut self) -> i32 {
+        self.init::<W, B>();
 
         let mg = self.middle_game_eval() as f32;
         let mut eg = self.end_game_eval() as f32;

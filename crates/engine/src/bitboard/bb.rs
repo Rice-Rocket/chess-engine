@@ -1,8 +1,5 @@
 use std::ops::{
-    Shr, ShrAssign, Shl, ShlAssign,
-    Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Add, AddAssign,
-    BitXor, BitXorAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign,
-    Not, Rem, RemAssign,
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Not, Range, RangeInclusive, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
 };
 use crate::board::coord::Coord;
 use super::masks::*;
@@ -125,8 +122,63 @@ impl BitBoard {
         }
     }
 
+    const FILE_SHIFT_MASKS: [u64; 15] = [
+        FILE_H,
+        FILE_H | FILE_G,
+        FILE_H | FILE_G | FILE_F,
+        FILE_H | FILE_G | FILE_F | FILE_E,
+        FILE_H | FILE_G | FILE_F | FILE_E | FILE_D,
+        FILE_H | FILE_G | FILE_F | FILE_E | FILE_D | FILE_C,
+        FILE_H | FILE_G | FILE_F | FILE_E | FILE_D | FILE_C | FILE_B,
+        u64::MAX,
+        FILE_A | FILE_B | FILE_C | FILE_D | FILE_E | FILE_F | FILE_G,
+        FILE_A | FILE_B | FILE_C | FILE_D | FILE_E | FILE_F,
+        FILE_A | FILE_B | FILE_C | FILE_D | FILE_E,
+        FILE_A | FILE_B | FILE_C | FILE_D,
+        FILE_A | FILE_B | FILE_C,
+        FILE_A | FILE_B,
+        FILE_A,
+    ];
+    const RANK_SHIFT_MASKS: [u64; 15] = [
+        RANK_8,
+        RANK_8 | RANK_7,
+        RANK_8 | RANK_7 | RANK_6,
+        RANK_8 | RANK_7 | RANK_6 | RANK_5,
+        RANK_8 | RANK_7 | RANK_6 | RANK_5 | RANK_4,
+        RANK_8 | RANK_7 | RANK_6 | RANK_5 | RANK_4 | RANK_3,
+        RANK_8 | RANK_7 | RANK_6 | RANK_5 | RANK_4 | RANK_3 | RANK_2,
+        u64::MAX,
+        RANK_1 | RANK_2 | RANK_3 | RANK_4 | RANK_5 | RANK_6 | RANK_7,
+        RANK_1 | RANK_2 | RANK_3 | RANK_4 | RANK_5 | RANK_6,
+        RANK_1 | RANK_2 | RANK_3 | RANK_4 | RANK_5,
+        RANK_1 | RANK_2 | RANK_3 | RANK_4,
+        RANK_1 | RANK_2 | RANK_3,
+        RANK_1 | RANK_2,
+        RANK_1,
+    ];
+    pub fn shifted_2d(self, n: Coord) -> BitBoard {
+        ((self & Self::FILE_SHIFT_MASKS[(n.file() + 7) as usize]).shifted(n.file())
+            & Self::RANK_SHIFT_MASKS[(n.rank() + 7) as usize]).shifted(n.rank() * 8)
+    }
+
     pub fn count(self) -> u32 {
         self.0.count_ones()
+    }
+
+    pub fn from_ranks(ranks: RangeInclusive<i8>) -> Self {
+        let mut bb = Self(0);
+        for rank in ranks {
+            bb |= Self::RANKS[rank as usize];
+        }
+        bb
+    }
+
+    pub fn from_files(files: RangeInclusive<i8>) -> Self {
+        let mut bb = Self(0);
+        for file in files {
+            bb |= Self::FILES[file as usize];
+        }
+        bb
     }
 }
 

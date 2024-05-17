@@ -126,6 +126,10 @@ impl Coord {
         Coord::new(7 - self.file(), self.rank())
     }
 
+    pub fn add_clamp(self, rhs: Self) -> Coord {
+        Coord::new_clamp(self.file() + rhs.file(), self.rank() + rhs.rank())
+    }
+
     pub const fn to_index(file: i8, rank: i8) -> i8 {
         rank * 8 + file
     }

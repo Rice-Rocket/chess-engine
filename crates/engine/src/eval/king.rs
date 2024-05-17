@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, prelude::BitBoard, sum_sqrs};
 use super::Evaluation;
 
 
@@ -20,10 +20,9 @@ impl<'a> Evaluation<'a> {
     ///
     /// A pawnless flank is defined as a flank with no enemy pawns. 
     // TODO: Cache this
-    #[evaluation_fn]
-    pub fn pawnless_flank(&self) -> bool {
-        let kx = self.enemy_king_square().file();
-        let pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
+    pub fn pawnless_flank<W: Color, B: Color>(&self) -> bool {
+        let kx = self.king_square::<B, W>().file();
+        let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let mut counts = [0u8; 8];
 
         for (file, count) in counts.iter_mut().enumerate() {
@@ -48,27 +47,26 @@ impl<'a> Evaluation<'a> {
         [-39, -13, -29, -52, -48, -67, -166]
     ];
     /// King shelter strength for each square on the board.
-    #[evaluation_fn]
-    pub fn strength_square(&self, sqr: Coord) -> i32 {
+    pub fn strength_square<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
         let mut v = 5;
         let kx = sqr.file().max(1).min(6);
         
         // TODO: Improve this making use of bitboards
-        let friendly_pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
-        let enemy_pawns = self.board.piece_bitboards[self.color.flip().piece(Piece::PAWN)];
+        let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
         for file in kx - 1..=kx + 1 {
             let mut us = 0;
-            for rank in self.color.ranks_up_till_incl(sqr.rank()) {
+            for rank in W::ranks_up_till_incl(sqr.rank()) {
                 let s = Coord::to_index(file, rank);
-                let s1 = Coord::new_unchecked(file - 1, rank + self.color.down_dir());
-                let s2 = Coord::new_unchecked(file + 1, rank + self.color.down_dir());
+                let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
+                let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
                 if enemy_pawns.contains_square(s) 
                 && !friendly_pawns.get_square(s1) 
                 && !friendly_pawns.get_square(s2) {
                     // NOTE: With arrays like this, it's from the white players perspective. (but
                     // also in this case ranks are flipped). Remember to adjust the index
                     // accordingly. 
-                    us = if self.color.is_white() { 7 - rank } else { rank };
+                    us = if W::is_white() { 7 - rank } else { rank };
                 }
             }
             let f = file.min(7 - file);
@@ -91,29 +89,28 @@ impl<'a> Evaluation<'a> {
         [0, 0, 78,  15, 10,  6,  2]
     ];
     /// Enemy pawns storm for each square on the board. 
-    #[evaluation_fn]
-    pub fn storm_square(&self, eg: bool, sqr: Coord) -> i32 {
+    pub fn storm_square<W: Color, B: Color>(&self, eg: bool, sqr: Coord) -> i32 {
         let mut blocked_idx = if eg { 1 } else { 0 };
         let mut v = 0;
         let kx = sqr.file().max(1).min(6);
 
         // TODO: Improve this making use of bitboards. Very similar to above function.
-        let friendly_pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
-        let enemy_pawns = self.board.piece_bitboards[self.color.flip().piece(Piece::PAWN)];
+        let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
         for file in kx - 1..=kx + 1 {
             let (mut us, mut them) = (0, 0);
 
-            for rank in self.color.ranks_up_till_incl(sqr.rank()) {
+            for rank in W::ranks_up_till_incl(sqr.rank()) {
                 let s = Coord::to_index(file, rank);
-                let s1 = Coord::new_unchecked(file - 1, rank + self.color.down_dir());
-                let s2 = Coord::new_unchecked(file + 1, rank + self.color.down_dir());
+                let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
+                let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
                 if enemy_pawns.contains_square(s) 
                 && !friendly_pawns.get_square(s1) 
                 && !friendly_pawns.get_square(s2) {
-                    us = if self.color.is_white() { 7 - rank } else { rank };
+                    us = if W::is_white() { 7 - rank } else { rank };
                 }
                 if friendly_pawns.contains_square(s) {
-                    them = if self.color.is_white() { 7 - rank } else { rank };
+                    them = if W::is_white() { 7 - rank } else { rank };
                 }
             }
 
@@ -128,10 +125,9 @@ impl<'a> Evaluation<'a> {
         if eg { v + 5 } else { v }
     }
 
-    /// Returns `(shelter_strength, shelter_storm)`
+    /// Returns `(shelter_strength, shelter_storm, endgame_shelter)`
     // TODO: Cache the result of this function.
-    #[evaluation_fn]
-    pub fn shelter_strength_storm_eg(&self) -> (i32, i32, i32) {
+    pub fn shelter_strength_storm_eg<W: Color, B: Color>(&self) -> (i32, i32, i32) {
         let mut w = 0;
         let mut s = 1024;
         let mut e = 0;
@@ -139,14 +135,14 @@ impl<'a> Evaluation<'a> {
         // TODO: Improve this with bitboards. This loop is disgusting.
         // And more easily: cache the strength_square and storm_square values as well.
         for sqr in Coord::iter_squares() {
-            if sqr == self.enemy_king_square() 
-            || (self.board.current_state.has_kingside_castle_right(self.color.flip().is_white()) 
-                && sqr.file() == 6 && sqr.rank() == self.color.flip().back_rank())
-            || (self.board.current_state.has_queenside_castle_right(self.color.flip().is_white())
-                && sqr.file() == 2 && sqr.rank() == self.color.flip().back_rank()) {
-                let w1 = self.friendly_strength_square(sqr);
-                let s1 = self.friendly_storm_square(false, sqr);
-                let e1 = self.friendly_storm_square(true, sqr);
+            if sqr == self.king_square::<B, W>() 
+            || (self.board.current_state.has_kingside_castle_right(B::is_white()) 
+                && sqr.file() == 6 && sqr.rank() == B::back_rank())
+            || (self.board.current_state.has_queenside_castle_right(B::is_white())
+                && sqr.file() == 2 && sqr.rank() == B::back_rank()) {
+                let w1 = self.strength_square::<W, B>(sqr);
+                let s1 = self.storm_square::<W, B>(false, sqr);
+                let e1 = self.storm_square::<W, B>(true, sqr);
                 if (s1 - w1 < s - w) {
                     w = w1;
                     s = s1;
@@ -160,10 +156,9 @@ impl<'a> Evaluation<'a> {
 
     /// The minimum distance from the friendly king to a friendly pawn
     // TODO: Cache this
-    #[evaluation_fn]
-    pub fn king_pawn_distance(&self) -> i32 {
-        let k = self.friendly_king_square();
-        let mut pawns = self.board.piece_bitboards[self.color.piece(Piece::PAWN)];
+    pub fn king_pawn_distance<W: Color, B: Color>(&self) -> i32 {
+        let k = self.king_square::<W, B>();
+        let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
 
         let mut closest = 6;
         while pawns.0 != 0 {
@@ -177,14 +172,13 @@ impl<'a> Evaluation<'a> {
 
     /// The positions to which friendly pieces could move to deliver check.
     // TODO: Cache this
-    #[evaluation_fn]
-    pub fn check(&self, ty: CheckType) -> BitBoard {
-        let king = self.enemy_king_square();
-        let blockers = self.board.all_pieces_bitboard & !self.board.piece_bitboards[self.color.flip().piece(Piece::QUEEN)];
+    pub fn check<W: Color, B: Color>(&self, ty: CheckType) -> BitBoard {
+        let king = self.king_square::<B, W>();
+        let blockers = self.board.all_pieces_bitboard & !self.board.piece_bitboards[B::piece(Piece::QUEEN)];
         let mut checks = BitBoard(0);
 
         if ty == CheckType::Rook || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.friendly_all_rook_xray_attacks().0;
+            let mut moves = self.all_rook_xray_attacks::<W, B>().0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -196,7 +190,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::Bishop || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.friendly_all_bishop_xray_attacks().0;
+            let mut moves = self.all_bishop_xray_attacks::<W, B>().0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -208,7 +202,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::Knight || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.friendly_all_knight_attacks().0;
+            let mut moves = self.all_knight_attacks::<W, B>().0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -220,7 +214,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::All {
-            let mut moves = self.friendly_all_queen_attacks().0;
+            let mut moves = self.all_queen_attacks::<W, B>().0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -236,20 +230,19 @@ impl<'a> Evaluation<'a> {
 
     /// The positions to which friendly pieces could move to deliver check without being captured. 
     // TODO: Cache this
-    #[evaluation_fn]
-    pub fn safe_check(&self, ty: CheckType) -> BitBoard {
-        let mut checks = self.friendly_check(ty) & !self.board.color_bitboards[self.color];
+    pub fn safe_check<W: Color, B: Color>(&self, ty: CheckType) -> BitBoard {
+        let mut checks = self.check::<W, B>(ty) & !self.board.color_bitboards[W::index()];
 
         if ty == CheckType::Queen {
-            checks &= !self.friendly_safe_check(CheckType::Rook);
+            checks &= !self.safe_check::<W, B>(CheckType::Rook);
         } else if ty == CheckType::Bishop {
-            checks &= !self.friendly_safe_check(CheckType::Queen);
+            checks &= !self.safe_check::<W, B>(CheckType::Queen);
         }
         
-        checks &= !self.enemy_all_attacks() | (self.friendly_weak_squares() & self.friendly_all_doubled_attacks());
+        checks &= !self.all_attacks::<B, W>() | (self.weak_squares::<W, B>() & self.all_doubled_attacks::<W, B>());
 
         if ty == CheckType::Queen {
-            checks &= !self.enemy_all_queen_attacks().0;
+            checks &= !self.all_queen_attacks::<B, W>().0;
         }
 
         checks
@@ -260,21 +253,20 @@ impl<'a> Evaluation<'a> {
     ///
     /// Returns: `(attackers (+ double pawns attacks), double pawn attacks)`
     // TODO: Cache this
-    #[evaluation_fn]
-    pub fn king_attackers_origin(&self) -> (BitBoard, BitBoard) {
+    pub fn king_attackers_origin<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut attacked = BitBoard(0);
         let mut pawn_attacked = BitBoard(0);
         let mut double_pawn_attacked = BitBoard(0);
-        let mut attacked_king_ring = self.precomp.king_ring[self.enemy_king_square()] & self.friendly_all_attacks();
+        let mut attacked_king_ring = self.precomp.king_ring[self.king_square::<B, W>()] & self.all_attacks::<W, B>();
 
         while attacked_king_ring.0 != 0 {
             let sqr = Coord::from_idx(attacked_king_ring.pop_lsb() as i8);
-            let pawn_attacks = self.friendly_pawn_attack(None, sqr);
+            let pawn_attacks = self.pawn_attack::<W, B>(None, sqr);
             attacked |= pawn_attacks
-                | self.friendly_knight_attack(None, sqr)
-                | self.friendly_bishop_xray_attack(None, sqr)
-                | self.friendly_rook_xray_attack(None, sqr)
-                | self.friendly_queen_attack(None, sqr);
+                | self.knight_attack::<W, B>(None, sqr)
+                | self.bishop_xray_attack::<W, B>(None, sqr)
+                | self.rook_xray_attack::<W, B>(None, sqr)
+                | self.queen_attack::<W, B>(None, sqr);
 
             double_pawn_attacked |= pawn_attacked & pawn_attacks;
             pawn_attacked |= pawn_attacks;
@@ -284,89 +276,140 @@ impl<'a> Evaluation<'a> {
     }
 
     const KING_ATTACK_WEIGHTS: [i32; 4] = [81, 52, 44, 10]; // Knight, bishop, rook, queen
-    #[evaluation_fn]
-    pub fn king_attackers_weight(&self) -> i32 {
-        let attacks = self.friendly_king_attackers_origin().0;
+    pub fn king_attackers_weight<W: Color, B: Color>(&self) -> i32 {
+        let attacks = self.king_attackers_origin::<W, B>().0;
 
-        (attacks & self.board.piece_bitboards[self.color.piece(Piece::KNIGHT)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[0]
-        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::BISHOP)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[1]
-        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::ROOK)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[2]
-        + (attacks & self.board.piece_bitboards[self.color.piece(Piece::QUEEN)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[3]
+        (attacks & self.board.piece_bitboards[W::piece(Piece::KNIGHT)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[0]
+        + (attacks & self.board.piece_bitboards[W::piece(Piece::BISHOP)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[1]
+        + (attacks & self.board.piece_bitboards[W::piece(Piece::ROOK)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[2]
+        + (attacks & self.board.piece_bitboards[W::piece(Piece::QUEEN)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[3]
     }
 
     // TODO: Switch to using `SquareEvaluations`
-    #[evaluation_fn]
-    pub fn king_attacks(&self, sqr: Coord) -> i32 {
-        let mut adjacent = self.precomp.diagonal_directions[self.enemy_king_square()] 
-            | self.precomp.orthogonal_directions[self.enemy_king_square()];
+    pub fn king_attacks<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
+        let mut adjacent = self.precomp.diagonal_directions[self.king_square::<B, W>()] 
+            | self.precomp.orthogonal_directions[self.king_square::<B, W>()];
         
         let mut v = 0;
         while adjacent.0 != 0 {
             let s = Coord::from_idx(adjacent.pop_lsb() as i8);
-            v += self.friendly_knight_attack(Some(sqr), s).count() as i32
-                + self.friendly_bishop_xray_attack(Some(sqr), s).count() as i32
-                + self.friendly_rook_xray_attack(Some(sqr), s).count() as i32
-                + self.friendly_queen_attack(Some(sqr), s).count() as i32;
+            v += self.knight_attack::<W, B>(Some(sqr), s).count() as i32
+                + self.bishop_xray_attack::<W, B>(Some(sqr), s).count() as i32
+                + self.rook_xray_attack::<W, B>(Some(sqr), s).count() as i32
+                + self.queen_attack::<W, B>(Some(sqr), s).count() as i32;
         }
         v
     }
 
-    #[evaluation_fn]
-    pub fn weak_bonus(&self) -> BitBoard {
-        self.friendly_weak_squares() & self.friendly_king_ring(false)
+    pub fn weak_bonus<W: Color, B: Color>(&self) -> BitBoard {
+        self.weak_squares::<W, B>() & self.king_ring::<W, B>(false)
     }
 
-    #[evaluation_fn]
-    pub fn weak_squares(&self) -> BitBoard {
-        self.friendly_all_attacks() 
-            & !self.enemy_all_doubled_attacks()
-            & (!self.enemy_all_attacks() | self.enemy_all_king_attacks() | self.enemy_all_queen_attacks().0)
+    pub fn weak_squares<W: Color, B: Color>(&self) -> BitBoard {
+        self.all_attacks::<W, B>() 
+            & !self.all_doubled_attacks::<B, W>()
+            & (!self.all_attacks::<B, W>() | self.all_king_attacks::<B, W>() | self.all_queen_attacks::<B, W>().0)
     }
 
-    #[evaluation_fn]
-    pub fn unsafe_checks(&self) -> BitBoard {
-        (self.friendly_check(CheckType::Knight) 
-            & (if self.friendly_safe_check(CheckType::Knight).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
-        | (self.friendly_check(CheckType::Bishop) 
-            & (if self.friendly_safe_check(CheckType::Bishop).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
-        | (self.friendly_check(CheckType::Rook) 
-            & (if self.friendly_safe_check(CheckType::Rook).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+    pub fn unsafe_checks<W: Color, B: Color>(&self) -> BitBoard {
+        (self.check::<W, B>(CheckType::Knight) 
+            & (if self.safe_check::<W, B>(CheckType::Knight).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+        | (self.check::<W, B>(CheckType::Bishop) 
+            & (if self.safe_check::<W, B>(CheckType::Bishop).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
+        | (self.check::<W, B>(CheckType::Rook) 
+            & (if self.safe_check::<W, B>(CheckType::Rook).count() == 0 { BitBoard::ALL } else { BitBoard(0) }))
     }
 
-    #[evaluation_fn]
-    pub fn knight_defender(&self) -> BitBoard {
-        self.friendly_all_knight_attacks().0 & self.friendly_all_king_attacks()
+    pub fn knight_defender<W: Color, B: Color>(&self) -> BitBoard {
+        self.all_knight_attacks::<W, B>().0 & self.all_king_attacks::<W, B>()
     }
 
-    #[evaluation_fn]
-    pub fn blockers_for_king(&self) -> BitBoard {
-        self.pin_rays[self.color.flip()] & self.board.color_bitboards[self.color.flip()]
+    pub fn blockers_for_king<W: Color, B: Color>(&self) -> BitBoard {
+        self.pin_rays[B::index()] & self.board.color_bitboards[B::index()]
+    }
+
+    // TODO: Cache this
+    pub fn king_flank<W: Color, B: Color>(&self) -> BitBoard {
+        let mut flank = !BitBoard::from_ranks(W::ranks(0..=2));
+        let kx = self.king_square::<B, W>().file();
+
+        flank &= !(BitBoard::from_files(3..=7) & (if kx == 0 { u64::MAX } else { 0 }));
+        flank &= !(BitBoard::from_files(4..=7) & (if kx < 3 { u64::MAX } else { 0 }));
+        flank &= !((BitBoard::from_files(0..=1) | BitBoard::from_files(6..=7)) & (if (3..5).contains(&kx) { u64::MAX } else { 0 }));
+        flank &= !(BitBoard::from_files(0..=3) & (if kx >= 5 { u64::MAX } else { 0 }));
+        flank &= !(BitBoard::from_files(0..=4) & (if kx == 7 { u64::MAX } else { 0 }));
+
+        flank
+        
     }
 
     /// Returns `(attacked exactly once, attacked twice)`
-    #[evaluation_fn]
-    pub fn flank_attack(&self) -> (BitBoard, BitBoard) {
-        todo!();
+    pub fn flank_attack<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
+        let mut attacked = self.king_flank::<W, B>();
+        let a = self.all_doubled_attacks::<W, B>();
+        attacked &= self.all_attacks::<W, B>();
+        (attacked & !a, attacked & a)
     }
 
-    #[evaluation_fn]
-    pub fn flank_defense(&self) -> BitBoard {
-        todo!();
+    pub fn flank_defense<W: Color, B: Color>(&self) -> BitBoard {
+        let mut flank = self.king_flank::<W, B>();
+        flank & self.all_attacks::<B, W>()
     }
 
-    #[evaluation_fn]
-    pub fn king_danger(&self) -> i32 {
-        todo!();
+    pub fn king_danger<W: Color, B: Color>(&self) -> i32 {
+        let king_attackers_origin = self.king_attackers_origin::<W, B>();
+        let count = (king_attackers_origin.0.count() + king_attackers_origin.1.count()) as i32;
+        let weight = self.king_attackers_weight::<W, B>();
+        let king_attacks = sum_sqrs!(self, king_attacks, White, Black:);
+        let weak = self.weak_bonus::<W, B>().count() as i32;
+        let unsafe_checks = self.unsafe_checks::<W, B>().count() as i32;
+        let blockers_for_king = self.blockers_for_king::<W, B>().count() as i32;
+        let flank_attack_total = self.flank_attack::<W, B>();
+        let king_flank_attack = (flank_attack_total.0.count() + 2 * flank_attack_total.1.count()) as i32;
+        let king_flank_defense = self.flank_defense::<W, B>().count() as i32;
+        let no_queen = if self.queen_count::<W, B>() > 0 { 0 } else { 1 };
+        let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
+
+        let v = count * weight
+            + 69 * king_attacks
+            + 185 * weak
+            - 100 * (if self.knight_defender::<B, W>().count() > 0 { 1 } else { 0 })
+            + 148 * unsafe_checks
+            + 98 * blockers_for_king
+            - 4 * king_flank_defense
+            + (3 * king_flank_attack * king_flank_attack / 8)
+            - 873 * no_queen
+            - (6 * (shelter_strength.0 - shelter_strength.1) / 8)
+            + sum_sqrs!(self, mobility_mg, White, Black:) - sum_sqrs!(self, mobility_mg, Black, White:)
+            + 37
+            + (772 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45) as i32)
+            + (1084 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75) as i32)
+            + (645 * (self.safe_check::<W, B>(CheckType::Bishop).count() as f32).min(1.50) as i32)
+            + (792 * (self.safe_check::<W, B>(CheckType::Knight).count() as f32).min(1.62) as i32);
+
+        if v > 100 { v } else { 0 }
     }
 
-    #[evaluation_fn]
-    pub fn king_mg(&self) -> i32 {
-        todo!();
+    pub fn king_mg<W: Color, B: Color>(&self) -> i32 {
+        let mut v = 0;
+        let kd = self.king_danger::<W, B>();
+        let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
+        let flank = self.flank_attack::<W, B>();
+        v -= shelter_strength.0;
+        v += shelter_strength.1;
+        v += kd * kd / 4096;
+        v += 8 * (flank.0.count() + 2 * flank.1.count()) as i32;
+        v += 17 * if self.pawnless_flank::<W, B>() { 1 } else { 0 };
+        v
     }
 
-    #[evaluation_fn]
-    pub fn king_eg(&self) -> i32 {
-        todo!();
+    pub fn king_eg<W: Color, B: Color>(&self) -> i32 {
+        let mut v = 0;
+        v -= 16 * self.king_pawn_distance::<W, B>();
+        v += self.shelter_strength_storm_eg::<W, B>().2;
+        v += 95 * if self.pawnless_flank::<W, B>() { 1 } else { 0 };
+        v += self.king_danger::<W, B>() / 16;
+        v
     }
 }
 
@@ -379,125 +422,123 @@ mod tests {
     #[test]
     #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr3bNp/2NPnP1P/3P2P1/3PPR2/1RBQKB2 w KQkq - 2 3")]
     fn test_pawnless_flank() {
-        assert_eval!(- friendly_pawnless_flank, true, false, eval);
+        assert_eval!(- pawnless_flank, true, false, eval);
     }
 
     #[test]
     #[evaluation_test("2b1k3/1ppp1ppr/r1nb4/pB1Np1qp/3n1P2/4PQ1N/PPPP2PP/R1B2RK1 w Q - 8 8")]
     fn test_strength_square() {
-        assert_eval!(friendly_strength_square, -660, -1578, eval);
+        assert_eval!(strength_square, -660, -1578, eval);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_storm_square() {
-        assert_eval!(friendly_storm_square, 672, 2579, eval; false);
+        assert_eval!(storm_square, 672, 2579, eval; false);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_shelter_strength_storm() {
-        assert_eval!(- friendly_shelter_strength_storm_eg, (-2, -27, 5), (76, 17, 5), eval);
+        assert_eval!(- shelter_strength_storm_eg, (-2, -27, 5), (76, 17, 5), eval);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_pawn_distance() {
-        assert_eval!(- friendly_king_pawn_distance, 2, 1, eval);
+        assert_eval!(- king_pawn_distance, 2, 1, eval);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_check() {
-        assert_eval!(+ - friendly_check, 11, 2, eval; CheckType::All);
+        assert_eval!(+ - check, 11, 2, eval; CheckType::All);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_safe_check() {
-        assert_eval!(+ - friendly_safe_check, 2, 1, eval; CheckType::All);
+        assert_eval!(+ - safe_check, 2, 1, eval; CheckType::All);
     }
 
     #[test]
     #[evaluation_test("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")]
     fn test_king_attackers_origin() {
-        assert_eval!(* - [0, 1] friendly_king_attackers_origin, (3, 1), (7, 0), eval);
+        assert_eval!(* - [0, 1] king_attackers_origin, (3, 1), (7, 0), eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attackers_weight() {
-        assert_eval!(- friendly_king_attackers_weight, 54, 135, eval);
+        assert_eval!(- king_attackers_weight, 54, 135, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attacks() {
-        assert_eval!(friendly_king_attacks, 6, 1, eval);
+        assert_eval!(king_attacks, 6, 1, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_bonus() {
-        assert_eval!(+ - friendly_weak_bonus, 1, 2, eval);
+        assert_eval!(+ - weak_bonus, 1, 2, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_weak_squares() {
-        assert_eval!(+ - friendly_weak_squares, 22, 20, eval);
+        assert_eval!(+ - weak_squares, 22, 20, eval);
     }
 
     #[test]
     #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr1n1bNp/P1N2P1P/3P2R1/3PP1P1/1RBQKB2 b KQkq - 3 3")]
     fn test_unsafe_checks() {
-        assert_eval!(+ - friendly_unsafe_checks, 2, 0, eval);
+        assert_eval!(+ - unsafe_checks, 2, 0, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r2P/P1P1P3/2B1N1RK w Qkq - 5 4")]
     fn test_knight_defender() {
-        assert_eval!(+ - friendly_knight_defender, 1, 6, eval);
+        assert_eval!(+ - knight_defender, 1, 6, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_blockers_for_king() {
-        assert_eval!(+ - friendly_blockers_for_king, 2, 1, eval);
+        assert_eval!(+ - blockers_for_king, 2, 1, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1nb2rk1/p2rb3/p5P1/2K3N1/pP1P1BQ1/2Npq3/2P1P1PR/1R3B2 w q - 4 10")]
     fn test_flank_attack() {
-        assert_eval!(* - [0, 1] friendly_flank_attack, (4, 8), (8, 1), eval);
+        assert_eval!(* - [0, 1] flank_attack, (4, 8), (8, 1), eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_flank_defense() {
-        assert_eval!(+ - friendly_flank_defense, 19, 11, eval);
+        assert_eval!(+ - flank_defense, 19, 11, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_danger() {
-        assert_eval!(- friendly_king_danger, 2640, 3448, eval);
+        assert_eval!(- king_danger, 2640, 3448, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_mg() {
-        assert_eval!(- friendly_king_mg, 1812, 3168, eval);
+        assert_eval!(- king_mg, 1812, 3168, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_eg() {
-        assert_eval!(- friendly_king_eg, 138, 210, eval);
+        assert_eval!(- king_eg, 138, 210, eval);
     }
 }

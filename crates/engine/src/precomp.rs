@@ -52,6 +52,10 @@ pub struct PrecomputedData {
     /// The manhattan distance from the given square to the center of the board.
     pub center_manhattan_distance: [u32; 64],
 
+    pub forward_ranks: [[BitBoard; 8]; 2],
+    pub forward_files: [[BitBoard; 64]; 2],
+    pub pawn_attack_span: [[BitBoard; 64]; 2],
+
 
     pub white_passed_pawn_mask: [BitBoard; 64],
     pub black_passed_pawn_mask: [BitBoard; 64],
@@ -72,6 +76,9 @@ impl PrecomputedData {
     pub const BLACK_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D8.index() | 1u64 << Coord::C8.index());
     pub const WHITE_QUEENSIDE_MASK: BitBoard = BitBoard(Self::WHITE_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B1.index());
     pub const BLACK_QUEENSIDE_MASK: BitBoard = BitBoard(Self::BLACK_QUEENSIDE_MASK_2.0 | 1u64 << Coord::B8.index());
+
+    const WHITE: usize = Board::WHITE_INDEX;
+    const BLACK: usize = Board::BLACK_INDEX;
 
     pub fn pawn_attacks(b: BitBoard, is_white: bool) -> BitBoard {
         if is_white {
@@ -106,6 +113,9 @@ impl Default for PrecomputedData {
             manhattan_distance: [[0; 64]; 64],
             king_distance: [[0; 64]; 64],
             center_manhattan_distance: [0; 64],
+            forward_ranks: [[BitBoard(0); 8]; 2],
+            forward_files: [[BitBoard(0); 64]; 2],
+            pawn_attack_span: [[BitBoard(0); 64]; 2],
             white_passed_pawn_mask: [BitBoard(0); 64],
             black_passed_pawn_mask: [BitBoard(0); 64],
             white_pawn_support_mask: [BitBoard(0); 64],
@@ -329,6 +339,20 @@ impl PrecomputedData {
             }
         }
     }
+    
+    fn calc_forward_ranks_files_span(&mut self) {
+        for r in 0..7 {
+            self.forward_ranks[Self::BLACK][r + 1] = self.forward_ranks[Self::BLACK][r] | BitBoard::RANKS[r];
+            self.forward_ranks[Self::WHITE][r] = !self.forward_ranks[Self::BLACK][r + 1];
+        }
+
+        for c in 0..2 {
+            for s in Coord::iter_squares() {
+                self.forward_files[c][s] = self.forward_ranks[c][s.rank() as usize] & BitBoard::FILES[s.file() as usize];
+                self.pawn_attack_span[c][s] = self.forward_ranks[c][s.rank() as usize] & self.adjacent_file_mask[s.file() as usize];
+            }
+        }
+    }
 
     pub fn new() -> Self {
         let mut data = Self::default();
@@ -341,6 +365,7 @@ impl PrecomputedData {
         data.calc_align_mask();
         data.calc_pawn_structure_masks();
         data.calc_king_ring();
+        data.calc_forward_ranks_files_span();
 
         data
     }

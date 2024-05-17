@@ -1,4 +1,4 @@
-use engine::{board::{zobrist::Zobrist, Board}, color::Color, eval::Evaluation, move_gen::magics::MagicBitBoards, precomp::PrecomputedData};
+use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, move_gen::magics::MagicBitBoards, precomp::PrecomputedData};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 
@@ -83,8 +83,8 @@ async fn main() {
             let magics = MagicBitBoards::default();
             let mut zobrist = Zobrist::new();
             let board = Board::load_position(Some(fen), &mut zobrist);
-            let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
-            println!("evaluation: {}", eval.evaluate());
+            let mut eval = Evaluation::new(&board, &precomp, &magics);
+            println!("evaluation: {}", eval.evaluate::<engine::color::White, engine::color::Black>());
         },
         Commands::Perft {
             position,

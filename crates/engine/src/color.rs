@@ -1,178 +1,221 @@
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Range, RangeInclusive};
 
 use crate::board::{coord::Coord, piece::Piece, Board};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Color {
-    White,
-    Black
-}
-
-impl Color {
-    #[inline]
-    pub fn flip(self) -> Self {
-        match self {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        }
-    }
-
-    #[inline]
-    pub fn piece(self, ptype: u8) -> Piece {
-        match self {
-            Color::White => Piece::new(ptype | Piece::WHITE),
-            Color::Black => Piece::new(ptype | Piece::BLACK),
-        }
-    }
-
-    #[inline]
-    pub fn piece_color(self) -> u8 {
-        match self {
-            Color::White => Piece::WHITE,
-            Color::Black => Piece::BLACK,
-        }
-    }
-
+pub trait Color {
+    fn flip() -> impl Color;
+    fn piece(ptype: u8) -> Piece;
+    fn piece_color() -> u8;
     /// The `up` direction of this color, traveling towards the enemy side. 
-    #[inline]
-    pub fn up(self) -> Coord {
-        match self {
-            Color::White => Coord::new(0, 1),
-            Color::Black => Coord::new(0, -1),
-        }
-    }
-
+    fn up() -> Coord;
     /// The `down` direction of this color, traveling towards the home side. 
-    #[inline]
-    pub fn down(self) -> Coord {
-        match self {
-            Color::White => Coord::new(0, -1),
-            Color::Black => Coord::new(0, 1),
-        }
-    }
-
-    #[inline]
-    pub fn back_rank(self) -> i8 {
-        match self {
-            Color::White => 0,
-            Color::Black => 7,
-        }
-    }
-
-    #[inline]
-    pub fn first_rank(self) -> i8 {
-        match self {
-            Color::White => 1,
-            Color::Black => 6,
-        }
-    }
-    
-    #[inline]
-    pub fn up_dir(self) -> i8 {
-        match self {
-            Color::White => 1,
-            Color::Black => -1,
-        }
-    }
-
-    #[inline]
-    pub fn down_dir(self) -> i8 {
-        match self {
-            Color::White => -1,
-            Color::Black => 1,
-        }
-    }
-
+    fn down() -> Coord;
+    fn rank(n: i8) -> i8;
+    fn ranks(n: RangeInclusive<i8>) -> RangeInclusive<i8>;
+    fn back_rank() -> i8;
+    fn first_rank() -> i8;
+    fn up_dir() -> i8;
+    fn down_dir() -> i8;
     /// Iterates over ranks in the `up` direction of this color.
-    #[inline]
-    pub fn ranks_up(self) -> RanksIterator {
-        match self {
-            Color::White => RanksIterator::new(1, 0),
-            Color::Black => RanksIterator::new(-1, 7),
-        }
-    }
-
+    fn ranks_up() -> RanksIterator;
     /// Iterates over ranks in the `down` direction of this color.
-    #[inline]
-    pub fn ranks_down(self) -> RanksIterator {
-        match self {
-            Color::White => RanksIterator::new(-1, 7),
-            Color::Black => RanksIterator::new(1, 0),
-        }
-    }
-
+    fn ranks_down() -> RanksIterator;
     /// Iterates over ranks in the `up` direction of this color, starting at and including rank
     /// `start`.
-    #[inline]
-    pub fn ranks_up_from(self, start: i8) -> RanksIterator {
-        match self {
-            Color::White => RanksIterator::new(1, start),
-            Color::Black => RanksIterator::new(-1, start),
-        }
-    }
-
+    fn ranks_up_from(start: i8) -> RanksIterator;
     /// Iterates over ranks in the `down` direction of this color, starting at and including rank
     /// `start`.
-    #[inline]
-    pub fn ranks_down_from(self, start: i8) -> RanksIterator {
-        match self {
-            Color::White => RanksIterator::new(-1, start),
-            Color::Black => RanksIterator::new(1, start),
-        }
+    fn ranks_down_from(start: i8) -> RanksIterator;
+    fn ranks_up_till_incl(end: i8) -> RanksIteratorUntil;
+    fn ranks_down_till_incl(end: i8) -> RanksIteratorUntil;
+    fn ranks_up_till_excl(end: i8) -> RanksIteratorUntil;
+    fn ranks_down_till_excl(end: i8) -> RanksIteratorUntil;
+    fn at(file: i8, rank: i8) -> Coord;
+    fn is_white() -> bool;
+    fn index() -> usize;
+}
+
+
+pub struct White;
+pub struct Black;
+
+impl Color for White {
+    fn flip() -> impl Color {
+        Black
     }
 
-    #[inline]
-    pub fn ranks_up_till_incl(self, end: i8) -> RanksIteratorUntil {
-        match self {
-            Color::White => RanksIteratorUntil::new(1, 0, end + 1),
-            Color::Black => RanksIteratorUntil::new(-1, 7, end - 1),
-        }
+    fn piece(ptype: u8) -> Piece {
+        Piece::new(ptype | Piece::WHITE)
     }
 
-    #[inline]
-    pub fn ranks_down_till_incl(self, end: i8) -> RanksIteratorUntil {
-        match self {
-            Color::White => RanksIteratorUntil::new(-1, 7, end - 1),
-            Color::Black => RanksIteratorUntil::new(1, 0, end + 1),
-        }
+    fn piece_color() -> u8 {
+        Piece::WHITE
     }
 
-    #[inline]
-    pub fn ranks_up_till_excl(self, end: i8) -> RanksIteratorUntil {
-        match self {
-            Color::White => RanksIteratorUntil::new(1, 0, end),
-            Color::Black => RanksIteratorUntil::new(-1, 7, end),
-        }
+    fn up() -> Coord {
+        Coord::new(0, 1)
     }
 
-    #[inline]
-    pub fn ranks_down_till_excl(self, end: i8) -> RanksIteratorUntil {
-        match self {
-            Color::White => RanksIteratorUntil::new(-1, 7, end),
-            Color::Black => RanksIteratorUntil::new(1, 0, end),
-        }
+    fn down() -> Coord {
+        Coord::new(0, -1)
     }
 
-    #[inline]
-    pub fn at(self, file: i8, rank: i8) -> Coord {
-        match self {
-            Color::White => Coord::new(file, rank),
-            Color::Black => Coord::new(file, 7 - rank),
-        }
+    fn rank(n: i8) -> i8 {
+        n
     }
 
-    #[inline]
-    pub fn is_white(self) -> bool {
-        match self {
-            Color::White => true,
-            Color::Black => false,
-        }
+    fn ranks(n: RangeInclusive<i8>) -> RangeInclusive<i8> {
+        n
+    }
+
+    fn back_rank() -> i8 {
+        0
+    }
+
+    fn first_rank() -> i8 {
+        1
+    }
+
+    fn up_dir() -> i8 {
+        1
+    }
+
+    fn down_dir() -> i8 {
+        -1
+    }
+
+    fn ranks_up() -> RanksIterator {
+        RanksIterator::new(1, 0)
+    }
+
+    fn ranks_down() -> RanksIterator {
+        RanksIterator::new(-1, 7)
+    }
+
+    fn ranks_up_from(start: i8) -> RanksIterator {
+        RanksIterator::new(1, start)
+    }
+
+    fn ranks_down_from(start: i8) -> RanksIterator {
+        RanksIterator::new(-1, start)
+    }
+
+    fn ranks_up_till_incl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(1, 0, end + 1)
+    }
+
+    fn ranks_down_till_incl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(-1, 7, end - 1)
+    }
+
+    fn ranks_up_till_excl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(1, 0, end)
+    }
+
+    fn ranks_down_till_excl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(-1, 7, end)
+    }
+
+    fn at(file: i8, rank: i8) -> Coord {
+        Coord::new(file, rank)
+    }
+
+    fn is_white() -> bool {
+        true
+    }
+
+    fn index() -> usize {
+        Board::WHITE_INDEX
     }
 }
 
-impl Default for Color {
-    fn default() -> Self {
-        Self::White
+impl Color for Black {
+    fn flip() -> impl Color {
+        White
+    }
+
+    fn piece(ptype: u8) -> Piece {
+        Piece::new(ptype | Piece::BLACK)
+    }
+
+    fn piece_color() -> u8 {
+        Piece::BLACK
+    }
+
+    fn up() -> Coord {
+        Coord::new(0, -1)
+    }
+
+    fn down() -> Coord {
+        Coord::new(0, 1)
+    }
+
+    fn rank(n: i8) -> i8 {
+        7 - n
+    }
+
+    fn ranks(n: RangeInclusive<i8>) -> RangeInclusive<i8> {
+        (7 - n.end())..=(7 - n.start())
+    }
+
+    fn back_rank() -> i8 {
+        7
+    }
+
+    fn first_rank() -> i8 {
+        6
+    }
+
+    fn up_dir() -> i8 {
+        -1
+    }
+
+    fn down_dir() -> i8 {
+        1
+    }
+
+    fn ranks_up() -> RanksIterator {
+        RanksIterator::new(-1, 7)
+    }
+
+    fn ranks_down() -> RanksIterator {
+        RanksIterator::new(1, 0)
+    }
+
+    fn ranks_up_from(start: i8) -> RanksIterator {
+        RanksIterator::new(-1, start)
+    }
+
+    fn ranks_down_from(start: i8) -> RanksIterator {
+        RanksIterator::new(1, start)
+    }
+
+    fn ranks_up_till_incl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(-1, 7, end - 1)
+    }
+
+    fn ranks_down_till_incl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(1, 0, end + 1)
+    }
+
+    fn ranks_up_till_excl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(-1, 7, end)
+    }
+
+    fn ranks_down_till_excl(end: i8) -> RanksIteratorUntil {
+        RanksIteratorUntil::new(1, 0, end)
+    }
+
+    fn at(file: i8, rank: i8) -> Coord {
+        Coord::new(file, 7 - rank)
+    }
+
+    fn is_white() -> bool {
+        false
+    }
+
+    fn index() -> usize {
+        Board::BLACK_INDEX
     }
 }
 
@@ -222,46 +265,6 @@ impl Iterator for RanksIteratorUntil {
 }
 
 
-impl<T> Index<Color> for Vec<T> {
-    type Output = T;
-
-    fn index(&self, index: Color) -> &Self::Output {
-        match index {
-            Color::White => &self[Board::WHITE_INDEX],
-            Color::Black => &self[Board::BLACK_INDEX],
-        }
-    }
-}
-
-impl<T> IndexMut<Color> for Vec<T> {
-    fn index_mut(&mut self, index: Color) -> &mut Self::Output {
-        match index {
-            Color::White => &mut self[Board::WHITE_INDEX],
-            Color::Black => &mut self[Board::BLACK_INDEX],
-        }
-    }
-}
-
-impl<T> Index<Color> for [T] {
-    type Output = T;
-
-    fn index(&self, index: Color) -> &Self::Output {
-        match index {
-            Color::White => &self[Board::WHITE_INDEX],
-            Color::Black => &self[Board::BLACK_INDEX],
-        }
-    }
-}
-
-impl<T> IndexMut<Color> for [T] {
-    fn index_mut(&mut self, index: Color) -> &mut Self::Output {
-        match index {
-            Color::White => &mut self[Board::WHITE_INDEX],
-            Color::Black => &mut self[Board::BLACK_INDEX],
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -273,15 +276,15 @@ mod tests {
     fn test_up_down() {
         let board = Board::load_position(None, &mut Zobrist::new());
         assert_eq!(board.square[Coord::new(2, 1)], Piece::new(Piece::WHITE_PAWN));
-        assert_eq!(board.square[Coord::new(2, 1) + Color::White.down()], Piece::new(Piece::WHITE_BISHOP));
-        assert_eq!(board.square[Coord::new(4, 6) + Color::Black.down()], Piece::new(Piece::BLACK_KING));
+        assert_eq!(board.square[Coord::new(2, 1) + White::down()], Piece::new(Piece::WHITE_BISHOP));
+        assert_eq!(board.square[Coord::new(4, 6) + Black::down()], Piece::new(Piece::BLACK_KING));
     }
 
     #[test]
     fn test_at() {
         let board = Board::load_position(None, &mut Zobrist::new());
-        assert_eq!(board.square[Color::White.at(2, 1)], Piece::new(Piece::WHITE_PAWN));
-        assert_eq!(board.square[Color::Black.at(2, 1)], Piece::new(Piece::BLACK_PAWN));
+        assert_eq!(board.square[White::at(2, 1)], Piece::new(Piece::WHITE_PAWN));
+        assert_eq!(board.square[Black::at(2, 1)], Piece::new(Piece::BLACK_PAWN));
     }
 
     #[test]

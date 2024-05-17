@@ -6,7 +6,8 @@ pub fn expand(item: &mut ItemFn, args: LitStr) {
         let precomp = PrecomputedData::new();
         let magics = MagicBitBoards::default();
         let board = Board::load_position(Some(String::from(#args)), &mut Zobrist::new());
-        let mut eval = Evaluation::new(&board, &precomp, &magics, Color::White);
+        let mut eval = Evaluation::new(&board, &precomp, &magics);
+        eval.init::<White, Black>();
 
         #body
     });

@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Stdout, Write};
 use termion::{clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::Color, eval::Evaluation, game::Game, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::Game, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -108,7 +108,7 @@ pub fn start(fen: String) {
     let mut move_cycle_index = 0;
     let mut mode = InputMode::Normal;
     let mut printed_dbg_len = None;
-    let mut overlayed_bitboard = None;
+    let mut overlayed_bitboard: Option<BitBoard> = None;
     let mut force_move = false;
 
     write!(stdout, "{}", cursor::Hide).unwrap();
@@ -205,10 +205,22 @@ pub fn start(fen: String) {
                         write!(stdout, "{}{}\n\r", clear::CurrentLine, &game.zobrist.calc_zobrist_key(&game.board)).unwrap();
                         printed_dbg_len = Some(1);
                     },
+                    Key::Char('b') => {
+                        if let Some(bb) = overlayed_bitboard {
+                            if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
+                            write!(stdout, "{}{}\n\r", clear::CurrentLine, bb.0).unwrap();
+                            printed_dbg_len = Some(1);
+                        }
+                    },
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
-                        let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
-                        let v = eval.friendly_strength_square(sqr);
+                        let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                        if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
+                        let v = if game.board.white_to_move {
+                            eval.strength_square::<White, Black>(sqr)
+                        } else {
+                            eval.strength_square::<Black, White>(sqr)
+                        };
 
                         if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
                         write!(stdout, "{}{}\n\r", clear::CurrentLine, v).unwrap();
@@ -289,8 +301,13 @@ pub fn start(fen: String) {
                     // change this when needed for debugging
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
-                        let eval = Evaluation::new(&game.board, &game.precomp, &game.magics, if game.board.white_to_move { Color::White } else { Color::Black });
-                        overlayed_bitboard = Some(eval.enemy_pin_rays());
+                        let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                        if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
+                        overlayed_bitboard = Some(if game.board.white_to_move {
+                            eval.pawn_attacks_span::<White, Black>()
+                        } else {
+                            eval.pawn_attacks_span::<Black, White>()
+                        });
                     },
                     _ => ()
                 };
