@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut, Range, RangeInclusive};
 
-use crate::board::{coord::Coord, piece::Piece, Board};
+use crate::{board::{coord::Coord, piece::Piece, Board}, prelude::BitBoard};
 
 pub trait Color {
     fn flip() -> impl Color;
@@ -14,6 +14,7 @@ pub trait Color {
     fn ranks(n: RangeInclusive<i8>) -> RangeInclusive<i8>;
     fn back_rank() -> i8;
     fn first_rank() -> i8;
+    fn home_side() -> BitBoard;
     fn up_dir() -> i8;
     fn down_dir() -> i8;
     /// Iterates over ranks in the `up` direction of this color.
@@ -74,6 +75,10 @@ impl Color for White {
 
     fn first_rank() -> i8 {
         1
+    }
+
+    fn home_side() -> BitBoard {
+        BitBoard::RANK_1 | BitBoard::RANK_2 | BitBoard::RANK_3 | BitBoard::RANK_4
     }
 
     fn up_dir() -> i8 {
@@ -164,6 +169,10 @@ impl Color for Black {
 
     fn first_rank() -> i8 {
         6
+    }
+
+    fn home_side() -> BitBoard {
+        BitBoard::RANK_5 | BitBoard::RANK_6 | BitBoard::RANK_7 | BitBoard::RANK_8
     }
 
     fn up_dir() -> i8 {

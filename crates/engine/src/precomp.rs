@@ -56,6 +56,9 @@ pub struct PrecomputedData {
     pub forward_files: [[BitBoard; 64]; 2],
     pub pawn_attack_span: [[BitBoard; 64]; 2],
 
+    pub diagonal_squares: [[BitBoard; 64]; 8],
+    pub orthogonal_squares: [[BitBoard; 64]; 8],
+
 
     pub white_passed_pawn_mask: [BitBoard; 64],
     pub black_passed_pawn_mask: [BitBoard; 64],
@@ -115,6 +118,8 @@ impl Default for PrecomputedData {
             center_manhattan_distance: [0; 64],
             forward_ranks: [[BitBoard(0); 8]; 2],
             forward_files: [[BitBoard(0); 64]; 2],
+            diagonal_squares: [[BitBoard(0); 64]; 8],
+            orthogonal_squares: [[BitBoard(0); 64]; 8],
             pawn_attack_span: [[BitBoard(0); 64]; 2],
             white_passed_pawn_mask: [BitBoard(0); 64],
             black_passed_pawn_mask: [BitBoard(0); 64],
@@ -354,6 +359,26 @@ impl PrecomputedData {
         }
     }
 
+    fn calc_diagonal_orthogonal_sqrs(&mut self) {
+        for sqr in Coord::iter_squares() {
+            for depth in 1..=8 {
+                for dir in 0..8 {
+                    let is_diagonal = dir > 3;
+                    let n = self.num_sqrs_to_edge[sqr][dir].min(depth);
+                    let offset = self.direction_offsets[dir];
+                    for i in 0..n {
+                        let s = sqr + offset * (i + 1);
+                        if is_diagonal {
+                            self.diagonal_squares[depth as usize - 1][sqr] |= s.to_bitboard();
+                        } else {
+                            self.orthogonal_squares[depth as usize - 1][sqr] |= s.to_bitboard();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn new() -> Self {
         let mut data = Self::default();
 
@@ -366,6 +391,7 @@ impl PrecomputedData {
         data.calc_pawn_structure_masks();
         data.calc_king_ring();
         data.calc_forward_ranks_files_span();
+        data.calc_diagonal_orthogonal_sqrs();
 
         data
     }

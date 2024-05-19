@@ -299,14 +299,15 @@ pub fn start(fen: String) {
                         overlayed_bitboard = Some(game.precomp.black_pawn_attacks[Coord::from(cursor)]);
                     },
                     // change this when needed for debugging
+                    #[allow(clippy::if_same_then_else)]
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.pawn_attacks_span::<White, Black>()
+                            eval.bishop_on_king_ring::<White, Black>()
                         } else {
-                            eval.pawn_attacks_span::<Black, White>()
+                            eval.bishop_on_king_ring::<Black, White>()
                         });
                     },
                     _ => ()

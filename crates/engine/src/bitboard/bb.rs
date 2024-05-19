@@ -180,6 +180,16 @@ impl BitBoard {
         }
         bb
     }
+
+    pub fn from_cond<F: Fn(Coord) -> bool>(f: F) -> Self {
+        let mut bb = BitBoard(0);
+        for sqr in Coord::iter_squares() {
+            if f(sqr) {
+                bb.set_square(sqr.square())
+            }
+        }
+        bb
+    }
 }
 
 impl From<usize> for BitBoard {
