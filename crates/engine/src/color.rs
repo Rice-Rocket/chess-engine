@@ -32,6 +32,7 @@ pub trait Color {
     fn ranks_up_till_excl(end: i8) -> RanksIteratorUntil;
     fn ranks_down_till_excl(end: i8) -> RanksIteratorUntil;
     fn at(file: i8, rank: i8) -> Coord;
+    fn offset(file: i8, rank: i8) -> Coord;
     fn is_white() -> bool;
     fn index() -> usize;
 }
@@ -122,6 +123,10 @@ impl Color for White {
     }
 
     fn at(file: i8, rank: i8) -> Coord {
+        Coord::new(file, rank)
+    }
+
+    fn offset(file: i8, rank: i8) -> Coord {
         Coord::new(file, rank)
     }
 
@@ -217,6 +222,10 @@ impl Color for Black {
 
     fn at(file: i8, rank: i8) -> Coord {
         Coord::new(file, 7 - rank)
+    }
+
+    fn offset(file: i8, rank: i8) -> Coord {
+        Coord::new(file, -rank)
     }
 
     fn is_white() -> bool {

@@ -1,66 +1,190 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::coord::Coord, color::{Color, White, Black}, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
 use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
     pub fn safe_pawn<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        self.board.piece_bitboards[W::piece(Piece::PAWN)] 
+            & (self.all_attacks::<W, B>() | !self.all_attacks::<B, W>())
     }
 
     pub fn threat_safe_pawn<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        let non_pawn_enemies = self.board.piece_bitboards[B::piece(Piece::KNIGHT)] 
+            | self.board.piece_bitboards[B::piece(Piece::BISHOP)]
+            | self.board.piece_bitboards[B::piece(Piece::ROOK)]
+            | self.board.piece_bitboards[B::piece(Piece::QUEEN)];
+        let safe_pawn_attacks = PrecomputedData::pawn_attacks(self.safe_pawn::<W, B>(), W::is_white());
+
+        non_pawn_enemies & safe_pawn_attacks
     }
 
     pub fn weak_enemies<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
-    }
+        let enemies = self.board.color_bitboards[B::index()];
+        let pawn_defended = self.all_pawn_attacks::<B, W>().0;
+
+        (enemies & !pawn_defended) 
+            & (self.all_doubled_attacks::<W, B>() | (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<B, W>())) }
 
     pub fn minor_threat<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        todo!();
+        let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
+        let mut pieces = self.board.color_bitboards[B::index()];
+        pieces &= self.all_knight_attacks::<W, B>().0 | self.all_bishop_xray_attacks::<W, B>().0;
+        pieces &= !(
+            (enemy_pawns | !(
+                PrecomputedData::pawn_attacks(enemy_pawns, B::is_white())
+                | (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<W, B>() & self.all_doubled_attacks::<B, W>())))
+            & !self.weak_enemies::<W, B>());
+
+        if pieces.contains_square(sqr.square()) {
+            self.board.square[sqr].piece_type() as i32
+        } else {
+            0
+        }
     }
 
     pub fn rook_threat<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        todo!();
+        let mut pieces = self.board.color_bitboards[B::index()];
+        pieces &= self.weak_enemies::<W, B>();
+        pieces &= self.all_rook_xray_attacks::<W, B>().0;
+
+        if pieces.contains_square(sqr.square()) {
+            self.board.square[sqr].piece_type() as i32
+        } else {
+            0
+        }
     }
 
     pub fn hanging<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        self.weak_enemies::<W, B>() 
+            & ((!self.board.piece_bitboards[B::piece(Piece::PAWN)] & self.all_doubled_attacks::<W, B>()) | !self.all_attacks::<B, W>())
     }
 
     pub fn king_threat<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        (self.board.color_bitboards[B::index()] & !self.board.piece_bitboards[B::piece(Piece::KING)])
+            & self.weak_enemies::<W, B>() & self.all_king_attacks::<W, B>()
     }
 
     pub fn pawn_push_threat<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
+        let enemies = self.board.color_bitboards[B::index()] & !enemy_pawns;
+        let pieces = self.board.all_pieces_bitboard;
+        let attacks = self.all_attacks::<W, B>();
+        let enemy_attacks = self.all_attacks::<W, B>();
+
+        enemies & (
+            (pawns.shifted_2d(W::offset(1, 2)) & !pieces.shifted_2d(W::offset(1, 1))
+                & !enemy_pawns.shifted_2d(W::offset(2, 0)) & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, 1))))
+            | (BitBoard::from_rank(W::rank(4)) & pawns.shifted_2d(W::offset(1, 3)) & !pieces.shifted_2d(W::offset(1, 2))
+                & !pieces.shifted_2d(W::offset(1, 1)) & !enemy_pawns.shifted_2d(W::offset(2, 0))
+                & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, 1))))
+
+            | (pawns.shifted_2d(W::offset(-1, 2)) & !pieces.shifted_2d(W::offset(-1, 1))
+                & !enemy_pawns.shifted_2d(W::offset(-2, 0)) & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, 1))))
+            | (BitBoard::from_rank(W::rank(4)) & pawns.shifted_2d(W::offset(-1, 3)) & !pieces.shifted_2d(W::offset(-1, 2))
+                & !pieces.shifted_2d(W::offset(-1, 1)) & !enemy_pawns.shifted_2d(W::offset(-2, 0))
+                & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, 1))))
+        )
     }
 
-    /// Returns `(when at least one friendly queen, when no friendly queens)`
-    pub fn slider_on_queen<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
-        todo!();
+    /// Remember to multiply by two when the friendly side has one or more queens.
+    pub fn slider_on_queen<W: Color, B: Color>(&self) -> BitBoard {
+        if self.queen_count::<B, W>() != 1 { return BitBoard(0) };
+        let mut on_queen = BitBoard(0);
+
+        let mut threats = !self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        threats &= !self.all_pawn_attacks::<B, W>().0;
+        threats &= self.all_doubled_attacks::<W, B>();
+        threats &= self.mobility_area::<W, B>();
+
+        while threats.0 != 0 {
+            let sqr = Coord::from_idx(threats.pop_lsb() as i8);
+            let diagonal = self.queen_attack_diagonal::<B, W>(None, sqr).count() > 0;
+            if (diagonal && self.bishop_xray_attack::<W, B>(None, sqr).count() > 0)
+            || (!diagonal && self.rook_xray_attack::<W, B>(None, sqr).count() > 0
+            && self.queen_attack::<B, W>(None, sqr).count() > 0) {
+                on_queen |= sqr.to_bitboard();
+            }
+        }
+
+        on_queen
     }
 
-    /// Returns `(when at least one friendly queen, when no friendly queens)`
-    pub fn knight_on_queen<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
-        todo!();
+    /// Remember to multiply by two when the friendly side has one or more queens.
+    pub fn knight_on_queen<W: Color, B: Color>(&self) -> BitBoard {
+        if self.queen_count::<B, W>() != 1 { return BitBoard(0) };
+        let queen = Coord::from_idx(self.board.piece_bitboards[W::piece(Piece::QUEEN)].clone().pop_lsb() as i8);
+        let mut on_queen = BitBoard(0);
+
+        let mut threats = !self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        threats &= !self.all_pawn_attacks::<B, W>().0;
+        threats &= self.all_doubled_attacks::<W, B>() & !self.all_doubled_attacks::<B, W>();
+        threats &= self.mobility_area::<W, B>();
+        threats &= self.all_knight_attacks::<W, B>().0;
+
+        while threats.0 != 0 {
+            let sqr = Coord::from_idx(threats.pop_lsb() as i8);
+            if ((queen.file() - sqr.file()).abs() == 2 && (queen.rank() - sqr.rank()).abs() == 1)
+            || ((queen.file() - sqr.file()).abs() == 1 && (queen.rank() - sqr.rank()).abs() == 2) {
+                on_queen |= sqr.to_bitboard();
+            }
+        }
+
+        on_queen
     }
 
     pub fn restricted<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        self.all_attacks::<W, B>() & self.all_attacks::<B, W>() & !self.all_pawn_attacks::<B, W>().0
+            & !(self.all_doubled_attacks::<B, W>() & (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<W, B>()))
     }
 
     pub fn weak_queen_protection<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+        self.weak_enemies::<W, B>() & self.all_queen_attacks::<B, W>().0
     }
 
+    const MINOR_THREAT_MG_VALS: [i32; 7] = [0, 5, 57, 77, 88, 79, 0];
+    const ROOK_THREAT_MG_VALS: [i32; 7] = [0, 3, 37, 42, 0, 58, 0];
     pub fn threats_mg<W: Color, B: Color>(&self) -> i32 {
-        todo!();
+        let mut v = 0;
+
+        v += 69 * self.hanging::<W, B>().count() as i32;
+        v += if self.king_threat::<W, B>().0 > 0 { 24 } else { 0 };
+        v += 48 * self.pawn_push_threat::<W, B>().count() as i32;
+        v += 173 * self.threat_safe_pawn::<W, B>().count() as i32;
+        v += 60 * self.slider_on_queen::<W, B>().count() as i32;
+        v += 16 * self.knight_on_queen::<W, B>().count() as i32;
+        v += 7 * self.restricted::<W, B>().count() as i32;
+        v += 14 * self.weak_queen_protection::<W, B>().count() as i32;
+
+        for sqr in Coord::iter_squares() {
+            v += Self::MINOR_THREAT_MG_VALS[self.minor_threat::<W, B>(sqr) as usize];
+            v += Self::ROOK_THREAT_MG_VALS[self.rook_threat::<W, B>(sqr) as usize];
+        }
+
+        v
     }
 
+    const MINOR_THREAT_EG_VALS: [i32; 7] = [0, 32, 41, 56, 119, 161, 0];
+    const ROOK_THREAT_EG_VALS: [i32; 7] = [0, 46, 68, 60, 38, 41, 0];
     pub fn threats_eg<W: Color, B: Color>(&self) -> i32 {
-        todo!();
+        let mut v = 0;
+
+        v += 36 * self.hanging::<W, B>().count() as i32;
+        v += if self.king_threat::<W, B>().0 > 0 { 89 } else { 0 };
+        v += 39 * self.pawn_push_threat::<W, B>().count() as i32;
+        v += 94 * self.threat_safe_pawn::<W, B>().count() as i32;
+        v += 18 * self.slider_on_queen::<W, B>().count() as i32;
+        v += 11 * self.knight_on_queen::<W, B>().count() as i32;
+        v += 7 * self.restricted::<W, B>().count() as i32;
+
+        for sqr in Coord::iter_squares() {
+            v += Self::MINOR_THREAT_EG_VALS[self.minor_threat::<W, B>(sqr) as usize];
+            v += Self::ROOK_THREAT_EG_VALS[self.rook_threat::<W, B>(sqr) as usize];
+        }
+
+        v
     }
 }
 
@@ -71,56 +195,48 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/p1p1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 w kq - 3 9")]
     fn test_safe_pawn() {
         assert_eval!(+ - safe_pawn, 4, 2, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_threat_safe_pawn() {
         assert_eval!(+ - threat_safe_pawn, 1, 2, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_weak_enemies() {
         assert_eval!(+ - weak_enemies, 5, 7, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_minor_threat() {
         assert_eval!(minor_threat, 18, 11, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_rook_threat() {
         assert_eval!(rook_threat, 3, 6, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_hanging() {
         assert_eval!(+ - hanging, 4, 5, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/4p2p/p2n2R1/kPp1bP1q/R3qB1r/1NP4P/P4PBR/5nK1 b kq - 0 9")]
     fn test_king_threat() {
         assert_eval!(+ - king_threat, 1, 2, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B3Q/2p1p3/p2n2R1/kRp1bP1q/P3qB1r/1NP4P/P4PBR/5nK1 b kq - 0 9")]
     fn test_pawn_push_threat() {
         assert_eval!(+ - pawn_push_threat, 1, 2, eval);
@@ -130,25 +246,23 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_slider_on_queen() {
-        assert_eval!(* - [0, 1] slider_on_queen, (4, 0), (3, 0), eval);
+        assert_eval!(+ - slider_on_queen, 4, 3, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n2Br3/2p1p1Q1/p2n4/kRp1bP1r/P1P4r/3BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_knight_on_queen() {
-        assert_eval!(* - [0, 1] knight_on_queen, (1, 0), (2, 0), eval);
+        assert_eval!(+ - knight_on_queen, 1, 2, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_restricted() {
         assert_eval!(+ - restricted, 20, 16, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n1n1r3/4p1Q1/1q2pP2/kpp1bB1r/P1PB3r/R3N2P/P4P1R/1B2RnK1 b kq - 2 11")]
     fn test_weak_queen_protection() {
         assert_eval!(+ - weak_queen_protection, 3, 1, eval);

@@ -305,9 +305,9 @@ pub fn start(fen: String) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.bishop_on_king_ring::<White, Black>()
+                            eval.all_rook_xray_attacks::<White, Black>().1
                         } else {
-                            eval.bishop_on_king_ring::<Black, White>()
+                            eval.all_rook_xray_attacks::<Black, White>().1
                         });
                     },
                     _ => ()

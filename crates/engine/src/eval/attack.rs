@@ -167,7 +167,8 @@ impl<'a> Evaluation<'a> {
         let mut rooks = self.board.piece_bitboards[W::piece(Piece::ROOK)];
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
-            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
+            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
+            | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
         let mut attacks = BitBoard(0);
         let mut doubled = BitBoard(0);
         
@@ -192,7 +193,8 @@ impl<'a> Evaluation<'a> {
     pub fn rook_xray_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
-            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
+            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
+            | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
         let mut attacks = self.magics.get_rook_attacks(sqr, blockers) 
             & self.board.piece_bitboards[W::piece(Piece::ROOK)];
         if let Some(s) = s2 {
