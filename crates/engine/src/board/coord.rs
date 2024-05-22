@@ -133,6 +133,10 @@ impl Coord {
     pub const fn to_index(file: i8, rank: i8) -> i8 {
         rank * 8 + file
     }
+
+    pub fn inner_value(self) -> u8 {
+        self.0
+    }
 }
 
 impl std::fmt::Debug for Coord {

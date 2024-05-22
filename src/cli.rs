@@ -7,6 +7,17 @@ use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::P
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
 // const BOARD_CHARACTERS_HEAVY: &str = "━┃┏┓┗┛┣┫┳┻╋";
 
+const TRUECOLOR_DARK_SQUARE: color::Rgb = color::Rgb(88, 113, 61);
+const TRUECOLOR_LIGHT_SQUARE: color::Rgb = color::Rgb(128, 164, 91);
+const TRUECOLOR_BLACK_PIECE: color::Rgb = color::Rgb(71, 68, 66);
+const TRUECOLOR_WHITE_PIECE: color::Rgb = color::Rgb(249, 249, 249);
+const TRUECOLOR_DARK_LASTMOVE: color::Rgb = color::Rgb(227, 166, 34);
+const TRUECOLOR_LIGHT_LASTMOVE: color::Rgb = color::Rgb(251, 183, 68);
+const TRUECOLOR_DARK_VALID: color::Rgb = color::Rgb(212, 109, 81);
+const TRUECOLOR_LIGHT_VALID: color::Rgb = color::Rgb(236, 126, 106);
+const TRUECOLOR_DARK_BB: color::Rgb = color::Rgb(115, 187, 218);
+const TRUECOLOR_LIGHT_BB: color::Rgb = color::Rgb(88, 170, 193);
+
 fn display_board(
     stdout: &mut RawTerminal<Stdout>,
     board: &Board,
@@ -14,9 +25,12 @@ fn display_board(
     selected: Option<(i8, i8)>,
     valid_moves: &[Move],
     overlayed_bb: Option<BitBoard>,
+    truecolor: bool,
 ) {
     for mut sqr in Coord::iter_squares() {
         sqr = sqr.flip_rank();
+        let is_light = (sqr.rank() + sqr.file()) % 2 != 0;
+
         if sqr.square() % 8 == 0 {
             if sqr.rank() == 7 {
                 write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
@@ -28,7 +42,16 @@ fn display_board(
         let mut s = String::from("   ");
         for piece in 0..Piece::MAX_PIECE_INDEX as usize + 1 {
             if board.piece_bitboards[piece].contains_square(sqr.square()) {
-                s = format!(" {} ", Piece::new(piece as u8));
+                if truecolor {
+                    let p = Piece::new(piece as u8 | Piece::BLACK);
+                    if Piece::new(piece as u8).color() == Piece::WHITE {
+                        s = format!(" {}{}{} ", color::Fg(TRUECOLOR_WHITE_PIECE), p, color::Fg(color::Reset));
+                    } else {
+                        s = format!(" {}{}{} ", color::Fg(TRUECOLOR_BLACK_PIECE), p, color::Fg(color::Reset));
+                    }
+                } else {
+                    s = format!(" {} ", Piece::new(piece as u8));
+                }
                 break;
             }
         }
@@ -42,33 +65,75 @@ fn display_board(
             ).unwrap();
         }
 
-        if let Some(bb) = overlayed_bb {
+        if truecolor {
+            if let Some(bb) = overlayed_bb {
+                if bb.contains_square(sqr.square()) {
+                    if is_light {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_BB)).unwrap();
+                    } else {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_BB)).unwrap();
+                    }
+                } else if is_light {
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_SQUARE)).unwrap();
+                } else {
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_SQUARE)).unwrap();
+                }
+            } else if is_light {
+                write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_SQUARE)).unwrap();
+            } else {
+                write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_SQUARE)).unwrap();
+            }
+        } else if let Some(bb) = overlayed_bb {
             if bb.contains_square(sqr.square()) {
                 write!(stdout, "{}{}", color::Bg(color::White), color::Fg(color::Black)).unwrap();
             } else {
                 write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite)).unwrap();
             }
-        } else if (sqr.rank() + sqr.file()) % 2 == 0 {
-            write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite)).unwrap();
-        } else {
+        } else if is_light {
             write!(stdout, "{}{}", color::Bg(color::White), color::Fg(color::Black)).unwrap();
+        } else {
+            write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite)).unwrap();
         }
 
         if let Some(p) = selected {
             if sqr.rank() == p.1 && sqr.file() == p.0 {
-                write!(stdout, "{}{}", color::Bg(color::LightGreen), color::Fg(color::Black)).unwrap();
+                if truecolor {
+                    if is_light {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_LASTMOVE)).unwrap();
+                    } else {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_LASTMOVE)).unwrap();
+                    }
+                } else {
+                    write!(stdout, "{}{}", color::Bg(color::LightGreen), color::Fg(color::Black)).unwrap();
+                }
             }
         }
 
         for m in valid_moves.iter() {
             if m.target() == sqr {
-                write!(stdout, "{}{}", color::Bg(color::LightRed), color::Fg(color::Black)).unwrap();
+                if truecolor {
+                    if is_light {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_VALID)).unwrap();
+                    } else {
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_VALID)).unwrap();
+                    }
+                } else {
+                    write!(stdout, "{}{}", color::Bg(color::LightRed), color::Fg(color::Black)).unwrap();
+                }
                 break;
             }
         }
 
         if sqr.rank() == cursor.1 && sqr.file() == cursor.0 {
-            write!(stdout, "{}{}", color::Bg(color::LightYellow), color::Fg(color::Black)).unwrap();
+            if truecolor {
+                if is_light {
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_LASTMOVE)).unwrap();
+                } else {
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_LASTMOVE)).unwrap();
+                }
+            } else {
+                write!(stdout, "{}{}", color::Bg(color::LightYellow), color::Fg(color::Black)).unwrap();
+            }
         }
 
         write!(
@@ -97,7 +162,7 @@ enum InputMode {
 }
 
 
-pub fn start(fen: String) {
+pub fn start(fen: String, truecolor: bool) {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
 
@@ -112,7 +177,7 @@ pub fn start(fen: String) {
     let mut force_move = false;
 
     write!(stdout, "{}", cursor::Hide).unwrap();
-    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None);
+    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None, truecolor);
 
     stdout.flush().unwrap();
 
@@ -212,14 +277,26 @@ pub fn start(fen: String) {
                             printed_dbg_len = Some(1);
                         }
                     },
+                    Key::Char('s') => {
+                        let sqr = Coord::from(cursor);
+                        if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
+                        write!(stdout, "{}{}\n\r", clear::CurrentLine, sqr.index()).unwrap();
+                        printed_dbg_len = Some(1);
+                    },
+                    Key::Char('S') => {
+                        let sqr = Coord::from(cursor);
+                        if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
+                        write!(stdout, "{}{}\n\r", clear::CurrentLine, sqr.inner_value()).unwrap();
+                        printed_dbg_len = Some(1);
+                    },
                     Key::Char('e') => {
                         let sqr = Coord::from(cursor);
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         let v = if game.board.white_to_move {
-                            eval.strength_square::<White, Black>(sqr)
+                            eval.king_proximity::<White, Black>(sqr)
                         } else {
-                            eval.strength_square::<Black, White>(sqr)
+                            eval.king_proximity::<Black, White>(sqr)
                         };
 
                         if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
@@ -305,9 +382,9 @@ pub fn start(fen: String) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.all_rook_xray_attacks::<White, Black>().1
+                            eval.passed_leverable::<White, Black>()
                         } else {
-                            eval.all_rook_xray_attacks::<Black, White>().1
+                            eval.passed_leverable::<Black, White>()
                         });
                     },
                     _ => ()
@@ -363,7 +440,7 @@ pub fn start(fen: String) {
 
         cursor.0 = cursor.0.clamp(0, 7);
         cursor.1 = cursor.1.clamp(0, 7);
-        display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard);
+        display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor);
         stdout.flush().unwrap();
     }
 

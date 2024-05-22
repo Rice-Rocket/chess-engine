@@ -262,11 +262,6 @@ impl<'a> Evaluation<'a> {
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
             let moves = if W::is_white() { self.precomp.white_pawn_attacks[sqr] } else { self.precomp.black_pawn_attacks[sqr] };
-            // let valid = if self.friendly_pinned(sqr) {
-            //     moves & self.pin_rays[W::index()]
-            // } else {
-            //     moves
-            // };
             doubled |= attacks & moves;
             attacks |= moves;
         }

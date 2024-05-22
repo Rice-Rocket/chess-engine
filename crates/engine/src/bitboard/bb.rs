@@ -106,7 +106,7 @@ impl BitBoard {
         ((self.0 >> sqr_idx) & 1) != 0
     }
 
-    pub fn get_square(&self, sqr: Coord) -> bool {
+    pub fn contains_checked(&self, sqr: Coord) -> bool {
         if sqr.is_valid() {
             ((self.0 >> sqr.square()) & 1) != 0
         } else {

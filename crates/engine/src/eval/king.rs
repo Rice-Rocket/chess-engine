@@ -61,8 +61,8 @@ impl<'a> Evaluation<'a> {
                 let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
                 let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
                 if enemy_pawns.contains_square(s) 
-                && !friendly_pawns.get_square(s1) 
-                && !friendly_pawns.get_square(s2) {
+                && !friendly_pawns.contains_checked(s1) 
+                && !friendly_pawns.contains_checked(s2) {
                     // NOTE: With arrays like this, it's from the white players perspective. (but
                     // also in this case ranks are flipped). Remember to adjust the index
                     // accordingly. 
@@ -105,8 +105,8 @@ impl<'a> Evaluation<'a> {
                 let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
                 let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
                 if enemy_pawns.contains_square(s) 
-                && !friendly_pawns.get_square(s1) 
-                && !friendly_pawns.get_square(s2) {
+                && !friendly_pawns.contains_checked(s1) 
+                && !friendly_pawns.contains_checked(s2) {
                     us = if W::is_white() { 7 - rank } else { rank };
                 }
                 if friendly_pawns.contains_square(s) {

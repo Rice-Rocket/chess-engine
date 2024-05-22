@@ -12,11 +12,20 @@ pub trait Color {
     fn down() -> Coord;
     fn rank(n: i8) -> i8;
     fn ranks(n: RangeInclusive<i8>) -> RangeInclusive<i8>;
+    fn max_back_rank() -> i8;
     fn back_rank() -> i8;
     fn first_rank() -> i8;
     fn home_side() -> BitBoard;
     fn up_dir() -> i8;
     fn down_dir() -> i8;
+    /// Tests of rank `a` is above rank `b` from this perspective.
+    fn above(a: i8, b: i8) -> bool;
+    /// Tests of rank `a` is below rank `b` from this perspective.
+    fn below(a: i8, b: i8) -> bool;
+    /// Tests of rank `a` is above or equal to rank `b` from this perspective.
+    fn above_eq(a: i8, b: i8) -> bool;
+    /// Tests of rank `a` is below or equal to rank `b` from this perspective.
+    fn below_eq(a: i8, b: i8) -> bool;
     /// Iterates over ranks in the `up` direction of this color.
     fn ranks_up() -> RanksIterator;
     /// Iterates over ranks in the `down` direction of this color.
@@ -32,6 +41,7 @@ pub trait Color {
     fn ranks_up_till_excl(end: i8) -> RanksIteratorUntil;
     fn ranks_down_till_excl(end: i8) -> RanksIteratorUntil;
     fn at(file: i8, rank: i8) -> Coord;
+    fn atc(sqr: Coord) -> Coord;
     fn offset(file: i8, rank: i8) -> Coord;
     fn is_white() -> bool;
     fn index() -> usize;
@@ -70,6 +80,10 @@ impl Color for White {
         n
     }
 
+    fn max_back_rank() -> i8 {
+        -1
+    }
+
     fn back_rank() -> i8 {
         0
     }
@@ -88,6 +102,22 @@ impl Color for White {
 
     fn down_dir() -> i8 {
         -1
+    }
+
+    fn above(a: i8, b: i8) -> bool {
+        a > b
+    }
+
+    fn below(a: i8, b: i8) -> bool {
+        a < b
+    }
+
+    fn above_eq(a: i8, b: i8) -> bool {
+        a >= b
+    }
+
+    fn below_eq(a: i8, b: i8) -> bool {
+        a <= b
     }
 
     fn ranks_up() -> RanksIterator {
@@ -124,6 +154,10 @@ impl Color for White {
 
     fn at(file: i8, rank: i8) -> Coord {
         Coord::new(file, rank)
+    }
+
+    fn atc(sqr: Coord) -> Coord {
+        sqr
     }
 
     fn offset(file: i8, rank: i8) -> Coord {
@@ -168,6 +202,10 @@ impl Color for Black {
         (7 - n.end())..=(7 - n.start())
     }
 
+    fn max_back_rank() -> i8 {
+        8
+    }
+
     fn back_rank() -> i8 {
         7
     }
@@ -186,6 +224,22 @@ impl Color for Black {
 
     fn down_dir() -> i8 {
         1
+    }
+
+    fn above(a: i8, b: i8) -> bool {
+        a < b
+    }
+
+    fn below(a: i8, b: i8) -> bool {
+        a > b
+    }
+
+    fn above_eq(a: i8, b: i8) -> bool {
+        a <= b
+    }
+
+    fn below_eq(a: i8, b: i8) -> bool {
+        a >= b
     }
 
     fn ranks_up() -> RanksIterator {
@@ -222,6 +276,10 @@ impl Color for Black {
 
     fn at(file: i8, rank: i8) -> Coord {
         Coord::new(file, 7 - rank)
+    }
+
+    fn atc(sqr: Coord) -> Coord {
+        Coord::new(sqr.file(), 7 - sqr.rank())
     }
 
     fn offset(file: i8, rank: i8) -> Coord {

@@ -53,6 +53,9 @@ enum Commands {
         #[arg(long, short, value_name = "FEN", default_value = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
         fen: String,
 
+        #[arg(long, short = 'c')]
+        no_truecolor: bool,
+
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
         white_player: PlayerType,
 
@@ -160,10 +163,11 @@ async fn main() {
         },
         Commands::Play {
             fen,
+            no_truecolor,
             white_player: _,
             black_player: _,
         } => {
-            cli::start(fen);
+            cli::start(fen, !no_truecolor);
         }
     }
 }

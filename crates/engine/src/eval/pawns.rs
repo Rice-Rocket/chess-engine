@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -17,8 +17,11 @@ impl<'a> Evaluation<'a> {
         todo!();
     }
 
-    pub fn supported<W: Color, B: Color>(&self) -> BitBoard {
-        todo!();
+    /// Returns `(supported once or more, supported twice)`
+    pub fn supported<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
+        let attacks = self.all_pawn_attacks::<W, B>();
+        let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        (pawns & attacks.0, pawns & attacks.1)
     }
 
     pub fn backward<W: Color, B: Color>(&self) -> BitBoard {
@@ -106,10 +109,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
-    #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P2P1P2/2B1N1RK w kq - 9 6")]
+    #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ2P1qB/1b1P1Ppr/QP3n1P/P4P2/2B1N1RK w kq - 9 6")]
     fn test_supported() {
-        assert_eval!(+ - supported, 1, 2, eval);
+        assert_eval!(* - [0, 1] supported, (2, 1), (2, 0), eval);
     }
 
     #[test]
