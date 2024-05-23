@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -27,7 +27,9 @@ impl<'a> Evaluation<'a> {
         (enemies & !pawn_defended) 
             & (self.all_doubled_attacks::<W, B>() | (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<B, W>())) }
 
-    pub fn minor_threat<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
+    pub fn minor_threat<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        
         let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
         let mut pieces = self.board.color_bitboards[B::index()];
         pieces &= self.all_knight_attacks::<W, B>().0 | self.all_bishop_xray_attacks::<W, B>().0;
@@ -37,23 +39,28 @@ impl<'a> Evaluation<'a> {
                 | (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<W, B>() & self.all_doubled_attacks::<B, W>())))
             & !self.weak_enemies::<W, B>());
 
-        if pieces.contains_square(sqr.square()) {
-            self.board.square[sqr].piece_type() as i32
-        } else {
-            0
+        while pieces.0 != 0 {
+            let sqr = Coord::from_idx(pieces.pop_lsb() as i8);
+            eval[sqr] = self.board.square[sqr].piece_type() as i32;
         }
+
+        eval
+
     }
 
-    pub fn rook_threat<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
+    pub fn rook_threat<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+
         let mut pieces = self.board.color_bitboards[B::index()];
         pieces &= self.weak_enemies::<W, B>();
         pieces &= self.all_rook_xray_attacks::<W, B>().0;
 
-        if pieces.contains_square(sqr.square()) {
-            self.board.square[sqr].piece_type() as i32
-        } else {
-            0
+        while pieces.0 != 0 {
+            let sqr = Coord::from_idx(pieces.pop_lsb() as i8);
+            eval[sqr] = self.board.square[sqr].piece_type() as i32;
         }
+
+        eval
     }
 
     pub fn hanging<W: Color, B: Color>(&self) -> BitBoard {
@@ -159,8 +166,8 @@ impl<'a> Evaluation<'a> {
         v += 14 * self.weak_queen_protection::<W, B>().count() as i32;
 
         for sqr in Coord::iter_squares() {
-            v += Self::MINOR_THREAT_MG_VALS[self.minor_threat::<W, B>(sqr) as usize];
-            v += Self::ROOK_THREAT_MG_VALS[self.rook_threat::<W, B>(sqr) as usize];
+            v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_MG_VALS[i as usize]).count();
+            v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_MG_VALS[i as usize]).count();
         }
 
         v
@@ -180,8 +187,8 @@ impl<'a> Evaluation<'a> {
         v += 7 * self.restricted::<W, B>().count() as i32;
 
         for sqr in Coord::iter_squares() {
-            v += Self::MINOR_THREAT_EG_VALS[self.minor_threat::<W, B>(sqr) as usize];
-            v += Self::ROOK_THREAT_EG_VALS[self.rook_threat::<W, B>(sqr) as usize];
+            v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_EG_VALS[i as usize]).count();
+            v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_EG_VALS[i as usize]).count();
         }
 
         v
@@ -215,13 +222,13 @@ mod tests {
     #[test]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_minor_threat() {
-        assert_eval!(minor_threat, 18, 11, eval);
+        assert_eval!(+ - minor_threat, 18, 11, eval);
     }
 
     #[test]
     #[evaluation_test("nr1B3Q/1k2p2p/p2n2R1/1pp1bP1q/R1P1qB1r/1NP3nP/P4PBR/6K1 b kq - 0 9")]
     fn test_rook_threat() {
-        assert_eval!(rook_threat, 3, 6, eval);
+        assert_eval!(+ - rook_threat, 3, 6, eval);
     }
 
     #[test]

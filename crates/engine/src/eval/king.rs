@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, prelude::BitBoard, sum_sqrs};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard, sum_sqrs};
 use super::Evaluation;
 
 
@@ -47,35 +47,42 @@ impl<'a> Evaluation<'a> {
         [-39, -13, -29, -52, -48, -67, -166]
     ];
     /// King shelter strength for each square on the board.
-    pub fn strength_square<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        let mut v = 5;
-        let kx = sqr.file().max(1).min(6);
-        
-        // TODO: Improve this making use of bitboards
+    pub fn strength_square<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+
         let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
-        for file in kx - 1..=kx + 1 {
-            let mut us = 0;
-            for rank in W::ranks_up_till_incl(sqr.rank()) {
-                let s = Coord::to_index(file, rank);
-                let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
-                let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
-                if enemy_pawns.contains_square(s) 
-                && !friendly_pawns.contains_checked(s1) 
-                && !friendly_pawns.contains_checked(s2) {
-                    // NOTE: With arrays like this, it's from the white players perspective. (but
-                    // also in this case ranks are flipped). Remember to adjust the index
-                    // accordingly. 
-                    us = if W::is_white() { 7 - rank } else { rank };
+
+        for sqr in Coord::iter_squares() {
+            let mut v = 5;
+            let kx = sqr.file().max(1).min(6);
+
+            // TODO: Improve this making use of bitboards
+            for file in kx - 1..=kx + 1 {
+                let mut us = 0;
+                for rank in W::ranks_up_till_incl(sqr.rank()) {
+                    let s = Coord::to_index(file, rank);
+                    let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
+                    let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
+                    if enemy_pawns.contains_square(s) 
+                        && !friendly_pawns.contains_checked(s1) 
+                            && !friendly_pawns.contains_checked(s2) {
+                                // NOTE: With arrays like this, it's from the white players perspective. (but
+                                // also in this case ranks are flipped). Remember to adjust the index
+                                // accordingly. 
+                                us = if W::is_white() { 7 - rank } else { rank };
+                            }
+                }
+                let f = file.min(7 - file);
+                if us < 7 {
+                    v += Self::WEAKNESS[f as usize][us as usize];
                 }
             }
-            let f = file.min(7 - file);
-            if us < 7 {
-                v += Self::WEAKNESS[f as usize][us as usize];
-            }
+
+            eval[sqr] = v;
         }
 
-        v
+        eval
     }
 
     const UNBLOCKED_STORM: [[i32; 7]; 4] = [
@@ -89,40 +96,47 @@ impl<'a> Evaluation<'a> {
         [0, 0, 78,  15, 10,  6,  2]
     ];
     /// Enemy pawns storm for each square on the board. 
-    pub fn storm_square<W: Color, B: Color>(&self, eg: bool, sqr: Coord) -> i32 {
-        let mut blocked_idx = if eg { 1 } else { 0 };
-        let mut v = 0;
-        let kx = sqr.file().max(1).min(6);
-
-        // TODO: Improve this making use of bitboards. Very similar to above function.
+    pub fn storm_square<W: Color, B: Color>(&self, eg: bool) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        
         let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
-        for file in kx - 1..=kx + 1 {
-            let (mut us, mut them) = (0, 0);
 
-            for rank in W::ranks_up_till_incl(sqr.rank()) {
-                let s = Coord::to_index(file, rank);
-                let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
-                let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
-                if enemy_pawns.contains_square(s) 
-                && !friendly_pawns.contains_checked(s1) 
-                && !friendly_pawns.contains_checked(s2) {
-                    us = if W::is_white() { 7 - rank } else { rank };
+        for sqr in Coord::iter_squares() {
+            let mut blocked_idx = if eg { 1 } else { 0 };
+            let mut v = 0;
+            let kx = sqr.file().max(1).min(6);
+
+            // TODO: Improve this making use of bitboards. Very similar to above function.
+            for file in kx - 1..=kx + 1 {
+                let (mut us, mut them) = (0, 0);
+
+                for rank in W::ranks_up_till_incl(sqr.rank()) {
+                    let s = Coord::to_index(file, rank);
+                    let s1 = Coord::new_unchecked(file - 1, rank + W::down_dir());
+                    let s2 = Coord::new_unchecked(file + 1, rank + W::down_dir());
+                    if enemy_pawns.contains_square(s) 
+                        && !friendly_pawns.contains_checked(s1) 
+                            && !friendly_pawns.contains_checked(s2) {
+                                us = if W::is_white() { 7 - rank } else { rank };
+                            }
+                    if friendly_pawns.contains_square(s) {
+                        them = if W::is_white() { 7 - rank } else { rank };
+                    }
                 }
-                if friendly_pawns.contains_square(s) {
-                    them = if W::is_white() { 7 - rank } else { rank };
+
+                let f = file.min(7 - file);
+                if us > 0 && them == us + 1 {
+                    v += Self::BLOCKED_STORM[blocked_idx][them as usize];
+                } else if !eg {
+                    v += Self::UNBLOCKED_STORM[f as usize][them as usize];
                 }
             }
 
-            let f = file.min(7 - file);
-            if us > 0 && them == us + 1 {
-                v += Self::BLOCKED_STORM[blocked_idx][them as usize];
-            } else if !eg {
-                v += Self::UNBLOCKED_STORM[f as usize][them as usize];
-            }
+            eval[sqr] = if eg { v + 5 } else { v };
         }
 
-        if eg { v + 5 } else { v }
+        eval
     }
 
     /// Returns `(shelter_strength, shelter_storm, endgame_shelter)`
@@ -140,9 +154,9 @@ impl<'a> Evaluation<'a> {
                 && sqr.file() == 6 && sqr.rank() == B::back_rank())
             || (self.board.current_state.has_queenside_castle_right(B::is_white())
                 && sqr.file() == 2 && sqr.rank() == B::back_rank()) {
-                let w1 = self.strength_square::<W, B>(sqr);
-                let s1 = self.storm_square::<W, B>(false, sqr);
-                let e1 = self.storm_square::<W, B>(true, sqr);
+                let w1 = self.strength_square::<W, B>()[sqr];
+                let s1 = self.storm_square::<W, B>(false)[sqr];
+                let e1 = self.storm_square::<W, B>(true)[sqr];
                 if (s1 - w1 < s - w) {
                     w = w1;
                     s = s1;
@@ -286,19 +300,26 @@ impl<'a> Evaluation<'a> {
     }
 
     // TODO: Switch to using `SquareEvaluations`
-    pub fn king_attacks<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        let mut adjacent = self.precomp.diagonal_directions[self.king_square::<B, W>()] 
-            | self.precomp.orthogonal_directions[self.king_square::<B, W>()];
-        
-        let mut v = 0;
-        while adjacent.0 != 0 {
-            let s = Coord::from_idx(adjacent.pop_lsb() as i8);
-            v += self.knight_attack::<W, B>(Some(sqr), s).count() as i32
-                + self.bishop_xray_attack::<W, B>(Some(sqr), s).count() as i32
-                + self.rook_xray_attack::<W, B>(Some(sqr), s).count() as i32
-                + self.queen_attack::<W, B>(Some(sqr), s).count() as i32;
+    pub fn king_attacks<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+
+        for sqr in Coord::iter_squares() {
+            let mut adjacent = self.precomp.diagonal_directions[self.king_square::<B, W>()] 
+                | self.precomp.orthogonal_directions[self.king_square::<B, W>()];
+
+            let mut v = 0;
+            while adjacent.0 != 0 {
+                let s = Coord::from_idx(adjacent.pop_lsb() as i8);
+                v += self.knight_attack::<W, B>(Some(sqr), s).count() as i32
+                    + self.bishop_xray_attack::<W, B>(Some(sqr), s).count() as i32
+                    + self.rook_xray_attack::<W, B>(Some(sqr), s).count() as i32
+                    + self.queen_attack::<W, B>(Some(sqr), s).count() as i32;
+            }
+
+            eval[sqr] = v;
         }
-        v
+
+        eval
     }
 
     pub fn weak_bonus<W: Color, B: Color>(&self) -> BitBoard {
@@ -360,7 +381,7 @@ impl<'a> Evaluation<'a> {
         let king_attackers_origin = self.king_attackers_origin::<W, B>();
         let count = (king_attackers_origin.0.count() + king_attackers_origin.1.count()) as i32;
         let weight = self.king_attackers_weight::<W, B>();
-        let king_attacks = sum_sqrs!(self, king_attacks, White, Black:);
+        let king_attacks = self.king_attacks::<W, B>().count();
         let weak = self.weak_bonus::<W, B>().count() as i32;
         let unsafe_checks = self.unsafe_checks::<W, B>().count() as i32;
         let blockers_for_king = self.blockers_for_king::<W, B>().count() as i32;
@@ -380,7 +401,7 @@ impl<'a> Evaluation<'a> {
             + (3 * king_flank_attack * king_flank_attack / 8)
             - 873 * no_queen
             - (6 * (shelter_strength.0 - shelter_strength.1) / 8)
-            + sum_sqrs!(self, mobility_mg, White, Black:) - sum_sqrs!(self, mobility_mg, Black, White:)
+            + self.mobility_mg::<W, B>().count() - self.mobility_mg::<B, W>().count()
             + 37
             + (772 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45) as i32)
             + (1084 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75) as i32)
@@ -428,13 +449,13 @@ mod tests {
     #[test]
     #[evaluation_test("2b1k3/1ppp1ppr/r1nb4/pB1Np1qp/3n1P2/4PQ1N/PPPP2PP/R1B2RK1 w Q - 8 8")]
     fn test_strength_square() {
-        assert_eval!(strength_square, -660, -1578, eval);
+        assert_eval!(+ - strength_square, -660, -1578, eval);
     }
 
     #[test]
     #[evaluation_test("nr3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_storm_square() {
-        assert_eval!(storm_square, 672, 2579, eval; false);
+        assert_eval!(+ - storm_square, 672, 2579, eval; false);
     }
 
     #[test]
@@ -476,7 +497,7 @@ mod tests {
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attacks() {
-        assert_eval!(king_attacks, 6, 1, eval);
+        assert_eval!(+ - king_attacks, 6, 1, eval);
     }
 
     #[test]

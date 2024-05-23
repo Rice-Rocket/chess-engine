@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -80,82 +80,112 @@ impl<'a> Evaluation<'a> {
         passed
     }
 
-    pub fn king_proximity<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 };
-        let r = W::rank(sqr.rank());
-        let w = if r > 2 { 5 * r as i32 - 13 } else { 0 };
-        let mut v = 0;
-        if w <= 0 { return 0 };
+    pub fn king_proximity<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.passed_leverable::<W, B>();
 
-        let kw = self.king_square::<W, B>();
-        let kb = self.king_square::<B, W>();
-        let offset = if W::is_white() { 1 } else { -1 };
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
 
-        v += ((kb.rank() - sqr.rank() - offset) as i32).abs().max(((kb.file() - sqr.file()) as i32).abs()).min(5) * 19 / 4 * w;
-        v -= ((kw.rank() - sqr.rank() - offset) as i32).abs().max(((kw.file() - sqr.file()) as i32).abs()).min(5) * 2 * w;
-        if r < 6 {
-            v -= ((kw.rank() - sqr.rank() - 2 * offset) as i32).abs().max(((kw.file() - sqr.file()) as i32).abs()).min(5) * w;
+            let r = W::rank(sqr.rank());
+            let w = if r > 2 { 5 * r as i32 - 13 } else { 0 };
+            let mut v = 0;
+            if w <= 0 { continue };
+
+            let kw = self.king_square::<W, B>();
+            let kb = self.king_square::<B, W>();
+            let offset = if W::is_white() { 1 } else { -1 };
+
+            v += ((kb.rank() - sqr.rank() - offset) as i32).abs().max(((kb.file() - sqr.file()) as i32).abs()).min(5) * 19 / 4 * w;
+            v -= ((kw.rank() - sqr.rank() - offset) as i32).abs().max(((kw.file() - sqr.file()) as i32).abs()).min(5) * 2 * w;
+            if r < 6 {
+                v -= ((kw.rank() - sqr.rank() - 2 * offset) as i32).abs().max(((kw.file() - sqr.file()) as i32).abs()).min(5) * w;
+            }
+
+            eval[sqr] = v;
         }
 
-        v
+        eval
     }
 
-    pub fn passed_block<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if W::below(sqr.rank(), 3) { return 0 };
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 };
+    pub fn passed_block<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+
+        let mut sqrs = BitBoard::from_ranks(W::ranks(3..=7));
+        sqrs &= self.passed_leverable::<W, B>();
 
         let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         pawns &= !self.board.all_pieces_bitboard.shifted_2d(W::down());
+        
+        sqrs &= pawns;
 
-        if !pawns.contains_square(sqr.square()) { return 0 };
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
 
-        let r = W::rank(sqr.rank());
-        let w = if r > 2 { 5 * r as i32 - 13 } else { 0 };
+            let r = W::rank(sqr.rank());
+            let w = if r > 2 { 5 * r as i32 - 13 } else { 0 };
 
-        let forward_file = self.precomp.forward_files[W::index()][sqr];
-        let span = self.precomp.pawn_attack_span[W::index()][sqr];
-        let push_sqr = sqr.to_bitboard().shifted_2d(W::up());
-        let attacks = self.all_attacks::<W, B>();
-        let enemy_attacks = self.all_attacks::<B, W>();
+            let forward_file = self.precomp.forward_files[W::index()][sqr];
+            let span = self.precomp.pawn_attack_span[W::index()][sqr];
+            let push_sqr = sqr.to_bitboard().shifted_2d(W::up());
+            let attacks = self.all_attacks::<W, B>();
+            let enemy_attacks = self.all_attacks::<B, W>();
 
-        let mut defended = (forward_file & attacks).count() as i32;
-        let mut not_safe = (forward_file & enemy_attacks).count() as i32;
-        let w_not_safe = (span & self.all_attacks::<B, W>()).count() as i32;
+            let mut defended = (forward_file & attacks).count() as i32;
+            let mut not_safe = (forward_file & enemy_attacks).count() as i32;
+            let w_not_safe = (span & self.all_attacks::<B, W>()).count() as i32;
 
-        let mut defended_1 = (push_sqr & attacks).count() as i32;
-        let mut not_safe_1 = (push_sqr & enemy_attacks).count() as i32;
+            let mut defended_1 = (push_sqr & attacks).count() as i32;
+            let mut not_safe_1 = (push_sqr & enemy_attacks).count() as i32;
 
-        let backward_file = self.precomp.forward_files[B::index()][sqr];
-        let defenders = self.board.piece_bitboards[W::piece(Piece::ROOK)] | self.board.piece_bitboards[W::piece(Piece::QUEEN)];
-        let attackers = self.board.piece_bitboards[B::piece(Piece::ROOK)] | self.board.piece_bitboards[B::piece(Piece::QUEEN)];
+            let backward_file = self.precomp.forward_files[B::index()][sqr];
+            let defenders = self.board.piece_bitboards[W::piece(Piece::ROOK)] | self.board.piece_bitboards[W::piece(Piece::QUEEN)];
+            let attackers = self.board.piece_bitboards[B::piece(Piece::ROOK)] | self.board.piece_bitboards[B::piece(Piece::QUEEN)];
 
-        if (backward_file & defenders).0 != 0 {
-            defended = 1;
-            defended_1 = 1;
+            if (backward_file & defenders).0 != 0 {
+                defended = 1;
+                defended_1 = 1;
+            }
+
+            if (backward_file & attackers).0 != 0 {
+                not_safe = 1;
+                not_safe_1 = 1;
+            }
+
+            let k = if not_safe == 0 && w_not_safe == 0 { 35 } 
+                else if not_safe == 0 { 20 } 
+                else if not_safe_1 == 0 { 9 }
+                else { 0 }
+                + if defended_1 != 0 { 5 } else { 0 };
+
+            eval[sqr] = k * w;
         }
 
-        if (backward_file & attackers).0 != 0 {
-            not_safe = 1;
-            not_safe_1 = 1;
+        eval
+    }
+
+    pub fn passed_file<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.passed_leverable::<W, B>();
+
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+            eval[sqr] = sqr.file().min(7 - sqr.file()) as i32;
         }
 
-        let k = if not_safe == 0 && w_not_safe == 0 { 35 } 
-            else if not_safe == 0 { 20 } 
-            else if not_safe_1 == 0 { 9 }
-            else { 0 }
-            + if defended_1 != 0 { 5 } else { 0 };
-
-        k * w
+        eval
     }
 
-    pub fn passed_file<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 }; 
-        sqr.file().min(7 - sqr.file()) as i32
-    }
+    pub fn passed_rank<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.passed_leverable::<W, B>();
 
-    pub fn passed_rank<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 };
-        W::rank(sqr.rank()) as i32
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+            eval[sqr] = W::rank(sqr.rank()) as i32;
+        }
+
+        eval
     }
 
     pub fn passed_leverable<W: Color, B: Color>(&self) -> BitBoard {
@@ -170,26 +200,26 @@ impl<'a> Evaluation<'a> {
     }
 
     const PASSED_RANK_VAL_MG: [i32; 7] = [0, 10, 17, 15, 62, 168, 276];
-    pub fn passed_mg<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 };
+    pub fn passed_mg<W: Color, B: Color>(&self) -> i32 {
+        let sqrs = self.passed_leverable::<W, B>();
         let mut v = 0;
 
-        v += Self::PASSED_RANK_VAL_MG[self.passed_rank::<W, B>(sqr) as usize];
-        v += self.passed_block::<W, B>(sqr);
-        v -= 11 * self.passed_file::<W, B>(sqr);
+        v += self.passed_rank::<W, B>().map(|i| Self::PASSED_RANK_VAL_MG[i as usize]).count();
+        v += (self.passed_block::<W, B>() & sqrs).count();
+        v -= 11 * (self.passed_file::<W, B>() & sqrs).count();
         
         v
     }
 
     const PASSED_RANK_VAL_EG: [i32; 7] = [0, 28, 33, 41, 72, 177, 260];
-    pub fn passed_eg<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.passed_leverable::<W, B>().contains_square(sqr.square()) { return 0 };
+    pub fn passed_eg<W: Color, B: Color>(&self) -> i32 {
+        let sqrs = self.passed_leverable::<W, B>();
         let mut v = 0;
 
-        v += self.king_proximity::<W, B>(sqr);
-        v += Self::PASSED_RANK_VAL_EG[self.passed_rank::<W, B>(sqr) as usize];
-        v += self.passed_block::<W, B>(sqr);
-        v -= 8 * self.passed_file::<W, B>(sqr);
+        v += self.king_proximity::<W, B>().count();
+        v += self.passed_rank::<W, B>().map(|i| Self::PASSED_RANK_VAL_EG[i as usize]).count();
+        v += self.passed_block::<W, B>().count();
+        v -= 8 * self.passed_file::<W, B>().count();
 
         v
     }
@@ -210,25 +240,25 @@ mod tests {
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_proximity() {
-        assert_eval!(king_proximity, -18, -7, eval);
+        assert_eval!(+ - king_proximity, -18, -7, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_block() {
-        assert_eval!(passed_block, 10, 35, eval);
+        assert_eval!(+ - passed_block, 10, 35, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_file() {
-        assert_eval!(passed_file, 3, 1, eval);
+        assert_eval!(+ - passed_file, 3, 1, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_rank() {
-        assert_eval!(passed_rank, 5, 4, eval);
+        assert_eval!(+ - passed_rank, 5, 4, eval);
     }
 
     #[test]
@@ -240,12 +270,12 @@ mod tests {
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_mg() {
-        assert_eval!(passed_mg, 9, 86, eval);
+        assert_eval!(- passed_mg, 9, 86, eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_passed_eg() {
-        assert_eval!(passed_eg, 42, 92, eval);
+        assert_eval!(- passed_eg, 42, 92, eval);
     }
 }

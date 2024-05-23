@@ -4,6 +4,7 @@ use crate::board::coord::Coord;
 
 use super::bb::BitBoard;
 
+#[derive(Clone, Copy)]
 pub struct SquareValues<T>([T; 64]);
 
 impl<T> Index<usize> for SquareValues<T> {

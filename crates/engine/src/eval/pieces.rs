@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -45,18 +45,24 @@ impl<'a> Evaluation<'a> {
                | self.board.piece_bitboards[Piece::new(Piece::BLACK_PAWN)]).shifted_2d(W::down())
     }
 
-    pub fn bishop_pawns<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.board.piece_bitboards[W::piece(Piece::BISHOP)].contains_square(sqr.square()) {
-            return 0;
-        }
-        let is_light_sqr = (sqr.file() + sqr.rank()) % 2 != 0;
+    pub fn bishop_pawns<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.board.piece_bitboards[W::piece(Piece::BISHOP)];
         let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
-        let on_sqr_col = pawns
-            & (if is_light_sqr { BitBoard::LIGHT_SQUARES } else { BitBoard::DARK_SQUARES });
-        let blocked = pawns & BitBoard::from_files(2..=5) & self.board.all_pieces_bitboard.shifted_2d(W::down());
 
-        let attacked = if self.pawn_attack::<W, B>(None, sqr).count() > 0 { 0 } else { 1 };
-        on_sqr_col.count() as i32 * (blocked.count() as i32 + attacked)
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+
+            let is_light_sqr = (sqr.file() + sqr.rank()) % 2 != 0;
+            let on_sqr_col = pawns
+                & (if is_light_sqr { BitBoard::LIGHT_SQUARES } else { BitBoard::DARK_SQUARES });
+            let blocked = pawns & BitBoard::from_files(2..=5) & self.board.all_pieces_bitboard.shifted_2d(W::down());
+
+            let attacked = if self.pawn_attack::<W, B>(None, sqr).count() > 0 { 0 } else { 1 };
+            eval[sqr] = on_sqr_col.count() as i32 * (blocked.count() as i32 + attacked);
+        }
+
+        eval
     }
 
     /// Returns `(on open file, on semi-open file)`
@@ -95,7 +101,7 @@ impl<'a> Evaluation<'a> {
             BitBoard::from_cond(|s| s.file() >= kx)
         };
 
-        rooks & BitBoard::from_cond(|s| self.mobility::<W, B>(s) <= 3)
+        rooks & BitBoard::from_cond(|s| self.mobility::<W, B>()[s] <= 3)
     }
 
     pub fn weak_queen<W: Color, B: Color>(&self) -> BitBoard {
@@ -135,13 +141,18 @@ impl<'a> Evaluation<'a> {
         weak
     }
 
-    pub fn king_protector<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if self.board.piece_bitboards[W::piece(Piece::KNIGHT)].contains_square(sqr.square())
-        || self.board.piece_bitboards[W::piece(Piece::BISHOP)].contains_square(sqr.square()) {
-            self.king_distance::<W, B>(sqr)
-        } else {
-            0
+    pub fn king_protector<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.board.piece_bitboards[W::piece(Piece::KNIGHT)]
+            | self.board.piece_bitboards[W::piece(Piece::BISHOP)];
+        let king_distance = self.king_distance::<W, B>();
+
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+            eval[sqr] = king_distance[sqr];
         }
+        
+        eval
     }
 
     const LONG_DIAGONALS: BitBoard = BitBoard(0b10000001_01000010_00100100_00011000_00011000_00100100_01000010_10000001);
@@ -162,42 +173,52 @@ impl<'a> Evaluation<'a> {
         attacks_center
     }
 
-    pub fn outpost_total<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        let knight = self.board.piece_bitboards[W::piece(Piece::KNIGHT)].contains_square(sqr.square());
-        if !knight && !self.board.piece_bitboards[W::piece(Piece::BISHOP)].contains_square(sqr.square()) {
-            return 0;
-        }
+    pub fn outpost_total<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
+        let mut sqrs = knights | self.board.piece_bitboards[W::piece(Piece::BISHOP)];
+        let outposts = self.outpost::<W, B>();
 
-        let mut reachable = 0;
-        if !self.outpost::<W, B>().contains_square(sqr.square()) {
-            if !knight { return 0 };
-            let reachable_outpost = self.reachable_outpost::<W, B>();
-            reachable = if reachable_outpost.0.contains_square(sqr.square()) { 1 } else { 0 }
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+            let knight = knights.contains_square(sqr.square());
+
+            let mut reachable = 0;
+            if !outposts.contains_square(sqr.square()) {
+                if !knight { continue };
+                let reachable_outpost = self.reachable_outpost::<W, B>();
+                reachable = if reachable_outpost.0.contains_square(sqr.square()) { 1 } else { 0 }
                 + if reachable_outpost.1.contains_square(sqr.square()) { 2 } else { 0 };
-            if reachable == 0 { return 0 };
-            return 1;
-        }
+                if reachable == 0 { continue };
 
-        if knight && (sqr.file() < 2 || sqr.file() > 5) {
-            let mut ea = false;
-            let mut count = 0;
-            for s in Coord::iter_squares() {
-                if ((sqr.file() - s.file()).abs() == 2 && (sqr.rank() - s.rank()).abs() == 1
-                || (sqr.file() - s.file()).abs() == 1 && (sqr.rank() - s.rank()).abs() == 2)
-                && self.board.color_bitboards[B::index()].contains_square(s.square()) {
-                    ea = true;
+                eval[sqr] = 1;
+                continue;
+            }
+
+            if knight && (sqr.file() < 2 || sqr.file() > 5) {
+                let mut ea = false;
+                let mut count = 0;
+                for s in Coord::iter_squares() {
+                    if ((sqr.file() - s.file()).abs() == 2 && (sqr.rank() - s.rank()).abs() == 1
+                        || (sqr.file() - s.file()).abs() == 1 && (sqr.rank() - s.rank()).abs() == 2)
+                        && self.board.color_bitboards[B::index()].contains_square(s.square()) {
+                            ea = true;
+                        }
+                    if ((s.file() < 4 && sqr.file() < 4) || (s.file() >= 4 && sqr.file() >= 4))
+                        && self.board.color_bitboards[B::index()].contains_square(s.square()) {
+                            count += 1;
+                        }
                 }
-                if ((s.file() < 4 && sqr.file() < 4) || (s.file() >= 4 && sqr.file() >= 4))
-                && self.board.color_bitboards[B::index()].contains_square(s.square()) {
-                    count += 1;
+                if !ea && count <= 1 {
+                    eval[sqr] = 2;
+                    continue;
                 }
             }
-            if !ea && count <= 1 {
-                return 2;
-            }
+
+            eval[sqr] = if knight { 4 } else { 3 };
         }
 
-        if knight { 4 } else { 3 }
+        eval
     }
 
     pub fn rook_on_queen_file<W: Color, B: Color>(&self) -> BitBoard {
@@ -215,9 +236,17 @@ impl<'a> Evaluation<'a> {
         on_queen_file
     }
 
-    pub fn bishop_xray_pawns<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !self.board.piece_bitboards[W::piece(Piece::BISHOP)].contains_square(sqr.square()) { return 0 };
-        (self.board.piece_bitboards[B::piece(Piece::PAWN)] & self.magics.get_bishop_attacks(sqr, BitBoard(0))).count() as i32
+    pub fn bishop_xray_pawns<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+        let mut sqrs = self.board.piece_bitboards[W::piece(Piece::BISHOP)];
+        let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
+
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
+            eval[sqr] = (enemy_pawns & self.magics.get_bishop_attacks(sqr, BitBoard(0))).count() as i32
+        }
+
+        eval
     }
 
     pub fn rook_on_king_ring<W: Color, B: Color>(&self) -> BitBoard {
@@ -262,67 +291,58 @@ impl<'a> Evaluation<'a> {
     }
 
     const OUTPOST_TOTAL_VALS_MG: [i32; 5] = [0, 31, -7, 30, 56];
-    pub fn pieces_mg<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !(self.board.color_bitboards[W::index()] 
-        & !self.board.piece_bitboards[W::piece(Piece::PAWN)]
-        & !self.board.piece_bitboards[W::piece(Piece::KING)]).contains_square(sqr.square()) {
-            return 0;
-        }
-
+    pub fn pieces_mg<W: Color, B: Color>(&self) -> i32 {
         let mut v = 0;
-        v += Self::OUTPOST_TOTAL_VALS_MG[self.outpost_total::<W, B>(sqr) as usize];
-        v += if self.minor_behind_pawn::<W, B>().contains_square(sqr.square()) { 18 } else { 0 };
-        v -= 3 * self.bishop_pawns::<W, B>(sqr);
-        v -= 4 * self.bishop_xray_pawns::<W, B>(sqr);
-        v += if self.rook_on_queen_file::<W, B>().contains_square(sqr.square()) { 6 } else { 0 };
-        v += if self.rook_on_king_ring::<W, B>().contains_square(sqr.square()) { 16 } else { 0 };
-        v += if self.bishop_on_king_ring::<W, B>().contains_square(sqr.square()) { 24 } else { 0 };
+
+        v += self.outpost_total::<W, B>().map(|i| Self::OUTPOST_TOTAL_VALS_MG[i as usize]).count();
+        v += 18 * self.minor_behind_pawn::<W, B>().count() as i32;
+        v -= 3 * self.bishop_pawns::<W, B>().count();
+        v -= 4 * self.bishop_xray_pawns::<W, B>().count();
+        v += 6 * self.rook_on_queen_file::<W, B>().count() as i32;
+        v += 16 * self.rook_on_king_ring::<W, B>().count() as i32;
+        v += 24 * self.bishop_on_king_ring::<W, B>().count() as i32;
 
         let rook_on_file = self.rook_on_file::<W, B>();
-        v += if rook_on_file.1.contains_square(sqr.square()) { 19 } else { 0 };
-        v += if rook_on_file.0.contains_square(sqr.square()) { 48 } else { 0 };
+        v += 19 * rook_on_file.1.count() as i32;
+        v += 48 * rook_on_file.0.count() as i32;
         
-        v -= if self.trapped_rook::<W, B>().contains_square(sqr.square()) { 
-            55 * (if self.board.current_state.has_kingside_castle_right(W::is_white()) 
-                  || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 })
-        } else { 0 };
+        v -= self.trapped_rook::<W, B>().count() as i32
+            * 55 * (if self.board.current_state.has_kingside_castle_right(W::is_white()) 
+                || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 });
         
-        v -= if self.weak_queen::<W, B>().contains_square(sqr.square()) { 56 } else { 0 };
-        v -= if self.queen_infiltration::<W, B>().contains_square(sqr.square()) { 2 } else { 0 };
-        v -= self.king_protector::<W, B>(sqr) 
-            * if self.board.piece_bitboards[W::piece(Piece::KNIGHT)].contains_square(sqr.square()) { 8 } else { 6 };
-        v += if self.long_diagonal_bishop::<W, B>().contains_square(sqr.square()) { 45 } else { 0 };
+        v -= 56 * self.weak_queen::<W, B>().count() as i32;
+        v -= 2 * self.queen_infiltration::<W, B>().count() as i32;
+
+        let king_protector = self.king_protector::<W, B>();
+        let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
+        v -= 8 * (king_protector & knights).count();
+        v -= 6 * (king_protector & !knights).count();
+        v += 45 * self.long_diagonal_bishop::<W, B>().count() as i32;
 
         v
     }
 
     const OUTPOST_TOTAL_VALS_EG: [i32; 5] = [0, 22, 36, 23, 36];
-    pub fn pieces_eg<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        if !(self.board.color_bitboards[W::index()] 
-        & !self.board.piece_bitboards[W::piece(Piece::PAWN)]
-        & !self.board.piece_bitboards[W::piece(Piece::KING)]).contains_square(sqr.square()) {
-            return 0;
-        }
-        
+    pub fn pieces_eg<W: Color, B: Color>(&self) -> i32 {
         let mut v = 0;
-        v += Self::OUTPOST_TOTAL_VALS_EG[self.outpost_total::<W, B>(sqr) as usize];
-        v += if self.minor_behind_pawn::<W, B>().contains_square(sqr.square()) { 3 } else { 0 };
-        v -= 7 * self.bishop_pawns::<W, B>(sqr);
-        v -= 5 * self.bishop_xray_pawns::<W, B>(sqr);
-        v += if self.rook_on_queen_file::<W, B>().contains_square(sqr.square()) { 11 } else { 0 };
+
+        v += self.outpost_total::<W, B>().map(|i| Self::OUTPOST_TOTAL_VALS_EG[i as usize]).count();
+        v += 3 * self.minor_behind_pawn::<W, B>().count() as i32;
+        v -= 7 * self.bishop_pawns::<W, B>().count();
+        v -= 5 * self.bishop_xray_pawns::<W, B>().count();
+        v += 11 * self.rook_on_queen_file::<W, B>().count() as i32;
 
         let rook_on_file = self.rook_on_file::<W, B>();
-        v += if rook_on_file.1.contains_square(sqr.square()) { 7 } else { 0 };
-        v += if rook_on_file.0.contains_square(sqr.square()) { 29 } else { 0 };
+        v += 7 * rook_on_file.1.count() as i32;
+        v += 29 * rook_on_file.0.count() as i32;
 
-        v -= if self.trapped_rook::<W, B>().contains_square(sqr.square()) {
-            13 * (if self.board.current_state.has_kingside_castle_right(W::is_white())
-                  || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 })
-        } else { 0 };
+        v -= self.trapped_rook::<W, B>().count() as i32
+            * 13 * (if self.board.current_state.has_kingside_castle_right(W::is_white())
+                || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 });
 
-        v -= if self.weak_queen::<W, B>().contains_square(sqr.square()) { 15 } else { 0 };
-        v += if self.queen_infiltration::<W, B>().contains_square(sqr.square()) { 14 } else { 0 };
-        v -= 9 * self.king_protector::<W, B>(sqr);
+        v -= 15 * self.weak_queen::<W, B>().count() as i32;
+        v += 14 * self.queen_infiltration::<W, B>().count() as i32;
+        v -= 9 * self.king_protector::<W, B>().count();
 
         v
     }
@@ -361,7 +381,7 @@ mod tests {
     #[test]
     #[evaluation_test("1r3q1R/3b4/p2knpRp/pQpn1PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK w kq - 1 8")]
     fn test_bishop_pawns() {
-        assert_eval!(bishop_pawns, 28, 11, eval);
+        assert_eval!(+ - bishop_pawns, 28, 11, eval);
     }
 
     #[test]
@@ -392,7 +412,7 @@ mod tests {
     #[test]
     #[evaluation_test("r2qk2r/6p1/1pp1p3/p1Pn1bNp/PbNPnP1P/6P1/1P2P3/R1BQKB1R w KQkq - 2 3")]
     fn test_outpost_total() {
-        assert_eval!(outpost_total, 5, 3, eval);
+        assert_eval!(+ - outpost_total, 5, 3, eval);
     }
 
     #[test]
@@ -404,7 +424,7 @@ mod tests {
     #[test]
     #[evaluation_test("1r1B1q1R/1k2R3/p3np1p/pQpnRP2/2P4r/1bB2n1P/P1P1qPB1/4N1K1 w kq - 1 8")]
     fn test_bishop_xray_pawns() {
-        assert_eval!(bishop_xray_pawns, 4, 3, eval);
+        assert_eval!(+ - bishop_xray_pawns, 4, 3, eval);
     }
 
     #[test]
@@ -429,13 +449,13 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_pieces_mg() {
-        assert_eval!(pieces_mg, -121, -14, eval);
+        assert_eval!(- pieces_mg, -121, -14, eval);
     }
 
     #[test]
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_pieces_eg() {
-        assert_eval!(pieces_eg, -325, -105, eval);
+        assert_eval!(- pieces_eg, -325, -105, eval);
     }
 }

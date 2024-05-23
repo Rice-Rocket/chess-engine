@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, precomp::PrecomputedData, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -45,8 +45,14 @@ impl<'a> Evaluation<'a> {
     /// Counts the distance to the friendly king. 
     ///
     /// Requires: `king_square`
-    pub fn king_distance<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        self.precomp.king_distance[self.king_square::<W, B>()][sqr] as i32
+    pub fn king_distance<W: Color, B: Color>(&self) -> SquareEvaluations {
+        let mut eval = SquareEvaluations::new();
+
+        for sqr in Coord::iter_squares() {
+            eval[sqr] = self.precomp.king_distance[self.king_square::<W, B>()][sqr] as i32;
+        }
+
+        eval
     }
 
     /// The enemy's king ring. Squares defended by two pawns are excluded. 
@@ -131,7 +137,7 @@ mod tests {
     #[test]
     #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/nQ5B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_king_distance() {
-        assert_eval!(king_distance, 308, 215, eval);
+        assert_eval!(+ - king_distance, 308, 215, eval);
     }
 
     #[test]
