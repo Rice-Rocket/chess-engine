@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Stdout, Write};
 use termion::{clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::Game, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White, Color as _}, eval::Evaluation, game::Game, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -294,9 +294,9 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         let v = if game.board.white_to_move {
-                            eval.king_proximity::<White, Black>(sqr)
+                            eval.pawns_eg::<White, Black>()
                         } else {
-                            eval.king_proximity::<Black, White>(sqr)
+                            eval.pawns_eg::<Black, White>()
                         };
 
                         if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
@@ -382,9 +382,9 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.passed_leverable::<White, Black>()
+                            eval.backward::<White, Black>()
                         } else {
-                            eval.passed_leverable::<Black, White>()
+                            eval.backward::<Black, White>()
                         });
                     },
                     _ => ()

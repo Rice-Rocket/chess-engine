@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Index, IndexMut};
+use std::ops::{Add, AddAssign, Index, IndexMut, BitAnd, BitAndAssign};
 
 use crate::board::coord::Coord;
 
@@ -35,7 +35,54 @@ impl<T> IndexMut<Coord> for SquareValues<T> {
 }
 
 
-macro_rules! impl_add_bb {
+impl<T> SquareValues<T> {
+    pub fn map<U, F: Fn(T) -> U>(self, f: F) -> SquareValues<U> {
+        SquareValues(self.0.map(f))
+    }
+}
+
+impl<T: Default + Copy> SquareValues<T> {
+    pub fn new() -> Self {
+        Self([T::default(); 64])
+    }
+
+    pub fn zip<U: Default + Copy>(self, rhs: SquareValues<U>) -> SquareValues<(T, U)> {
+        let mut zipped = [(T::default(), U::default()); 64];
+
+        for (i, z) in zipped.iter_mut().enumerate() {
+            z.0 = self.0[i];
+            z.1 = rhs.0[i];
+        }
+
+        SquareValues(zipped)
+    }
+
+    pub fn enumerate(self) -> SquareValues<(usize, T)> {
+        let mut enumerate = [(0, T::default()); 64];
+
+        for (i, (i1, v)) in enumerate.iter_mut().enumerate() {
+            *v = self.0[i];
+            *i1 = i;
+        }
+
+        SquareValues(enumerate)
+    }
+}
+
+impl<T: Default + Copy> Default for SquareValues<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Add<T, Output = T> + Clone> SquareValues<T> {
+    pub fn count(&self) -> T {
+        self.0.iter().cloned().reduce(|a, x| a + x).unwrap()
+    }
+}
+
+
+macro_rules! impl_bb_ops {
     ($t:tt; $($prim:ty),*) => {
         $(
             impl Add<BitBoard> for $t<$prim> {
@@ -57,11 +104,19 @@ macro_rules! impl_add_bb {
                     }
                 }
             }
+
+            impl BitAnd<BitBoard> for $t<$prim> {
+                type Output = $t<$prim>;
+
+                fn bitand(self, rhs: BitBoard) -> Self::Output {
+                    self.enumerate().map(|(sqr, v)| v * rhs.square_value(sqr as i8) as $prim)
+                }
+            }
         )*
     }
 }
 
-impl_add_bb!(SquareValues; i8, i16, i32, i64, u8, u16, u32, u64);
+impl_bb_ops!(SquareValues; i8, i16, i32, i64, u8, u16, u32, u64);
 
 
 pub type SquareEvaluations = SquareValues<i32>;
