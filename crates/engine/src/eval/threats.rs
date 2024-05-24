@@ -122,12 +122,12 @@ impl<'a> Evaluation<'a> {
     /// Remember to multiply by two when the friendly side has one or more queens.
     pub fn knight_on_queen<W: Color, B: Color>(&self) -> BitBoard {
         if self.queen_count::<B, W>() != 1 { return BitBoard(0) };
-        let queen = Coord::from_idx(self.board.piece_bitboards[W::piece(Piece::QUEEN)].clone().pop_lsb() as i8);
+        let queen = Coord::from_idx(self.board.piece_bitboards[B::piece(Piece::QUEEN)].clone().pop_lsb() as i8);
         let mut on_queen = BitBoard(0);
 
         let mut threats = !self.board.piece_bitboards[W::piece(Piece::PAWN)];
         threats &= !self.all_pawn_attacks::<B, W>().0;
-        threats &= self.all_doubled_attacks::<W, B>() & !self.all_doubled_attacks::<B, W>();
+        threats &= !(!self.all_doubled_attacks::<W, B>() & self.all_doubled_attacks::<B, W>());
         threats &= self.mobility_area::<W, B>();
         threats &= self.all_knight_attacks::<W, B>().0;
 
@@ -160,15 +160,18 @@ impl<'a> Evaluation<'a> {
         v += if self.king_threat::<W, B>().0 > 0 { 24 } else { 0 };
         v += 48 * self.pawn_push_threat::<W, B>().count() as i32;
         v += 173 * self.threat_safe_pawn::<W, B>().count() as i32;
-        v += 60 * self.slider_on_queen::<W, B>().count() as i32;
-        v += 16 * self.knight_on_queen::<W, B>().count() as i32;
+
+        let slider_on_queen = self.slider_on_queen::<W, B>().count() as i32;
+        v += 60 * if self.queen_count::<W, B>() == 0 { 2 * slider_on_queen } else { slider_on_queen };
+
+        let knight_on_queen = self.knight_on_queen::<W, B>().count() as i32;
+        v += 16 * if self.queen_count::<W, B>() == 0 { 2 * knight_on_queen } else { knight_on_queen };
+
         v += 7 * self.restricted::<W, B>().count() as i32;
         v += 14 * self.weak_queen_protection::<W, B>().count() as i32;
 
-        for sqr in Coord::iter_squares() {
-            v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_MG_VALS[i as usize]).count();
-            v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_MG_VALS[i as usize]).count();
-        }
+        v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_MG_VALS[i as usize]).count();
+        v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_MG_VALS[i as usize]).count();
 
         v
     }
@@ -182,14 +185,17 @@ impl<'a> Evaluation<'a> {
         v += if self.king_threat::<W, B>().0 > 0 { 89 } else { 0 };
         v += 39 * self.pawn_push_threat::<W, B>().count() as i32;
         v += 94 * self.threat_safe_pawn::<W, B>().count() as i32;
-        v += 18 * self.slider_on_queen::<W, B>().count() as i32;
-        v += 11 * self.knight_on_queen::<W, B>().count() as i32;
+
+        let slider_on_queen = self.slider_on_queen::<W, B>().count() as i32;
+        v += 18 * if self.queen_count::<W, B>() == 0 { 2 * slider_on_queen } else { slider_on_queen };
+
+        let knight_on_queen = self.knight_on_queen::<W, B>().count() as i32;
+        v += 11 * if self.queen_count::<W, B>() == 0 { 2 * knight_on_queen } else { knight_on_queen };
+
         v += 7 * self.restricted::<W, B>().count() as i32;
 
-        for sqr in Coord::iter_squares() {
-            v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_EG_VALS[i as usize]).count();
-            v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_EG_VALS[i as usize]).count();
-        }
+        v += self.minor_threat::<W, B>().map(|i| Self::MINOR_THREAT_EG_VALS[i as usize]).count();
+        v += self.rook_threat::<W, B>().map(|i| Self::ROOK_THREAT_EG_VALS[i as usize]).count();
 
         v
     }
@@ -250,14 +256,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_slider_on_queen() {
         assert_eval!(+ - slider_on_queen, 4, 3, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n2Br3/2p1p1Q1/p2n4/kRp1bP1r/P1P4r/3BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_knight_on_queen() {
         assert_eval!(+ - knight_on_queen, 1, 2, eval);
@@ -276,14 +280,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_threats_mg() {
         assert_eval!(- threats_mg, 951, 978, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
     fn test_threats_eg() {
         assert_eval!(- threats_eg, 814, 982, eval);

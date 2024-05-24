@@ -227,7 +227,7 @@ impl<'a> Evaluation<'a> {
             }
         }
 
-        if ty == CheckType::All {
+        if ty == CheckType::All || ty == CheckType::Queen {
             let mut moves = self.all_queen_attacks::<W, B>().0;
 
             while moves.0 != 0 {
@@ -403,10 +403,10 @@ impl<'a> Evaluation<'a> {
             - (6 * (shelter_strength.0 - shelter_strength.1) / 8)
             + self.mobility_mg::<W, B>() - self.mobility_mg::<B, W>()
             + 37
-            + (772 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45) as i32)
-            + (1084 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75) as i32)
-            + (645 * (self.safe_check::<W, B>(CheckType::Bishop).count() as f32).min(1.50) as i32)
-            + (792 * (self.safe_check::<W, B>(CheckType::Knight).count() as f32).min(1.62) as i32);
+            + (772.0 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45)) as i32
+            + (1084.0 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75)) as i32
+            + (645.0 * (self.safe_check::<W, B>(CheckType::Bishop).count() as f32).min(1.50)) as i32
+            + (792.0 * (self.safe_check::<W, B>(CheckType::Knight).count() as f32).min(1.62)) as i32;
 
         if v > 100 { v } else { 0 }
     }
@@ -543,21 +543,18 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_danger() {
         assert_eval!(- king_danger, 2640, 3448, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_mg() {
         assert_eval!(- king_mg, 1812, 3168, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_king_eg() {
         assert_eval!(- king_eg, 138, 210, eval);
