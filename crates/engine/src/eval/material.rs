@@ -5,10 +5,15 @@ use super::Evaluation;
 
 
 impl<'a> Evaluation<'a> {
-    pub fn non_pawn_material<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
-        todo!();
+    pub fn non_pawn_material<W: Color, B: Color>(&self) -> i32 {
+        Self::PIECE_VALUE_BONUS_MG[1] * self.knight_count::<W, B>()
+            + Self::PIECE_VALUE_BONUS_MG[2] * self.bishop_count::<W, B>()
+            + Self::PIECE_VALUE_BONUS_MG[3] * self.rook_count::<W, B>()
+            + Self::PIECE_VALUE_BONUS_MG[4] * self.queen_count::<W, B>()
     }
 
+    const PIECE_VALUE_BONUS_MG: [i32; 5] = [124, 781, 825, 1276, 2538];
+    const PIECE_VALUE_BONUS_EG: [i32; 5] = [206, 854, 915, 1380, 2682];
     pub fn piece_value_bonus<W: Color, B: Color>(&self, mg: bool, sqr: Coord) -> i32 {
         todo!();
     }
@@ -48,7 +53,7 @@ mod tests {
     #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_non_pawn_material() {
-        assert_eval!(non_pawn_material, 11335, 11577, eval);
+        assert_eval!(- non_pawn_material, 11335, 11577, eval);
     }
 
     #[test]
