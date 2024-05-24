@@ -401,7 +401,7 @@ impl<'a> Evaluation<'a> {
             + (3 * king_flank_attack * king_flank_attack / 8)
             - 873 * no_queen
             - (6 * (shelter_strength.0 - shelter_strength.1) / 8)
-            + self.mobility_mg::<W, B>().count() - self.mobility_mg::<B, W>().count()
+            + self.mobility_mg::<W, B>() - self.mobility_mg::<B, W>()
             + 37
             + (772 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45) as i32)
             + (1084 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75) as i32)

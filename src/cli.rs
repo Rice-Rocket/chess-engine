@@ -294,9 +294,9 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         let v = if game.board.white_to_move {
-                            eval.pawns_eg::<White, Black>()
+                            eval.bishop_pawns::<White, Black>()[sqr]
                         } else {
-                            eval.pawns_eg::<Black, White>()
+                            eval.bishop_pawns::<Black, White>()[sqr]
                         };
 
                         if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
@@ -382,9 +382,9 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.backward::<White, Black>()
+                            eval.long_diagonal_bishop::<White, Black>()
                         } else {
-                            eval.backward::<Black, White>()
+                            eval.long_diagonal_bishop::<Black, White>()
                         });
                     },
                     _ => ()

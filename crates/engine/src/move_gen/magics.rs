@@ -80,8 +80,8 @@ impl MagicBitBoards {
         }
         
         let edges = 
-            ((FILE_A | FILE_H) & !BitBoard::from_file(start_coord.file()).0) | 
-            ((RANK_1 | RANK_8) & !BitBoard::from_rank(start_coord.rank()).0);
+            ((FILE_A | FILE_H) & if ortho { !BitBoard::from_file(start_coord.file()).0 } else { u64::MAX }) | 
+            ((RANK_1 | RANK_8) & if ortho { !BitBoard::from_rank(start_coord.rank()).0 } else { u64::MAX });
         
         mask & !edges
     }

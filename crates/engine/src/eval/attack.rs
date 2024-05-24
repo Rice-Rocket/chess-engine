@@ -117,6 +117,14 @@ impl<'a> Evaluation<'a> {
         attacks
     }
 
+    pub fn knight_attack_from<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
+        if self.pinned::<W, B>(sqr) {
+            BitBoard(0)
+        } else {
+            self.precomp.knight_moves[sqr]
+        }
+    }
+
     pub fn all_bishop_xray_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut bishops = self.board.piece_bitboards[W::piece(Piece::BISHOP)];
         let blockers = self.board.all_pieces_bitboard & !(
@@ -161,6 +169,19 @@ impl<'a> Evaluation<'a> {
             };
         }
         res
+    }
+
+    pub fn bishop_xray_attack_from<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
+        let blockers = self.board.all_pieces_bitboard & !(
+            self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
+            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
+        let mut attacks = self.magics.get_bishop_attacks(sqr, blockers);
+
+        if self.pinned::<W, B>(sqr) {
+            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+        }
+
+        attacks
     }
 
     pub fn all_rook_xray_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
@@ -211,6 +232,20 @@ impl<'a> Evaluation<'a> {
         res
     }
 
+    pub fn rook_xray_attack_from<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
+        let blockers = self.board.all_pieces_bitboard & !(
+            self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
+            | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
+            | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
+        let mut attacks = self.magics.get_rook_attacks(sqr, blockers);
+
+        if self.pinned::<W, B>(sqr) {
+            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+        }
+
+        attacks
+    }
+
     pub fn all_queen_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut queens = self.board.piece_bitboards[W::piece(Piece::QUEEN)];
         let blockers = self.board.all_pieces_bitboard;
@@ -251,6 +286,17 @@ impl<'a> Evaluation<'a> {
             };
         }
         res
+    }
+
+    pub fn queen_attack_from<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
+        let blockers = self.board.all_pieces_bitboard;
+        let mut attacks = (self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers));
+
+        if self.pinned::<W, B>(sqr) {
+            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+        }
+
+        attacks
     }
 
     // TODO: Maybe remove considering pins here and below...  Done

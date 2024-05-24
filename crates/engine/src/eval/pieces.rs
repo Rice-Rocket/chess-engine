@@ -110,7 +110,7 @@ impl<'a> Evaluation<'a> {
 
         'queens: while queens.0 != 0 {
             let queen_sqr = Coord::from_idx(queens.pop_lsb() as i8);
-            for dir in 0..8 {
+            'dirs: for dir in 0..8 {
                 let is_diagonal = dir > 3;
                 let slider = if is_diagonal { self.diagonal_sliders::<B, W>() } else { self.orthogonal_sliders::<B, W>() };
                 if (self.precomp.dir_ray_mask[queen_sqr][dir] & slider).0 == 0 { continue; }
@@ -129,6 +129,8 @@ impl<'a> Evaluation<'a> {
                             || !is_diagonal && piece.piece_type() == Piece::ROOK {
                                 weak |= queen_sqr.to_bitboard();
                                 continue 'queens;
+                            } else {
+                                continue 'dirs;
                             }
                         } else {
                             is_piece_along_ray = true;
@@ -158,7 +160,7 @@ impl<'a> Evaluation<'a> {
     const LONG_DIAGONALS: BitBoard = BitBoard(0b10000001_01000010_00100100_00011000_00011000_00100100_01000010_10000001);
     const CENTER_SQUARES: BitBoard = BitBoard(0b00000000_00000000_00000000_00011000_00011000_00000000_00000000_00000000);
     pub fn long_diagonal_bishop<W: Color, B: Color>(&self) -> BitBoard {
-        let mut bishops = self.board.piece_bitboards[W::piece(Piece::BISHOP)] & Self::LONG_DIAGONALS;
+        let mut bishops = self.board.piece_bitboards[W::piece(Piece::BISHOP)] & Self::LONG_DIAGONALS & !Self::CENTER_SQUARES;
         let mut attacks_center = BitBoard(0);
         let blockers = self.board.piece_bitboards[W::piece(Piece::PAWN)] | self.board.piece_bitboards[B::piece(Piece::PAWN)];
 
@@ -305,11 +307,11 @@ impl<'a> Evaluation<'a> {
         let rook_on_file = self.rook_on_file::<W, B>();
         v += 19 * rook_on_file.1.count() as i32;
         v += 48 * rook_on_file.0.count() as i32;
-        
+
         v -= self.trapped_rook::<W, B>().count() as i32
             * 55 * (if self.board.current_state.has_kingside_castle_right(W::is_white()) 
                 || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 });
-        
+
         v -= 56 * self.weak_queen::<W, B>().count() as i32;
         v -= 2 * self.queen_infiltration::<W, B>().count() as i32;
 
@@ -379,9 +381,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/3b4/p2knpRp/pQpn1PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK w kq - 1 8")]
+    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_bishop_pawns() {
-        assert_eval!(+ - bishop_pawns, 28, 11, eval);
+        assert_eval!(+ - bishop_pawns, 32, 8, eval);
     }
 
     #[test]
@@ -391,22 +393,21 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("1r3q1R/1k1b4/p3npRp/pQpn1P1B/1bP2q1r/5n1P/P1P2P2/2B1N1KR w kq - 1 8")]
     fn test_trapped_rook() {
         assert_eval!(+ - trapped_rook, 1, 0, eval);
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/1k1b4/p3npRp/pQpn1P1B/1bP4r/5n1P/P1P1qP2/2B1N1KR w kq - 1 8")]
+    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_weak_queen() {
-        assert_eval!(+ - weak_queen, 1, 1, eval);
+        assert_eval!(+ - weak_queen, 0, 0, eval);
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/1k6/p1b1npRp/pQpn1P2/1bP4r/2B2n1P/P1P1qPB1/4N1KR w kq - 1 8")]
+    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_long_diagonal_bishop() {
-        assert_eval!(+ - long_diagonal_bishop, 2, 1, eval);
+        assert_eval!(+ - long_diagonal_bishop, 1, 0, eval);
     }
 
     #[test]
@@ -422,9 +423,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r1B1q1R/1k2R3/p3np1p/pQpnRP2/2P4r/1bB2n1P/P1P1qPB1/4N1K1 w kq - 1 8")]
+    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_bishop_xray_pawns() {
-        assert_eval!(+ - bishop_xray_pawns, 4, 3, eval);
+        assert_eval!(+ - bishop_xray_pawns, 3, 1, eval);
     }
 
     #[test]
@@ -446,14 +447,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_pieces_mg() {
         assert_eval!(- pieces_mg, -121, -14, eval);
     }
 
     #[test]
-    #[ignore = "unimplemented evaluation function"]
     #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
     fn test_pieces_eg() {
         assert_eval!(- pieces_eg, -325, -105, eval);
