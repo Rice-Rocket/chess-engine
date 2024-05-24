@@ -382,9 +382,9 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.long_diagonal_bishop::<White, Black>()
+                            eval.space_area::<White, Black>().0
                         } else {
-                            eval.long_diagonal_bishop::<Black, White>()
+                            eval.space_area::<Black, White>().0
                         });
                     },
                     _ => ()
