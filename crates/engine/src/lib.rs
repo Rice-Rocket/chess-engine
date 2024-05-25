@@ -7,5 +7,6 @@ pub mod utils;
 pub mod game;
 pub mod prelude;
 pub mod eval;
+pub mod search;
 pub mod color;
 pub mod precomp;

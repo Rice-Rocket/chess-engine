@@ -1,4 +1,4 @@
-use crate::{board::{coord::Coord, piece::Piece, Board}, color::{Black, Color, White}, move_gen::magics::MagicBitBoards, precomp::PrecomputedData, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece, Board}, color::{Black, Color, White}, move_gen::magics::MagicBitBoards, precomp::Precomputed, prelude::BitBoard};
 
 pub mod attack;
 pub mod utils;
@@ -17,7 +17,7 @@ pub mod macros;
 
 pub struct Evaluation<'a> {
     pub board: &'a Board,
-    pub precomp: &'a PrecomputedData,
+    pub precomp: &'a Precomputed,
     pub magics: &'a MagicBitBoards,
 
     pin_rays: [(BitBoard, BitBoard); 2],
@@ -27,7 +27,7 @@ pub struct Evaluation<'a> {
 impl<'a> Evaluation<'a> {
     pub fn new(
         board: &'a Board,
-        precomp: &'a PrecomputedData,
+        precomp: &'a Precomputed,
         magics: &'a MagicBitBoards,
     ) -> Self {
         Self {
@@ -331,7 +331,7 @@ pub mod tests {
 
 #[cfg(test)]
 pub(super) mod test_prelude {
-    pub use crate::precomp::PrecomputedData;
+    pub use crate::precomp::Precomputed;
     pub use crate::board::Board;
     pub use crate::board::zobrist::Zobrist;
     pub use crate::color::{Color, White, Black};

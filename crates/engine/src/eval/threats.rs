@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -15,7 +15,7 @@ impl<'a> Evaluation<'a> {
             | self.board.piece_bitboards[B::piece(Piece::BISHOP)]
             | self.board.piece_bitboards[B::piece(Piece::ROOK)]
             | self.board.piece_bitboards[B::piece(Piece::QUEEN)];
-        let safe_pawn_attacks = PrecomputedData::pawn_attacks(self.safe_pawn::<W, B>(), W::is_white());
+        let safe_pawn_attacks = Precomputed::pawn_attacks(self.safe_pawn::<W, B>(), W::is_white());
 
         non_pawn_enemies & safe_pawn_attacks
     }
@@ -35,7 +35,7 @@ impl<'a> Evaluation<'a> {
         pieces &= self.all_knight_attacks::<W, B>().0 | self.all_bishop_xray_attacks::<W, B>().0;
         pieces &= !(
             (enemy_pawns | !(
-                PrecomputedData::pawn_attacks(enemy_pawns, B::is_white())
+                Precomputed::pawn_attacks(enemy_pawns, B::is_white())
                 | (self.all_attacks::<W, B>() & !self.all_doubled_attacks::<W, B>() & self.all_doubled_attacks::<B, W>())))
             & !self.weak_enemies::<W, B>());
 

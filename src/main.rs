@@ -1,4 +1,4 @@
-use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, move_gen::magics::MagicBitBoards, precomp::PrecomputedData};
+use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, move_gen::magics::MagicBitBoards, precomp::Precomputed};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 
@@ -82,7 +82,7 @@ async fn main() {
             fen,
             depth: _,
         } => {
-            let precomp = PrecomputedData::new();
+            let precomp = Precomputed::new();
             let magics = MagicBitBoards::default();
             let mut zobrist = Zobrist::new();
             let board = Board::load_position(Some(fen), &mut zobrist);

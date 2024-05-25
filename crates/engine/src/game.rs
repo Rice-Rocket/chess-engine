@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use crate::{board::{coord::Coord, moves::Move, zobrist::Zobrist, Board}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::PrecomputedData};
+use crate::{board::{coord::Coord, moves::Move, zobrist::Zobrist, Board}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
 pub struct Game {
     pub board: Board,
-    pub precomp: PrecomputedData,
+    pub precomp: Precomputed,
     pub zobrist: Zobrist,
     pub magics: MagicBitBoards,
     pub movegen: MoveGenerator,
@@ -12,7 +12,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(start_fen: Option<String>) -> Self {
-        let precomp = PrecomputedData::new();
+        let precomp = Precomputed::new();
         let mut zobrist = Zobrist::new();
         let board = Board::load_position(start_fen, &mut zobrist);
         let magics = MagicBitBoards::default();

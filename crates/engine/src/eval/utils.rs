@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -75,13 +75,13 @@ impl<'a> Evaluation<'a> {
     pub fn pawn_attacks_span<W: Color, B: Color>(&self) -> BitBoard {
         let mut pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
         let other_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
-        let mut span = PrecomputedData::pawn_attacks(pawns, B::is_white());
+        let mut span = Precomputed::pawn_attacks(pawns, B::is_white());
         pawns &= !self.backward::<B, W>();
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
             let pawn_span = self.precomp.pawn_attack_span[B::index()][sqr];
-            let blockers = PrecomputedData::pawn_attacks((sqr.add_clamp(W::down())).to_bitboard(), B::is_white())
+            let blockers = Precomputed::pawn_attacks((sqr.add_clamp(W::down())).to_bitboard(), B::is_white())
                 & other_pawns & !self.backward::<W, B>();
             if (blockers & pawn_span).0 == 0 {
                 span |= pawn_span;

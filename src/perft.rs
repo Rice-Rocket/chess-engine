@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, time::Instant};
 use crate::Cli;
 
 use clap::{error::ErrorKind, CommandFactory};
-use engine::{board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::PrecomputedData, utils::{fen, representation}};
+use engine::{board::{moves::Move, zobrist::Zobrist, Board}, game::Game, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, utils::{fen, representation}};
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
@@ -10,7 +10,7 @@ pub fn movegen_test(
     board: &mut Board,
     zobrist: &Zobrist,
     movegen: &mut MoveGenerator,
-    precomp: &PrecomputedData,
+    precomp: &Precomputed,
     magics: &MagicBitBoards,
     depth: u16,
 ) -> u64 {
@@ -33,7 +33,7 @@ pub fn movegen_test_expand(
     board: &mut Board,
     zobrist: &Zobrist,
     movegen: &mut MoveGenerator,
-    precomp: &PrecomputedData,
+    precomp: &Precomputed,
     magics: &MagicBitBoards,
     depth: u16,
 ) -> (u64, Vec<(Move, u64)>) {
@@ -287,7 +287,7 @@ pub fn test_perft_recursive<'a>(
     board: &'a mut Board,
     zobrist: &'a Zobrist,
     movegen: &'a mut MoveGenerator,
-    precomp: &'a PrecomputedData,
+    precomp: &'a Precomputed,
     magics: &'a MagicBitBoards,
     depth: u16,
 ) -> Pin<Box<dyn Future<Output = u64> + Send + 'a>> {

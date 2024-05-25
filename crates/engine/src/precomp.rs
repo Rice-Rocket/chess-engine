@@ -4,7 +4,7 @@ use crate::{
 };
 
 
-pub struct PrecomputedData {
+pub struct Precomputed {
     // Order doesn't matter
     pub align_mask: [[BitBoard; 64]; 64],
 
@@ -72,7 +72,7 @@ pub struct PrecomputedData {
     pub king_ring: [BitBoard; 64],
 }
 
-impl PrecomputedData {
+impl Precomputed {
     pub const WHITE_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F1.index() | 1u64 << Coord::G1.index());
     pub const BLACK_KINGSIDE_MASK: BitBoard = BitBoard(1u64 << Coord::F8.index() | 1u64 << Coord::G8.index());
     pub const WHITE_QUEENSIDE_MASK_2: BitBoard = BitBoard(1u64 << Coord::D1.index() | 1u64 << Coord::C1.index());
@@ -91,7 +91,7 @@ impl PrecomputedData {
     }
 }
 
-impl Default for PrecomputedData {
+impl Default for Precomputed {
     fn default() -> Self {
         Self {
             align_mask: [[BitBoard(0); 64]; 64],
@@ -135,7 +135,7 @@ impl Default for PrecomputedData {
     }
 }
 
-impl PrecomputedData {
+impl Precomputed {
     pub fn num_rook_moves_to_sqr(&self, start_sqr: u32, target_sqr: u32) -> u32 {
         self.manhattan_distance[start_sqr as usize][target_sqr as usize]
     }

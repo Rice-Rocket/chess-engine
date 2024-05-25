@@ -11,7 +11,7 @@ use zobrist::Zobrist;
 use coord::Coord;
 use game_state::GameState;
 
-use crate::precomp::PrecomputedData;
+use crate::precomp::Precomputed;
 use crate::prelude::*;
 use crate::{utils::fen, move_gen::magics::MagicBitBoards};
 
@@ -398,7 +398,7 @@ impl Board {
         board
     }
 
-    pub fn in_check(&mut self, magic: &MagicBitBoards, precomp: &PrecomputedData) -> bool {
+    pub fn in_check(&mut self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
         if self.has_cached_in_check_val {
             return self.cached_in_check_val;
         }
@@ -407,7 +407,7 @@ impl Board {
         self.cached_in_check_val
     }
 
-    fn get_in_check_state(&self, magic: &MagicBitBoards, precomp: &PrecomputedData) -> bool {
+    fn get_in_check_state(&self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
         let king_sqr = self.king_square[self.move_color_idx];
         let blockers = self.all_pieces_bitboard;
 

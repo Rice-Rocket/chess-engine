@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::{SquareEvaluations, SquareValues}, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::PrecomputedData, prelude::BitBoard, sum_sqrs};
+use crate::{bitboard::square_values::{SquareEvaluations, SquareValues}, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard, sum_sqrs};
 use super::Evaluation;
 
 
