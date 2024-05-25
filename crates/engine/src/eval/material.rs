@@ -85,7 +85,7 @@ impl<'a> Evaluation<'a> {
         v
     }
 
-    pub fn psqt_eg<W: Color, B: Color>(&self, sqr: Coord) -> i32 {
+    pub fn psqt_eg<W: Color, B: Color>(&self) -> i32 {
         let mut v = 0;
         let mut pieces = self.board.color_bitboards[W::index()];
 

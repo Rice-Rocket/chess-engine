@@ -12,7 +12,7 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn outpost_square<W: Color, B: Color>(&self) -> BitBoard {
-        BitBoard::from_ranks(W::ranks(4..=5))
+        BitBoard::from_ranks(W::ranks(3..=5))
             & self.all_pawn_attacks::<W, B>().0
             & !self.pawn_attacks_span::<W, B>()
     }
@@ -24,11 +24,12 @@ impl<'a> Evaluation<'a> {
         let supported = reachable & self.all_pawn_attacks::<W, B>().0;
         let mut supported_origins = BitBoard(0);
         let mut origins = BitBoard(0);
+        let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
 
         while reachable.0 != 0 {
             let sqr = Coord::from_idx(reachable.pop_lsb() as i8);
             let has_support = supported.contains_square(sqr.square());
-            let attacks = self.bishop_xray_attack::<W, B>(None, sqr) | self.knight_attack::<W, B>(None, sqr);
+            let attacks = self.knight_attack::<W, B>(None, sqr) | self.bishop_xray_attack::<W, B>(None, sqr);
             if has_support {
                 supported_origins |= attacks;
             } else {
@@ -363,15 +364,15 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_outpost_square() {
-        assert_eval!(+ - outpost_square, 5, 0, eval);
+        assert_eval!(+ - outpost_square, 5, 2, eval);
     }
 
     #[test]
-    #[evaluation_test("r2qk2r/6p1/1pp1p3/p1Pn1b1p/PbNPnP1P/5NP1/1P2P3/R1BQKB1R w KQkq - 2 3")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_reachable_outpost() {
-        assert_eval!(* - [0, 1] reachable_outpost, (0, 2), (0, 1), eval);
+        assert_eval!(* - [0, 1] reachable_outpost, (0, 1), (0, 1), eval);
     }
 
     #[test]
@@ -411,9 +412,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("r2qk2r/6p1/1pp1p3/p1Pn1bNp/PbNPnP1P/6P1/1P2P3/R1BQKB1R w KQkq - 2 3")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_outpost_total() {
-        assert_eval!(+ - outpost_total, 5, 3, eval);
+        assert_eval!(+ - outpost_total, 0, 1, eval);
     }
 
     #[test]
@@ -447,9 +448,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_pieces_mg() {
-        assert_eval!(- pieces_mg, -121, -14, eval);
+        assert_eval!(- pieces_mg, -50, -1, eval);
     }
 
     #[test]

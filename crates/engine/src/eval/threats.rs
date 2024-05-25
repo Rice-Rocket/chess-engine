@@ -79,20 +79,20 @@ impl<'a> Evaluation<'a> {
         let enemies = self.board.color_bitboards[B::index()] & !enemy_pawns;
         let pieces = self.board.all_pieces_bitboard;
         let attacks = self.all_attacks::<W, B>();
-        let enemy_attacks = self.all_attacks::<W, B>();
+        let enemy_attacks = self.all_attacks::<B, W>();
 
         enemies & (
             (pawns.shifted_2d(W::offset(1, 2)) & !pieces.shifted_2d(W::offset(1, 1))
-                & !enemy_pawns.shifted_2d(W::offset(2, 0)) & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, 1))))
+                & !enemy_pawns.shifted_2d(W::offset(2, 0)) & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, -1))))
             | (BitBoard::from_rank(W::rank(4)) & pawns.shifted_2d(W::offset(1, 3)) & !pieces.shifted_2d(W::offset(1, 2))
                 & !pieces.shifted_2d(W::offset(1, 1)) & !enemy_pawns.shifted_2d(W::offset(2, 0))
-                & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, 1))))
+                & (attacks.shifted_2d(W::offset(1, 1)) | !enemy_attacks.shifted_2d(B::offset(1, -1))))
 
             | (pawns.shifted_2d(W::offset(-1, 2)) & !pieces.shifted_2d(W::offset(-1, 1))
-                & !enemy_pawns.shifted_2d(W::offset(-2, 0)) & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, 1))))
+                & !enemy_pawns.shifted_2d(W::offset(-2, 0)) & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, -1))))
             | (BitBoard::from_rank(W::rank(4)) & pawns.shifted_2d(W::offset(-1, 3)) & !pieces.shifted_2d(W::offset(-1, 2))
                 & !pieces.shifted_2d(W::offset(-1, 1)) & !enemy_pawns.shifted_2d(W::offset(-2, 0))
-                & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, 1))))
+                & (attacks.shifted_2d(W::offset(-1, 1)) | !enemy_attacks.shifted_2d(B::offset(-1, -1))))
         )
     }
 
@@ -250,9 +250,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("nr1B3Q/2p1p3/p2n2R1/kRp1bP1q/P3qB1r/1NP4P/P4PBR/5nK1 b kq - 0 9")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_pawn_push_threat() {
-        assert_eval!(+ - pawn_push_threat, 1, 2, eval);
+        assert_eval!(+ - pawn_push_threat, 3, 1, eval);
     }
 
     #[test]
@@ -280,9 +280,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("n3r3/2p1p1Q1/p2n4/k1p1bP1r/P1PB3r/R2BN2P/Pq3P1R/1B2RnK1 b kq - 0 9")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_threats_mg() {
-        assert_eval!(- threats_mg, 951, 978, eval);
+        assert_eval!(- threats_mg, 1004, 827, eval);
     }
 
     #[test]

@@ -22,7 +22,7 @@ impl<'a> Evaluation<'a> {
     // TODO: Cache this
     pub fn pawnless_flank<W: Color, B: Color>(&self) -> bool {
         let kx = self.king_square::<B, W>().file();
-        let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)] | self.board.piece_bitboards[B::piece(Piece::PAWN)];
         let mut counts = [0u8; 8];
 
         for (file, count) in counts.iter_mut().enumerate() {
@@ -346,7 +346,8 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn blockers_for_king<W: Color, B: Color>(&self) -> BitBoard {
-        self.pin_rays[B::index()] & self.board.color_bitboards[B::index()]
+        (self.pin_rays[B::index()].0 & self.board.color_bitboards[B::index()])
+            | (self.pin_rays[B::index()].1 & self.board.color_bitboards[W::index()])
     }
 
     // TODO: Cache this
@@ -441,9 +442,9 @@ mod tests {
     use super::*;
 
     #[test]
-    #[evaluation_test("3q4/4p1p1/bn1rpPp1/kr3bNp/2NPnP1P/3P2P1/3PPR2/1RBQKB2 w KQkq - 2 3")]
+    #[evaluation_test("1r3q1R/4n3/3k1pR1/p7/3B2pr/Q6P/P7/4N1RK b kq - 9 6")]
     fn test_pawnless_flank() {
-        assert_eval!(- pawnless_flank, true, false, eval);
+        assert_eval!(- pawnless_flank, false, false, eval);
     }
 
     #[test]
@@ -525,9 +526,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    #[evaluation_test("1K6/6R1/1P1kPp2/4q1P1/p1r2Np1/4P2r/1Qn5/8 w - - 0 1")]
     fn test_blockers_for_king() {
-        assert_eval!(+ - blockers_for_king, 2, 1, eval);
+        assert_eval!(+ - blockers_for_king, 0, 1, eval);
     }
 
     #[test]
@@ -543,15 +544,15 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    #[evaluation_test("1K6/6R1/1P1kPp2/4q1P1/p1r2Np1/4P2r/1Qn5/8 w - - 0 1")]
     fn test_king_danger() {
-        assert_eval!(- king_danger, 2640, 3448, eval);
+        assert_eval!(- king_danger, 2701, 1999, eval);
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    #[evaluation_test("1K6/6R1/1P1kPp2/4q1P1/p1r2Np1/4P2r/1Qn5/8 w - - 0 1")]
     fn test_king_mg() {
-        assert_eval!(- king_mg, 1812, 3168, eval);
+        assert_eval!(- king_mg, 2064, 1298, eval);
     }
 
     #[test]

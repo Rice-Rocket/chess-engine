@@ -382,9 +382,20 @@ pub fn start(fen: String, truecolor: bool) {
                         let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
                         if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                         overlayed_bitboard = Some(if game.board.white_to_move {
-                            eval.space_area::<White, Black>().0
+                            eval.blockers_for_king::<White, Black>()
                         } else {
-                            eval.space_area::<Black, White>().0
+                            eval.blockers_for_king::<Black, White>()
+                        });
+                    },
+                    #[allow(clippy::if_same_then_else)]
+                    Key::Char('E') => {
+                        let sqr = Coord::from(cursor);
+                        let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                        if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
+                        overlayed_bitboard = Some(if game.board.white_to_move {
+                            eval.pin_rays::<White, Black>().1
+                        } else {
+                            eval.pin_rays::<Black, White>().1
                         });
                     },
                     _ => ()

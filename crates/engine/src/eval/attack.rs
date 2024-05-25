@@ -26,9 +26,9 @@ impl<'a> Evaluation<'a> {
     }
 
     /// Requires: `king_square`
-    // TODO: Save this data from move generation
-    pub fn pin_rays<W: Color, B: Color>(&self) -> BitBoard {
+    pub fn pin_rays<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut pin_rays = BitBoard(0);
+        let mut blocker_rays = BitBoard(0);
         let mut start_dir_idx = 0;
         let mut end_dir_idx = 8;
         let mut in_double_check = false;
@@ -47,7 +47,8 @@ impl<'a> Evaluation<'a> {
 
             let n = self.precomp.num_sqrs_to_edge[self.king_square::<W, B>()][dir];
             let dir_offset = self.precomp.direction_offsets[dir];
-            let mut is_friendly_piece_along_ray = false;
+            let mut is_piece_along_ray = false;
+            let mut is_friendly_piece = false;
             let mut ray_mask = BitBoard(0);
 
             for i in 0..n {
@@ -56,32 +57,37 @@ impl<'a> Evaluation<'a> {
                 let piece = self.board.square[sqr];
 
                 if piece != Piece::NULL {
-                    if piece.is_color(W::piece_color()) {
-                        if !is_friendly_piece_along_ray {
-                            is_friendly_piece_along_ray = true
-                        } else { break };
-                    } else if (is_diagonal && piece.is_bishop_or_queen()) || (!is_diagonal && piece.is_rook_or_queen()) {
-                        if is_friendly_piece_along_ray {
-                            pin_rays |= ray_mask;
+                    if piece.is_color(B::piece_color()) && ((is_diagonal && piece.is_bishop_or_queen()) || (!is_diagonal && piece.is_rook_or_queen())) {
+                        if is_piece_along_ray {
+                            if is_friendly_piece {
+                                pin_rays |= ray_mask;
+                            } else {
+                                ray_mask &= !sqr.to_bitboard();
+                                blocker_rays |= ray_mask;
+                            }
+                            break;
                         } else {
-                            in_double_check = in_check;
-                            in_check = true;
+                            is_piece_along_ray = true;
+                            is_friendly_piece = false;
                         }
-                        break;
-                    } else { break; }
+                    } else if !is_piece_along_ray {
+                        if piece.is_color(W::piece_color()) {
+                            is_friendly_piece = true;
+                        }
+                        is_piece_along_ray = true
+                    } else { break }
                 }
             }
-            if in_double_check { break; }
         };
 
-        pin_rays
+        (pin_rays, blocker_rays)
     }
 
     /// Checks if a piece is pinned. 
     ///
     /// Requires: `pin_rays`
     pub fn pinned<W: Color, B: Color>(&self, sqr: Coord) -> bool {
-        ((self.pin_rays[W::index()] >> sqr.index()) & 1).0 != 0
+        ((self.pin_rays[W::index()].0 >> sqr.index()) & 1).0 != 0
     }
 
     /// Returns `(all_attacks, double_attacks)`
@@ -89,7 +95,7 @@ impl<'a> Evaluation<'a> {
     // Same with all other all attacks functions.
     pub fn all_knight_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
-        knights &= !self.pin_rays[W::index()];
+        knights &= !self.pin_rays[W::index()].0;
         let mut attacks = BitBoard(0);
         let mut doubled = BitBoard(0);
 
@@ -110,7 +116,7 @@ impl<'a> Evaluation<'a> {
     // TODO: Cache this and switch to `SquareEvaluations`. Same for all below
     pub fn knight_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
-        attacks &= !self.pin_rays[W::index()];
+        attacks &= !self.pin_rays[W::index()].0;
         if let Some(s) = s2 {
             attacks &= s.to_bitboard();
         }
@@ -137,7 +143,7 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()]
+                moves & self.pin_rays[W::index()].0
             } else {
                 moves
             };
@@ -197,7 +203,7 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(rooks.pop_lsb() as i8);
             let moves = self.magics.get_rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()]
+                moves & self.pin_rays[W::index()].0
             } else {
                 moves
             };
@@ -256,7 +262,7 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(queens.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()]
+                moves & self.pin_rays[W::index()].0
             } else {
                 moves
             };

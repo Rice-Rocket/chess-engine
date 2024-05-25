@@ -85,7 +85,7 @@ impl<'a> Evaluation<'a> {
 
         let opposed = self.opposed::<W, B>();
         let phalanx = self.phalanx::<W, B>();
-        let supported = self.supported::<W, B>().0;
+        let supported = self.supported::<W, B>();
         let blocked = self.board.piece_bitboards[W::piece(Piece::PAWN)] 
             & self.board.piece_bitboards[B::piece(Piece::PAWN)].shifted_2d(W::down());
 
@@ -95,7 +95,7 @@ impl<'a> Evaluation<'a> {
 
             evals[sqr] = Self::CONNECTED_BONUS_SEED[rank as usize]
                 * (2 + phalanx.square_value(sqr.square()) - opposed.square_value(sqr.square()))
-                + 21 * supported.square_value(sqr.square());
+                + 21 * (supported.0.square_value(sqr.square()) + supported.1.square_value(sqr.square()));
         }
 
         evals
@@ -260,9 +260,11 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/2n1n2n/pp1k1pR1/pQ3P1B/1b1P1qpr/QP1P1n1P/P4P2/2B1N1RK w kq - 1 7")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    // 1r3q1R/2n1n2n/pp1k1pR1/pQ3P1B/1b1P1qpr/QP1P1n1P/P4P2/2B1N1RK w kq - 1 7
+    // 29, 65
     fn test_connected_bonus() {
-        assert_eval!(+ - connected_bonus, 29, 65, eval);
+        assert_eval!(+ - connected_bonus, 91, 0, eval);
     }
 
     #[test]
@@ -290,9 +292,11 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7")]
+    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
+    // 1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7
+    // 113, -42
     fn test_pawns_mg() {
-        assert_eval!(- pawns_mg, 113, -42, eval);
+        assert_eval!(- pawns_mg, 62, -24, eval);
     }
 
     #[test]
