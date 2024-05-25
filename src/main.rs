@@ -1,4 +1,4 @@
-use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, move_gen::magics::MagicBitBoards, precomp::Precomputed};
+use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 
@@ -57,19 +57,31 @@ enum Commands {
         no_truecolor: bool,
 
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
-        white_player: PlayerType,
+        white_player: CommandPlayerType,
 
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
-        black_player: PlayerType,
+        black_player: CommandPlayerType,
+
+        #[arg(long, short)]
+        debug: bool,
     },
 }
 
 
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
-enum PlayerType {
+enum CommandPlayerType {
     #[default]
     Human,
-    AI
+    Computer,
+}
+
+impl From<CommandPlayerType> for PlayerType {
+    fn from(val: CommandPlayerType) -> Self {
+        match val {
+            CommandPlayerType::Human => PlayerType::Human,
+            CommandPlayerType::Computer => PlayerType::Computer,
+        }
+    }
 }
 
 
@@ -131,7 +143,7 @@ async fn main() {
             }
 
             if test_recursive {
-                let mut game = Game::new(Some(fen));
+                let mut game = Game::new(Some(fen), PlayerType::Human, PlayerType::Human);
                 let mut cmd = std::process::Command::new("stockfish").spawn();
                 match &mut cmd {
                     Ok(proc) => proc.kill().unwrap(),
@@ -164,10 +176,11 @@ async fn main() {
         Commands::Play {
             fen,
             no_truecolor,
-            white_player: _,
-            black_player: _,
+            white_player,
+            black_player,
+            debug,
         } => {
-            cli::start(fen, !no_truecolor);
+            cli::start(fen, white_player.into(), black_player.into(), !no_truecolor, debug);
         }
     }
 }

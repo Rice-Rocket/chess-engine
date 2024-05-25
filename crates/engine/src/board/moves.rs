@@ -10,7 +10,7 @@ const TARGET_SQUARE_MASK: u16 = 0b0000111111000000;
 const FLAG_MASK: u16 = 0b1111000000000000;
 
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Default)]
 pub struct Move(u16);
 
 impl std::fmt::Debug for Move {

@@ -5,7 +5,7 @@ use super::magics::MagicBitBoards;
 use crate::precomp::Precomputed;
 
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Eq, Clone, Copy)]
 pub enum PromotionMode {
     #[default]
     All,
@@ -14,6 +14,7 @@ pub enum PromotionMode {
 }
 
 
+#[derive(Clone)]
 pub struct MoveGenerator {
     pub moves: Vec<Move>,
     pub promotions_to_gen: PromotionMode,
