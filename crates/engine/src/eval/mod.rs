@@ -183,6 +183,9 @@ impl<'a> Evaluation<'a> {
 }
 
 
+// TODO: Add further testing
+// http://bernd.bplaced.net/fengenerator/fengenerator.html
+// for random chess positions.
 #[cfg(test)]
 pub mod tests {
     use super::test_prelude::*;
@@ -216,6 +219,48 @@ pub mod tests {
     #[evaluation_test("3bR3/1KNp1pPp/p4Q1P/4P1P1/3B1r1P/1n4rP/n1q1p1pN/2k5 w - - 0 1")]
     fn test_eval_4() {
         assert_eq!(eval.evaluate::<White, Black>(), -3012);
+    }
+
+    #[test]
+    #[evaluation_test("k7/1Rn1brB1/b2P1PPp/4nr2/N4p2/3PN3/2Q1p1K1/4q2R w - - 0 1")]
+    fn test_eval_5() {
+        assert_eq!(eval.evaluate::<White, Black>(), -2308)
+    }
+
+    #[test]
+    #[evaluation_test("8/2p5/1R5K/4b2p/3Q3p/7B/2k5/8 w - - 0 1")]
+    fn test_eval_6() {
+        assert_eq!(eval.evaluate::<White, Black>(), 3020);
+    }
+
+    #[test]
+    #[evaluation_test("2Q5/P2P1pP1/2qnRN2/bpPpKPpP/PBr4n/r1pRp2B/ppb5/k2N4 w - - 0 1")]
+    fn test_eval_7() {
+        assert_eq!(eval.evaluate::<White, Black>(), -2788);
+    }
+
+    #[test]
+    #[evaluation_test("N1B1QR2/2nP2Kb/3p1BpP/b1NpPpp1/1k1p2P1/1pp2q1P/1P4Pr/n3r2R w - - 0 1")]
+    fn test_eval_8() {
+        assert_eq!(eval.evaluate::<White, Black>(), -420);
+    }
+
+    #[test]
+    #[evaluation_test("1n1QB1N1/pppR2b1/1r3B2/pP1bp1np/1r4PN/pRPq2PP/1p1P1K1P/3k4 w - - 0 1")]
+    fn test_eval_9() {
+        assert_eq!(eval.evaluate::<White, Black>(), -5204);
+    }
+
+    #[test]
+    #[evaluation_test("nb3n2/QP3prp/r3bpN1/1q1N2Pp/pRP3Bp/P2RpP1P/1pk1K2P/B7 w - - 0 1")]
+    fn test_eval_10() {
+        assert_eq!(eval.evaluate::<White, Black>(), 6604);
+    }
+
+    #[test]
+    #[evaluation_test("1q1B1r2/1pp1b1pN/3k2P1/1B2N1Rr/P1P3bQ/p1KpPnpR/PPpn2Pp/8 w - - 0 1")]
+    fn test_eval_11() {
+        assert_eq!(eval.evaluate::<White, Black>(), -2420);
     }
 
     #[test]
