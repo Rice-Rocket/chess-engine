@@ -3,7 +3,7 @@ use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 
 mod perft;
-mod cli;
+mod tui;
 
 
 #[derive(Parser)]
@@ -180,7 +180,7 @@ async fn main() {
             black_player,
             debug,
         } => {
-            cli::start(fen, white_player.into(), black_player.into(), !no_truecolor, debug);
+            tui::start(fen, white_player.into(), black_player.into(), !no_truecolor, debug);
         }
     }
 }

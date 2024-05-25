@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout, Stdout, Write};
+use std::io::{stdout, Stdout, Write};
 use termion::{async_stdin, clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
 use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, utils};
