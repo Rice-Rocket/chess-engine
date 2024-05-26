@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, prelude::BitBoard, result::GameResult, search::Searcher};
+use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, prelude::BitBoard, result::GameResult, search::{options::SearchOptions, Searcher}};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PlayerType {
@@ -18,19 +18,25 @@ pub struct Game<'a> {
     pub white: PlayerType,
     pub black: PlayerType,
     pub searcher: Searcher<'a>,
+    pub search_opts: SearchOptions,
     pub player_to_move: PlayerType,
 }
 
 impl<'a> Game<'a> {
-    pub fn new(start_fen: Option<String>, white: PlayerType, black: PlayerType) -> Self {
+    pub fn new(start_fen: Option<String>, search_opts: SearchOptions, white: PlayerType, black: PlayerType) -> Self {
         let precomp = Precomputed::new();
         let mut zobrist = Zobrist::new();
         let board = Board::load_position(start_fen, &mut zobrist);
         let magics = MagicBitBoards::default();
         let mut movegen = MoveGenerator::default();
-        let searcher = Searcher::new();
+        let mut searcher = Searcher::new();
 
         movegen.generate_moves(&board, &precomp, &magics, false);
+        let player_to_move = if board.white_to_move { white } else { black };
+
+        if player_to_move == PlayerType::Computer {
+            searcher.begin_search(search_opts, board.clone(), &precomp, &magics, &zobrist, movegen.clone());
+        }
 
         Self {
             board,
@@ -41,7 +47,8 @@ impl<'a> Game<'a> {
             white,
             black,
             searcher,
-            player_to_move: white,
+            search_opts,
+            player_to_move,
         }
     }
 
@@ -59,7 +66,7 @@ impl<'a> Game<'a> {
 
             },
             PlayerType::Computer => {
-                self.searcher.begin_search(self.board.clone(), &self.precomp, &self.magics, &self.zobrist, self.movegen.clone());
+                self.searcher.begin_search(self.search_opts, self.board.clone(), &self.precomp, &self.magics, &self.zobrist, self.movegen.clone());
             },
         }
 

@@ -23,6 +23,7 @@ pub enum UciMessage {
     },
     Option { name: String, opt_type: OptionType },
     FinishedThinkingSignal,
+    BestMove { m: String },
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -131,7 +132,7 @@ pub fn parse_uci(line: String) -> Result<UciMessage> {
         "readyok" => Ok(UciMessage::ReadyOk),
         "option" => parse_option_line(line),
         "Nodes" => Ok(UciMessage::FinishedThinkingSignal),
-        "bestmove" => Ok(UciMessage::FinishedThinkingSignal),
+        "bestmove" => parse_bestmove(line),
         _ => {
             match command.chars().next() {
                 Some('a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h') => parse_perft_line(line),
@@ -139,6 +140,15 @@ pub fn parse_uci(line: String) -> Result<UciMessage> {
             }
         }
     }
+}
+
+fn parse_bestmove(line: String) -> Result<UciMessage> {
+    let mut parts = line.split_whitespace();
+    parts.next().context("failed to parse bestmove")?;
+    let m = parts.next().context("failed to parse bestmove")?;
+    Ok(UciMessage::BestMove {
+        m: m.to_string(),
+    })
 }
 
 fn parse_line_values<T: FromStr + Default>(

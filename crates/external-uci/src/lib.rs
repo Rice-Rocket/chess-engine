@@ -15,6 +15,8 @@ pub trait ExternalUciCapable {
     async fn new_game(&mut self) -> Result<()>;
 
     async fn set_position(&mut self, position: &str) -> Result<()>;
+    
+    async fn set_position_moves(&mut self, position: &str, moves: Vec<String>) -> Result<()>;
 
     async fn go_infinite(&mut self) -> Result<()>;
 
@@ -28,9 +30,9 @@ pub trait ExternalUciCapable {
 
     async fn stop(&mut self) -> Result<()>;
 
-    async fn get_evaluation_block(&mut self) -> Option<UciEvaluation>;
+    async fn quit(&mut self) -> Result<()>;
 
-    async fn get_options_block(&mut self) -> Result<Vec<UciEngineOption>>;
+    async fn get_evaluation_block(&mut self) -> Option<UciEvaluation>;
 
     async fn get_perfts_block(&mut self) -> Result<Vec<UciPerftResults>>;
 
@@ -39,6 +41,8 @@ pub trait ExternalUciCapable {
     async fn get_options(&mut self) -> Result<Vec<UciEngineOption>>;
 
     async fn get_perfts(&mut self) -> Result<Vec<UciPerftResults>>;
+
+    fn get_bestmove(&mut self) -> Option<String>;
 
     async fn set_option(&mut self, option: String, value: String) -> Result<()>;
 }
@@ -52,7 +56,17 @@ pub struct ExternalUci {
 
 impl ExternalUci {
     pub async fn new(exe_path: &str) -> Result<Self> {
-        let (process, stdin, stdout) = spawn_process(exe_path)?;
+        let (process, stdin, stdout) = spawn_process(exe_path, vec![])?;
+        let state = UciState::new(stdout).await;
+        Ok(ExternalUci {
+            _process: process,
+            state,
+            stdin,
+        })
+    }
+
+    pub async fn new_with_args(exe_path: &str, args: Vec<String>) -> Result<Self> {
+        let (process, stdin, stdout) = spawn_process(exe_path, args)?;
         let state = UciState::new(stdout).await;
         Ok(ExternalUci {
             _process: process,
@@ -68,7 +82,7 @@ impl ExternalUci {
     }
 
     async fn _expect_state(&mut self, exp_state: &UciStateEnum) -> Result<()> {
-        let state = self.state.state.lock().expect("couldn't aquire state lock");
+        let state = self.state.state.lock().expect("couldn't acquire state lock");
         if *exp_state == *state {
             return Ok(());
         }
@@ -102,8 +116,9 @@ impl ExternalUci {
 }
 
 
-fn spawn_process(exe_path: &str) -> Result<(Child, ChildStdin, ChildStdout)> {
+fn spawn_process(exe_path: &str, args: Vec<String>) -> Result<(Child, ChildStdin, ChildStdout)> {
     let mut cmd = Command::new(exe_path);
+    cmd.args(args);
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     let mut proc = cmd.spawn()?;
@@ -133,6 +148,15 @@ impl ExternalUciCapable for ExternalUci {
 
     async fn set_position(&mut self, fen: &str) -> Result<()> {
         let cmd = format!("position fen {}\n", fen);
+        self.send_command(cmd.to_string()).await
+    }
+
+    async fn set_position_moves(&mut self, fen: &str, moves: Vec<String>) -> Result<()> {
+        let mut cmd = format!("position fen {} moves", fen);
+        for m in moves {
+            cmd.push_str(&format!(" {}", m));
+        }
+        cmd.push('\n');
         self.send_command(cmd.to_string()).await
     }
 
@@ -175,6 +199,12 @@ impl ExternalUciCapable for ExternalUci {
         Ok(())
     }
 
+    async fn quit(&mut self) -> Result<()> {
+        self.send_command("quit\n".to_string()).await?;
+        self.set_state(UciStateEnum::Initialized).await?;
+        Ok(())
+    }
+
     async fn get_evaluation_block(&mut self) -> Option<UciEvaluation> {
         if let Ok(UciEvent::Finished) = self.state.receiver.recv() {
             let eval = self.state.evaluation.lock().expect("couldn't acquire lock");
@@ -184,18 +214,9 @@ impl ExternalUciCapable for ExternalUci {
         }
     }
 
-    async fn get_options_block(&mut self) -> Result<Vec<UciEngineOption>> {
-        if let Ok(UciEvent::Finished) = self.state.receiver.recv() {
-            let options = self.state.options.lock().expect("couldn't acquire lock");
-            Ok(options.clone())
-        } else {
-            Err(anyhow!("failed to receive from uci"))
-        }
-    }
-
     async fn get_perfts_block(&mut self) -> Result<Vec<UciPerftResults>> {
         if let Ok(UciEvent::Finished) = self.state.receiver.recv() {
-            let perfts = self.state.perfts.lock().expect("couldn't aquire lock");
+            let perfts = self.state.perfts.lock().expect("couldn't acquire lock");
             Ok(perfts.clone())
         } else {
             Err(anyhow!("failed to receive from uci"))
@@ -213,8 +234,23 @@ impl ExternalUciCapable for ExternalUci {
     }
 
     async fn get_perfts(&mut self) -> Result<Vec<UciPerftResults>> {
-        let perfts = self.state.perfts.lock().expect("couldn't aquire lock");
+        let perfts = self.state.perfts.lock().expect("couldn't acquire lock");
         Ok(perfts.clone())
+    }
+
+    fn get_bestmove(&mut self) -> Option<String> {
+        match self.state.receiver.try_recv() {
+            Ok(UciEvent::Finished) => {
+                let bestmove = self.state.bestmove.lock().expect("couldn't acquire lock");
+                Some(bestmove.clone())
+            },
+            Err(mpsc::TryRecvError::Empty) => {
+                None
+            },
+            Err(mpsc::TryRecvError::Disconnected) => {
+                panic!("failed to receive from uci, sender disconnected");
+            }
+        }
     }
 
     async fn set_option(&mut self, option: String, value: String) -> Result<()> {
@@ -298,6 +334,7 @@ struct UciState {
     evaluation: Arc<Mutex<Option<UciEvaluation>>>,
     options: Arc<Mutex<Vec<UciEngineOption>>>,
     perfts: Arc<Mutex<Vec<UciPerftResults>>>,
+    bestmove: Arc<Mutex<String>>,
     receiver: mpsc::Receiver<UciEvent>,
 }
 
@@ -307,6 +344,7 @@ impl UciState {
         let state = Arc::new(Mutex::new(UciStateEnum::Uninitialized));
         let options = Arc::new(Mutex::new(Vec::new()));
         let perfts = Arc::new(Mutex::new(Vec::new()));
+        let bestmove = Arc::new(Mutex::new(String::new()));
         let stdout = BufReader::new(stdout).lines();
         let (tx, rx) = mpsc::channel();
         let engstate = UciState {
@@ -314,11 +352,12 @@ impl UciState {
             evaluation: ev.clone(),
             options: options.clone(),
             perfts: perfts.clone(),
+            bestmove: bestmove.clone(),
             receiver: rx,
         };
 
         tokio::spawn(async move {
-            Self::process_stdout(stdout, state.clone(), ev.clone(), options.clone(), perfts.clone(), tx).await
+            Self::process_stdout(stdout, state.clone(), ev.clone(), options.clone(), perfts.clone(), bestmove.clone(), tx).await
         });
 
         engstate
@@ -330,16 +369,17 @@ impl UciState {
         ev: Arc<Mutex<Option<UciEvaluation>>>,
         options: Arc<Mutex<Vec<UciEngineOption>>>,
         perfts: Arc<Mutex<Vec<UciPerftResults>>>,
+        bestmove: Arc<Mutex<String>>,
         sender: mpsc::Sender<UciEvent>,
     ) {
         while let Some(line) = stdout.next_line().await.unwrap() {
             match parse_uci(line) {
                 Ok(UciMessage::UciOk) => {
-                    let mut state = state.lock().expect("couldn't aquire state lock");
+                    let mut state = state.lock().expect("couldn't acquire state lock");
                     *state = UciStateEnum::Initialized;
                 },
                 Ok(UciMessage::ReadyOk) => {
-                    let mut state = state.lock().expect("couldn't aquire state lock");
+                    let mut state = state.lock().expect("couldn't acquire state lock");
                     *state = UciStateEnum::Ready;
                 },
                 Ok(UciMessage::Info {
@@ -352,7 +392,7 @@ impl UciState {
                     multipv,
                     pv,
                 }) => {
-                    let mut ev = ev.lock().expect("couldn't aquire ev lock");
+                    let mut ev = ev.lock().expect("couldn't acquire ev lock");
                     let def_ev = UciEvaluation::default();
                     let prev_ev = match ev.as_ref() {
                         Some(ev) => ev,
@@ -370,17 +410,28 @@ impl UciState {
                     });
                 },
                 Ok(UciMessage::Option { name, opt_type }) => {
-                    let mut options = options.lock().expect("couldn't aquire options lock");
+                    let mut options = options.lock().expect("couldn't acquire options lock");
                     options.push(UciEngineOption { name, opt_type });
                 },
                 Ok(UciMessage::Perft { m, nodes }) => {
-                    let mut perfts = perfts.lock().expect("couldn't aquire perfts lock");
+                    let mut perfts = perfts.lock().expect("couldn't acquire perfts lock");
                     perfts.push(UciPerftResults { m, nodes });
                 },
                 Ok(UciMessage::FinishedThinkingSignal) => {
-                    let mut state = state.lock().expect("couldn't aquire state lock");
+                    let mut state = state.lock().expect("couldn't acquire state lock");
                     *state = UciStateEnum::Ready;
-                    sender.send(UciEvent::Finished).expect("failed to send uci event, receiver was dropped");
+                    if sender.send(UciEvent::Finished).is_err() {
+                        return;
+                    }
+                },
+                Ok(UciMessage::BestMove { m }) => {
+                    let mut bestmove = bestmove.lock().expect("couldn't acquire bestmove lock");
+                    *bestmove = m;
+                    let mut state = state.lock().expect("couldn't acquire state lock");
+                    *state = UciStateEnum::Ready;
+                    if sender.send(UciEvent::Finished).is_err() {
+                        return;
+                    }
                 },
                 _ => continue,
             }

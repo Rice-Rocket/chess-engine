@@ -1,7 +1,7 @@
 use std::io::{stdout, Stdout, Write};
 use termion::{async_stdin, clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, search::options::SearchOptions, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -18,7 +18,7 @@ const TRUECOLOR_LIGHT_VALID: color::Rgb = color::Rgb(236, 126, 106);
 const TRUECOLOR_DARK_BB: color::Rgb = color::Rgb(115, 187, 218);
 const TRUECOLOR_LIGHT_BB: color::Rgb = color::Rgb(88, 170, 193);
 
-fn display_board(
+pub fn display_board(
     stdout: &mut RawTerminal<Stdout>,
     board: &Board,
     cursor: (i8, i8),
@@ -166,7 +166,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
     let mut stdin = async_stdin().keys();
     let mut stdout = stdout().into_raw_mode().unwrap();
 
-    let mut game = Game::new(Some(fen), white, black);
+    let mut game = Game::new(Some(fen), SearchOptions::default(), white, black);
     let mut result = GameResult::InProgress;
     let mut cursor = (1, 1);
     let mut selected: Option<(i8, i8)> = None;

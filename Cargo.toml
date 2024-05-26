@@ -9,20 +9,23 @@ edition = "2021"
 members = [ 
     "crates/engine",
     "crates/external-uci", 
-    "crates/proc_macro_utils"
+    "crates/proc_macro_utils", 
+    "crates/uci"
 ]
 
 [workspace.dependencies]
 proc_macro_utils = { path = "crates/proc_macro_utils" }
+engine = { path = "crates/engine" }
 
 [dependencies]
-engine = { path = "crates/engine" }
+engine.workspace = true
+
+tokio = "1.37.0"
 external-uci = { path = "crates/external-uci" }
+uci = { path = "crates/uci" }
 
 termion = "4.0.0"
 clap = { version = "4.5.4", features = [ "derive" ] }
-async-uci = "0.1.3"
-tokio = "1.37.0"
 
 [features]
 default = [ "dbg-assert" ]

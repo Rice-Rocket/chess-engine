@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, time::Instant};
 use crate::Cli;
 
 use clap::{error::ErrorKind, CommandFactory};
-use engine::{board::{moves::Move, zobrist::Zobrist, Board}, game::{Game, PlayerType}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, utils::{fen, representation}};
+use engine::{board::{moves::Move, zobrist::Zobrist, Board}, game::{Game, PlayerType}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, search::options::SearchOptions, utils::{fen, representation}};
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
@@ -194,7 +194,7 @@ pub fn expected_nodes(position: u16, depth: u16) -> u64 {
 
 
 pub async fn test_perft(position: u16, depth: u16, fen: &str, expand_branch_nodes: bool, cmp: bool) -> Result<(), clap::Error> {
-    let mut game = Game::new(Some(fen.to_string()), PlayerType::Human, PlayerType::Human);
+    let mut game = Game::new(Some(fen.to_string()), SearchOptions::default(), PlayerType::Human, PlayerType::Human);
     let expected_nodes = expected_nodes(position, depth);
 
     let start = Instant::now();

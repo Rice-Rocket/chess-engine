@@ -1,9 +1,13 @@
-use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed};
+use std::{ffi::OsString, path::PathBuf};
+
+use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed, search::options::SearchOptions};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
+use external_uci::ExternalUci;
 
 mod perft;
 mod tui;
+mod faceoff;
 
 
 #[derive(Parser)]
@@ -16,6 +20,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Evaluate the given chess position.
     Eval {
         fen: String,
 
@@ -49,24 +54,60 @@ enum Commands {
         #[arg(long, short)]
         compare: bool,
     },
+    /// Launch the TUI.
     Play {
+        /// The FEN position to begin the game at.
         #[arg(long, short, value_name = "FEN", default_value = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")]
         fen: String,
 
+        /// Whether or not to use truecolor.
         #[arg(long, short = 'c')]
         no_truecolor: bool,
 
+        /// The player type of the white player.
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
         white_player: CommandPlayerType,
 
+        /// The player type of the black player.
         #[arg(long, short, value_name = "PLAYER_TYPE", default_value = "human")]
         black_player: CommandPlayerType,
 
+        /// Run the TUI in debug mode.
         #[arg(long, short)]
         debug: bool,
     },
+    /// Faceoff against a different chess engine that implements UCI.
+    Faceoff {
+        /// The path to the other chess engine executable.
+        engine_uci: OsString,
+
+        /// The path to a file containing the positions that the engines will play.
+        /// The file should contain a list of FEN positions separated by line breaks.
+        positions: PathBuf,
+
+        /// Arguments to be passed to the other chess engine.
+        #[arg(long)]
+        args: Vec<String>,
+
+        /// Time in milliseconds that the engines have to move.
+        #[arg(long, short = 't', default_value = "100")]
+        movetime: u32,
+
+        #[arg(long, short, value_name = "DISPLAY_METHOD", default_value = "none")]
+        display: CommandDisplayMethod,
+    },
+    /// Launch the UCI.
+    Uci,
 }
 
+
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+enum CommandDisplayMethod {
+    #[default]
+    None,
+    Tui,
+    Gui,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 enum CommandPlayerType {
@@ -143,7 +184,7 @@ async fn main() {
             }
 
             if test_recursive {
-                let mut game = Game::new(Some(fen), PlayerType::Human, PlayerType::Human);
+                let mut game = Game::new(Some(fen), SearchOptions::default(), PlayerType::Human, PlayerType::Human);
                 let mut cmd = std::process::Command::new("stockfish").spawn();
                 match &mut cmd {
                     Ok(proc) => proc.kill().unwrap(),
@@ -181,6 +222,43 @@ async fn main() {
             debug,
         } => {
             tui::start(fen, white_player.into(), black_player.into(), !no_truecolor, debug);
+        },
+        Commands::Faceoff {
+            engine_uci: engine,
+            args,
+            positions,
+            movetime,
+            display,
+        } => {
+            let mut cmd = std::process::Command::new(engine.clone()).args(args.clone()).spawn();
+            let opponent = ExternalUci::new_with_args(engine.to_str().unwrap(), args).await.unwrap();
+            match &mut cmd {
+                Ok(proc) => {
+                    proc.kill().unwrap();
+                    match faceoff::start(opponent, positions, movetime, display).await {
+                        Ok(()) => (),
+                        Err(e) => {
+                            let err = Cli::command().error(
+                                ErrorKind::Io,
+                                &e,
+                            );
+                            let _ = err.print();
+                            return
+                        }
+                    }
+                },
+                Err(_) => {
+                    let err = Cli::command().error(
+                        ErrorKind::Io,
+                        "engine path executable not found"
+                    );
+                    let _ = err.print();
+                    return;
+                }
+            };
+        },
+        Commands::Uci => {
+            uci::start();
         }
     }
 }

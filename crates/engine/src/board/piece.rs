@@ -153,16 +153,35 @@ impl BitOrAssign for Piece {
 
 impl std::fmt::Debug for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Piece({},{})", if self.is_white() { "white" } else { "black" }, match self.piece_type() {
-            Piece::PAWN => "pawn",
-            Piece::KNIGHT => "knight",
-            Piece::BISHOP => "bishop",
-            Piece::ROOK => "rook",
-            Piece::QUEEN => "queen",
-            Piece::KING => "king",
-            Piece::OUT_OF_BOUNDS => "out of bounds",
-            _ => "none",
-        }))
+        if f.alternate() {
+            let s = match (self.is_white(), self.piece_type()) {
+                (true, Piece::PAWN) => 'P',
+                (true, Piece::KNIGHT) => 'N',
+                (true, Piece::BISHOP) => 'B',
+                (true, Piece::ROOK) => 'R',
+                (true, Piece::QUEEN) => 'Q',
+                (true, Piece::KING) => 'K',
+                (false, Piece::PAWN) => 'p',
+                (false, Piece::KNIGHT) => 'n',
+                (false, Piece::BISHOP) => 'b',
+                (false, Piece::ROOK) => 'r',
+                (false, Piece::QUEEN) => 'q',
+                (false, Piece::KING) => 'k',
+                _ => ' '
+            };
+            write!(f, "{}", s)
+        } else {
+            f.write_fmt(format_args!("Piece({},{})", if self.is_white() { "white" } else { "black" }, match self.piece_type() {
+                Piece::PAWN => "pawn",
+                Piece::KNIGHT => "knight",
+                Piece::BISHOP => "bishop",
+                Piece::ROOK => "rook",
+                Piece::QUEEN => "queen",
+                Piece::KING => "king",
+                Piece::OUT_OF_BOUNDS => "out of bounds",
+                _ => "none",
+            }))
+        }
     }
 }
 
