@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{board::{moves::Move, zobrist::Zobrist, Board}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
+use crate::{board::{moves::Move, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
 use self::options::SearchOptions;
 
@@ -17,6 +17,9 @@ pub struct Searcher<'a> {
 }
 
 impl<'a> Searcher<'a> {
+    const IMMEDIATE_MATE_SCORE: i32 = 1000000;
+    const NEGATIVE_INFINITY: i32 = i32::MIN;
+
     pub fn new() -> Self {
         Self {
             best_move: None,
@@ -30,15 +33,103 @@ impl<'a> Searcher<'a> {
 
     /// Starts searching for the best move in the position depending on whose turn it is to move. 
     ///
-    /// Expects that `movegen.generate_moves()` has been called beforehand.
-    pub fn begin_search(&mut self, opts: SearchOptions, board: Board, precomp: &Precomputed, magics: &MagicBitBoards, zobrist: &Zobrist, movegen: MoveGenerator) {
+    /// Assumes that `movegen.generate_moves()` has been called beforehand and that the position
+    /// has valid moves (not stalemate or checkmate).
+    pub fn begin_search(
+        &mut self,
+        opts: SearchOptions,
+        mut board: Board,
+        precomp: &Precomputed,
+        magics: &MagicBitBoards,
+        zobrist: &Zobrist,
+        mut movegen: MoveGenerator,
+    ) {
         self.opts = opts;
         self.init();
 
-        let moves = &movegen.moves;
+        let moves = movegen.moves.clone();
         self.backup_move = moves[0];
-        self.best_move = Some(moves[0]);
-        self.in_search = true;
+
+        let mut best_eval = Self::NEGATIVE_INFINITY;
+        for m in moves {
+            board.make_move(m, true, zobrist);
+            let eval = -self.search(1, 0, &mut board, precomp, magics, zobrist, &mut movegen);
+            board.unmake_move(m, true);
+
+            if !self.in_search {
+                break;
+            }
+
+            if eval > best_eval {
+                self.best_move = Some(m);
+                best_eval = eval;
+            }
+        }
+        self.in_search = false;
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn search(
+        &mut self,
+        depth: u16,
+        depth_remaining: u16,
+        board: &mut Board,
+        precomp: &Precomputed,
+        magics: &MagicBitBoards,
+        zobrist: &Zobrist,
+        movegen: &mut MoveGenerator,
+    ) -> i32 {
+        if let Some(time) = self.opts.movetime {
+            if time <= Instant::now().duration_since(self.start_time).as_millis() as u32 {
+                self.in_search = false;
+                return 0;
+            }
+        }
+
+        if depth > 0 {
+            if board.current_state.fifty_move_counter >= 100 {
+                return 0;
+            }
+        }
+
+        if depth_remaining == 0 {
+            let mut eval = Evaluation::new(board, precomp, magics);
+            return if board.white_to_move {
+                eval.evaluate::<White, Black>()
+            } else {
+                eval.evaluate::<Black, White>()
+            }
+        }
+
+        movegen.generate_moves(board, precomp, magics, false);
+        let moves = movegen.moves.clone();
+
+        if moves.is_empty() {
+            if movegen.in_check() {
+                return Self::IMMEDIATE_MATE_SCORE - depth as i32;
+            } else {
+                return 0;
+            }
+        }
+
+        let mut best_move = Move::NULL;
+        let mut best_eval = Self::NEGATIVE_INFINITY;
+        for m in moves {
+            board.make_move(m, true, zobrist);
+            let eval = -self.search(depth + 1, depth_remaining - 1, board, precomp, magics, zobrist, movegen);
+            board.unmake_move(m, true);
+
+            if !self.in_search {
+                return 0;
+            }
+
+            if eval > best_eval {
+                best_move = m;
+                best_eval = eval;
+            }
+        }
+
+        best_eval
     }
 
     fn init(&mut self) {
@@ -48,12 +139,6 @@ impl<'a> Searcher<'a> {
     }
 
     pub fn best_move(&mut self) -> Option<Move> {
-        if let Some(time) = self.opts.movetime {
-            if time <= Instant::now().duration_since(self.start_time).as_millis() as u32 {
-                self.in_search = false;
-            }
-        }
-
         if self.in_search {
             None
         } else {
