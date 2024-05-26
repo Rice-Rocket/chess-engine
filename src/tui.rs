@@ -1,7 +1,7 @@
 use std::io::{stdout, Stdout, Write};
 use termion::{async_stdin, clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, search::options::SearchOptions, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, search::{diagnostics::SearchDiagnostics, options::SearchOptions}, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -11,13 +11,16 @@ const TRUECOLOR_DARK_SQUARE: color::Rgb = color::Rgb(88, 113, 61);
 const TRUECOLOR_LIGHT_SQUARE: color::Rgb = color::Rgb(128, 164, 91);
 const TRUECOLOR_BLACK_PIECE: color::Rgb = color::Rgb(71, 68, 66);
 const TRUECOLOR_WHITE_PIECE: color::Rgb = color::Rgb(249, 249, 249);
-const TRUECOLOR_DARK_LASTMOVE: color::Rgb = color::Rgb(227, 166, 34);
-const TRUECOLOR_LIGHT_LASTMOVE: color::Rgb = color::Rgb(251, 183, 68);
+const TRUECOLOR_DARK_CURSOR: color::Rgb = color::Rgb(227, 166, 34);
+const TRUECOLOR_LIGHT_CURSOR: color::Rgb = color::Rgb(251, 183, 68);
+const TRUECOLOR_DARK_LASTMOVE: color::Rgb = color::Rgb(177, 188, 16);
+const TRUECOLOR_LIGHT_LASTMOVE: color::Rgb = color::Rgb(177, 188, 16);
 const TRUECOLOR_DARK_VALID: color::Rgb = color::Rgb(212, 109, 81);
 const TRUECOLOR_LIGHT_VALID: color::Rgb = color::Rgb(236, 126, 106);
 const TRUECOLOR_DARK_BB: color::Rgb = color::Rgb(115, 187, 218);
 const TRUECOLOR_LIGHT_BB: color::Rgb = color::Rgb(88, 170, 193);
 
+#[allow(clippy::too_many_arguments)]
 pub fn display_board(
     stdout: &mut RawTerminal<Stdout>,
     board: &Board,
@@ -26,16 +29,33 @@ pub fn display_board(
     valid_moves: &[Move],
     overlayed_bb: Option<BitBoard>,
     truecolor: bool,
+    diagnostics: Option<SearchDiagnostics>,
 ) {
+    let last_move = board.move_log.last();
+
     for mut sqr in Coord::iter_squares() {
         sqr = sqr.flip_rank();
         let is_light = (sqr.rank() + sqr.file()) % 2 != 0;
 
         if sqr.square() % 8 == 0 {
+            if let Some(diag) = diagnostics {
+                if sqr.rank() == 4 {
+                    write!(stdout, "    Depth Searched: {}", diag.depth_searched).unwrap();
+                }
+
+                if sqr.rank() == 3 {
+                    if diag.is_mate_score() {
+                        write!(stdout, "    Evaluation: M{}", diag.moves_till_mate()).unwrap();
+                    } else {
+                        write!(stdout, "    Evaluation: {}", diag.evaluation).unwrap();
+                    }
+                }
+            }
+
             if sqr.rank() == 7 {
-                write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
+                write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}  \n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
             } else {
-                write!(stdout, "\n\r{}┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
+                write!(stdout, "\n\r{}┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫{}  \n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
             }
         }
 
@@ -95,13 +115,26 @@ pub fn display_board(
             write!(stdout, "{}{}", color::Bg(color::Black), color::Fg(color::LightWhite)).unwrap();
         }
 
+        if truecolor {
+            if let Some(lastmove) = last_move {
+                if (sqr.rank() == lastmove.start().rank() && sqr.file() == lastmove.start().file())
+                    || (sqr.rank() == lastmove.target().rank() && sqr.file() == lastmove.target().file()) {
+                        if is_light {
+                            write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_LASTMOVE)).unwrap();
+                        } else {
+                            write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_LASTMOVE)).unwrap();
+                        }
+                    }
+            }
+        }
+
         if let Some(p) = selected {
             if sqr.rank() == p.1 && sqr.file() == p.0 {
                 if truecolor {
                     if is_light {
-                        write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_LASTMOVE)).unwrap();
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_CURSOR)).unwrap();
                     } else {
-                        write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_LASTMOVE)).unwrap();
+                        write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_CURSOR)).unwrap();
                     }
                 } else {
                     write!(stdout, "{}{}", color::Bg(color::LightGreen), color::Fg(color::Black)).unwrap();
@@ -127,9 +160,9 @@ pub fn display_board(
         if sqr.rank() == cursor.1 && sqr.file() == cursor.0 {
             if truecolor {
                 if is_light {
-                    write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_LASTMOVE)).unwrap();
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_LIGHT_CURSOR)).unwrap();
                 } else {
-                    write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_LASTMOVE)).unwrap();
+                    write!(stdout, "{}", color::Bg(TRUECOLOR_DARK_CURSOR)).unwrap();
                 }
             } else {
                 write!(stdout, "{}{}", color::Bg(color::LightYellow), color::Fg(color::Black)).unwrap();
@@ -143,9 +176,20 @@ pub fn display_board(
             color::Fg(color::LightBlack),
             color::Fg(color::Reset),
         ).unwrap();
+
+        if sqr.square() % 8 == 7 {
+            write!(
+                stdout,
+                " {}{}{}",
+                color::Fg(color::Yellow),
+                sqr.rank() + 1,
+                color::Fg(color::Reset),
+            ).unwrap();
+        }
     }
 
-    write!(stdout, "\n\r{}┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛{}\n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
+    write!(stdout, "\n\r{}┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛{}  ", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
+    write!(stdout, "\n\r{}  a   b   c   d   e   f   g   h  {}\n\r", color::Fg(color::Yellow), color::Fg(color::Reset)).unwrap();
 
     stdout.flush().unwrap();
 }
@@ -177,15 +221,16 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
     let mut overlayed_bitboard: Option<BitBoard> = None;
     let mut force_move = false;
     let mut game_over = false;
+    let mut diagnostics = SearchDiagnostics::default();
 
     write!(stdout, "{}", cursor::Hide).unwrap();
-    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None, truecolor);
+    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None, truecolor, Some(diagnostics));
 
     stdout.flush().unwrap();
 
     'main: loop {
         if let Some(c) = stdin.next() {
-            write!(stdout, "{}{}", cursor::Up(17), clear::AfterCursor).unwrap();
+            write!(stdout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
 
             match mode {
                 InputMode::Normal => match c.unwrap() {
@@ -464,7 +509,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
 
             cursor.0 = cursor.0.clamp(0, 7);
             cursor.1 = cursor.1.clamp(0, 7);
-            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor);
+            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
             stdout.flush().unwrap();
         }
 
@@ -473,8 +518,9 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
         while game.player_to_move == PlayerType::Computer && !is_terminal {
             if let Some(res) = game.try_make_computer_move() {
                 result = res;
-                write!(stdout, "{}{}", cursor::Up(17), clear::AfterCursor).unwrap();
-                display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor);
+                diagnostics = game.searcher.diagnostics;
+                write!(stdout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
+                display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
 
                 stdout.flush().unwrap();
                 break;
@@ -494,14 +540,14 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                 GameResult::InsufficientMaterial => "Draw by Insufficient Material",
             };
 
-            write!(stdout, "{}", cursor::Up(17)).unwrap();
+            write!(stdout, "{}", cursor::Up(18)).unwrap();
             game_over = true;
 
             if let Some(lines) = printed_dbg_len { write!(stdout, "{}", cursor::Up(lines)).unwrap(); }
             write!(stdout, "{}{}{}{}\n\r", clear::CurrentLine, color::Fg(color::Yellow), message, color::Fg(color::Reset)).unwrap();
             printed_dbg_len = Some(1);
 
-            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor);
+            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
             stdout.flush().unwrap();
         }
     }

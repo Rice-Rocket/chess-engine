@@ -30,13 +30,13 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
         if fen.trim() == "" { continue };
 
         for i in 0..=1 {
-            let white = if i == 0 { PlayerType::Human } else { PlayerType::Computer };
-            let black = if i == 0 { PlayerType::Computer } else { PlayerType::Human };
+            let white = if i == 0 { PlayerType::Computer } else { PlayerType::Human };
+            let black = if i == 0 { PlayerType::Human } else { PlayerType::Computer };
             let mut game = Game::new(Some(fen.to_string()), opts, white, black);
             let mut result = GameResult::InProgress;
 
             if let Some(sout) = stdout.as_mut() {
-                display_board(sout, &game.board, (-1, -1), None, &[], None, true);
+                display_board(sout, &game.board, (-1, -1), None, &[], None, true, None);
                 sout.flush().unwrap();
             }
 
@@ -105,8 +105,8 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
                     },
                     CommandDisplayMethod::Tui => {
                         if let Some(sout) = stdout.as_mut() {
-                            write!(sout, "{}{}", cursor::Up(17), clear::AfterCursor).unwrap();
-                            display_board(sout, &game.board, (-1, -1), None, &[], None, true);
+                            write!(sout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
+                            display_board(sout, &game.board, (-1, -1), None, &[], None, true, None);
                             sout.flush().unwrap();
                         }
                     },
@@ -129,7 +129,7 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
                 },
                 CommandDisplayMethod::Tui => {
                     if let Some(sout) = stdout.as_mut() {
-                        write!(sout, "{}{}", cursor::Up(18), clear::CurrentLine).unwrap();
+                        write!(sout, "{}{}", cursor::Up(19), clear::CurrentLine).unwrap();
                         write!(
                             sout, "{}wins: {}{}  |  {}draws: {}{}  |  {}losses: {}{}\n\r",
                             color::Fg(color::Green), wins, color::Fg(color::Reset),
