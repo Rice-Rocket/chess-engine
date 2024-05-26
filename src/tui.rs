@@ -30,11 +30,12 @@ pub fn display_board(
     overlayed_bb: Option<BitBoard>,
     truecolor: bool,
     diagnostics: Option<SearchDiagnostics>,
+    flip: bool,
 ) {
     let last_move = board.move_log.last();
 
     for mut sqr in Coord::iter_squares() {
-        sqr = sqr.flip_rank();
+        if !flip { sqr = sqr.flip_rank() };
         let is_light = (sqr.rank() + sqr.file()) % 2 != 0;
 
         if sqr.square() % 8 == 0 {
@@ -52,7 +53,7 @@ pub fn display_board(
                 }
             }
 
-            if sqr.rank() == 7 {
+            if sqr.rank() == if flip { 0 } else { 7 } {
                 write!(stdout, "{}┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓{}  \n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
             } else {
                 write!(stdout, "\n\r{}┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫{}  \n\r", color::Fg(color::LightBlack), color::Fg(color::Reset)).unwrap();
@@ -224,7 +225,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
     let mut diagnostics = SearchDiagnostics::default();
 
     write!(stdout, "{}", cursor::Hide).unwrap();
-    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None, truecolor, Some(diagnostics));
+    display_board(&mut stdout, &game.board, cursor, None, &valid_moves, None, truecolor, Some(diagnostics), false);
 
     stdout.flush().unwrap();
 
@@ -509,7 +510,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
 
             cursor.0 = cursor.0.clamp(0, 7);
             cursor.1 = cursor.1.clamp(0, 7);
-            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
+            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics), false);
             stdout.flush().unwrap();
         }
 
@@ -520,7 +521,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                 result = res;
                 diagnostics = game.searcher.diagnostics;
                 write!(stdout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
-                display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
+                display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics), false);
 
                 stdout.flush().unwrap();
                 break;
@@ -547,7 +548,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
             write!(stdout, "{}{}{}{}\n\r", clear::CurrentLine, color::Fg(color::Yellow), message, color::Fg(color::Reset)).unwrap();
             printed_dbg_len = Some(1);
 
-            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics));
+            display_board(&mut stdout, &game.board, cursor, selected, &valid_moves, overlayed_bitboard, truecolor, Some(diagnostics), false);
             stdout.flush().unwrap();
         }
     }

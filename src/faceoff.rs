@@ -36,7 +36,7 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
             let mut result = GameResult::InProgress;
 
             if let Some(sout) = stdout.as_mut() {
-                display_board(sout, &game.board, (-1, -1), None, &[], None, true, None);
+                display_board(sout, &game.board, (-1, -1), None, &[], None, true, None, black == PlayerType::Computer);
                 sout.flush().unwrap();
             }
 
@@ -102,7 +102,7 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
                     CommandDisplayMethod::Tui => {
                         if let Some(sout) = stdout.as_mut() {
                             write!(sout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
-                            display_board(sout, &game.board, (-1, -1), None, &[], None, true, None);
+                            display_board(sout, &game.board, (-1, -1), None, &[], None, true, None, black == PlayerType::Computer);
                             sout.flush().unwrap();
                         }
                     },
