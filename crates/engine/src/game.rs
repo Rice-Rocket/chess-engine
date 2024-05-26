@@ -54,6 +54,10 @@ impl<'a> Game<'a> {
 
     pub fn make_move(&mut self, m: Move) -> GameResult {
         self.board.make_move(m, false, &self.zobrist);
+        self.make_move_post()
+    }
+
+    pub fn make_move_post(&mut self) -> GameResult {
         let result = self.get_game_result();
 
         if result.is_terminal() {

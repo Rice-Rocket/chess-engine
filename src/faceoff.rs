@@ -72,7 +72,8 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
                     }
                 }
 
-                let opp_move = if game.player_to_move == PlayerType::Human {
+                let mut make_move_post = false;
+                if game.player_to_move == PlayerType::Human {
                     if !opponent_in_search {
                         opponent.set_position_moves(fen, game.board.move_log.iter().map(|m| name_from_move(*m).unwrap()).collect()).await.unwrap();
                         opponent.go_time(movetime as usize).await.unwrap();
@@ -81,22 +82,17 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
 
                     if let Some(bestmove) = opponent.get_bestmove() {
                         opponent_in_search = false;
-                        Some(move_from_name(&game.board, &bestmove).unwrap())
+                        game.board.make_move(move_from_name(&game.board, &bestmove).unwrap(), false, &game.zobrist);
+                        make_move_post = true;
                     } else {
                         continue 'game;
                     }
-                } else { None };
-
-                if game.player_to_move == PlayerType::Computer {
+                } else if game.player_to_move == PlayerType::Computer {
                     if let Some(res) = game.try_make_computer_move() {
                         result = res;
                     } else {
                         continue 'game;
                     }
-                }
-
-                if let Some(m) = opp_move {
-                    result = game.make_move(m);
                 }
 
                 match display {
@@ -113,6 +109,10 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
                     CommandDisplayMethod::Gui => {
 
                     }
+                }
+
+                if make_move_post {
+                    result = game.make_move_post();
                 }
             }
 
@@ -151,7 +151,9 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
             println!();
         },
         CommandDisplayMethod::Tui => {
-
+            if let Some(sout) = stdout.as_mut() {
+                write!(sout, "{}{}", cursor::Up(18), clear::AfterCursor).unwrap();
+            }
         },
         CommandDisplayMethod::Gui => {
 
