@@ -8,7 +8,7 @@ pub mod options;
 pub mod diagnostics;
 pub mod repetition;
 pub mod transpositions;
-
+pub mod ordering;
 
 pub struct Searcher<'a> {
     pub diagnostics: SearchDiagnostics,
@@ -85,17 +85,17 @@ impl<'a> Searcher<'a> {
                 continue;
             }
 
-            // Ensure the best move from the previous search is considered first.
+            // Order moves and ensure the best move from the previous search is considered first.
             // This way, partial searches can be used as they will either agree on the best move, 
             // or they will have found a better move.
-            let ordered_moves = if let Some(m) = self.best_move {
-                let mut m_clone = moves.clone();
-                let m_index = moves.iter().position(|mov| *mov == m).unwrap();
-                m_clone.swap(0, m_index);
-                m_clone
-            } else {
-                moves.clone()
-            };
+            let ordered_moves = ordering::order(
+                if let Some(m) = self.best_move { m } else { Move::NULL },
+                &moves,
+                &board,
+                movegen.enemy_attack_map,
+                movegen.enemy_pawn_attack_map,
+                0,
+            );
 
             for m in ordered_moves {
                 let captured_ptype = board.square[m.target()].piece_type();
@@ -212,7 +212,16 @@ impl<'a> Searcher<'a> {
         let mut best_move = Move::NULL;
         let mut eval_bound = TranspositionNodeType::UpperBound;
 
-        for m in moves {
+        let ordered_moves = ordering::order(
+            self.transposition_table.get_stored_move(zobrist_key),
+            &moves,
+            board,
+            movegen.enemy_attack_map,
+            movegen.enemy_pawn_attack_map,
+            depth,
+        );
+
+        for m in ordered_moves {
             let captured_ptype = board.square[m.target()].piece_type();
             let is_capture = captured_ptype != Piece::NONE;
 
