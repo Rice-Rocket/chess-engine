@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, time::Instant};
 use crate::Cli;
 
 use clap::{error::ErrorKind, CommandFactory};
-use engine::{board::{moves::Move, zobrist::Zobrist, Board}, game::{Game, PlayerType}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, search::options::SearchOptions, utils::{fen, representation}};
+use engine::{board::{moves::Move, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, search::options::SearchOptions, utils::{fen, representation}};
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
@@ -13,6 +13,7 @@ pub fn movegen_test(
     precomp: &Precomputed,
     magics: &MagicBitBoards,
     depth: u16,
+    eval: bool,
 ) -> u64 {
     if depth == 0 { return 1 };
 
@@ -21,7 +22,13 @@ pub fn movegen_test(
 
     for m in movegen.moves.clone().into_iter() {
         board.make_move(m, true, zobrist);
-        let n = movegen_test(board, zobrist, movegen, precomp, magics, depth - 1);
+        
+        if eval {
+            let mut evaluation = Evaluation::new(board, precomp, magics);
+            evaluation.evaluate::<White, Black>();
+        }
+
+        let n = movegen_test(board, zobrist, movegen, precomp, magics, depth - 1, eval);
         nodes += n;
         board.unmake_move(m, true);
     }
@@ -193,7 +200,7 @@ pub fn expected_nodes(position: u16, depth: u16) -> u64 {
 }
 
 
-pub async fn test_perft(position: u16, depth: u16, fen: &str, expand_branch_nodes: bool, cmp: bool) -> Result<(), clap::Error> {
+pub async fn test_perft(position: u16, depth: u16, fen: &str, expand_branch_nodes: bool, cmp: bool, eval: bool) -> Result<(), clap::Error> {
     let mut game = Game::new(Some(fen.to_string()), SearchOptions::default(), PlayerType::Human, PlayerType::Human);
     let expected_nodes = expected_nodes(position, depth);
 
@@ -201,7 +208,7 @@ pub async fn test_perft(position: u16, depth: u16, fen: &str, expand_branch_node
     let (nodes, mut move_nodes) = if expand_branch_nodes {
         movegen_test_expand(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth)
     } else {
-        (movegen_test(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth), vec![])
+        (movegen_test(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth, eval), vec![])
     };
     let time_spent = Instant::now().duration_since(start);
 

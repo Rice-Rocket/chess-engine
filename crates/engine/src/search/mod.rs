@@ -107,8 +107,7 @@ impl<'a> Searcher<'a> {
 
                 board.make_move(m, true, zobrist);
 
-                // let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
-                let extension = 0;
+                let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
 
                 let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, &mut ordering, &mut repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
                 board.unmake_move(m, true);
@@ -243,10 +242,9 @@ impl<'a> Searcher<'a> {
             board.make_move(m, true, zobrist);
 
             // If the move is a check, extend the search depth
-            // let extension = if n_extensions < Self::MAX_EXTENSIONS {
-            //     if board.in_check(magics, precomp) { 1 } else { 0 }
-            // } else { 0 };
-            let extension = 0;
+            let extension = if n_extensions < Self::MAX_EXTENSIONS {
+                if board.in_check(magics, precomp) { 1 } else { 0 }
+            } else { 0 };
 
             let eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
             board.unmake_move(m, true);

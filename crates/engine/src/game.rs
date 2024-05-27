@@ -31,7 +31,9 @@ impl<'a> Game<'a> {
         let mut movegen = MoveGenerator::default();
         let mut searcher = Searcher::new();
 
+        movegen.generate_moves(&board, &precomp, &magics, false);
         let player_to_move = if board.white_to_move { white } else { black };
+
         if player_to_move == PlayerType::Computer {
             searcher.begin_search(search_opts, &mut board, &precomp, &magics, &zobrist, &mut movegen);
         }

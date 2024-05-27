@@ -31,7 +31,9 @@ impl MoveOrdering {
             | board.piece_bitboards[Piece::new(Piece::KNIGHT | board.opponent_color)];
         let mut scores = Vec::with_capacity(moves.len());
 
-        for m in moves.iter() {
+        // BUG: Move generation somehow creates null moves sometimes (but only during search!!).
+        // Problem seems to arise when MoveGenerator.generate_moves() is called twice.
+        for m in moves.iter().filter(|m| **m != Move::NULL) {
             if *m == firstmove {
                 scores.push(Self::FIRST_MOVE_SCORE);
                 continue;

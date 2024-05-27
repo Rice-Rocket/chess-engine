@@ -42,7 +42,12 @@ enum Commands {
         #[arg(long, short)]
         all: bool,
 
+        /// Whether or not to also run the static evaluation function on each position. This helps bench
+        /// the evaluation speed.
         #[arg(long, short)]
+        eval: bool,
+
+        #[arg(long, short = 'b')]
         expand_branches: bool,
 
         #[arg(long, short = 'r')]
@@ -147,6 +152,7 @@ async fn main() {
             fen: fen_str,
             depth,
             all,
+            eval,
             mut expand_branches,
             test_recursive,
             compare,
@@ -201,14 +207,14 @@ async fn main() {
                 perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth).await;
             } else if all {
                 for i in 1..=depth {
-                    match perft::test_perft(position, i, &fen, expand_branches, false).await {
+                    match perft::test_perft(position, i, &fen, expand_branches, false, eval).await {
                         Ok(_) => (),
                         Err(_) => return
                     }
                 }
             } else {
                 if compare { expand_branches = true };
-                match perft::test_perft(position, depth, &fen, expand_branches, compare).await {
+                match perft::test_perft(position, depth, &fen, expand_branches, compare, eval).await {
                     Ok(_) => (),
                     Err(_) => return,
                 }
