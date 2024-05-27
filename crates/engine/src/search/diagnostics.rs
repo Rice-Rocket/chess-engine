@@ -2,7 +2,7 @@ use super::Searcher;
 
 #[derive(Default, Clone, Copy)]
 pub struct SearchDiagnostics {
-    pub depth_searched: u16,
+    pub depth_searched: u8,
     pub evaluation: i32,
 }
 

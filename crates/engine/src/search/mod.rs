@@ -2,16 +2,18 @@ use std::time::Instant;
 
 use crate::{board::{moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
-use self::{diagnostics::SearchDiagnostics, options::SearchOptions, repetition::RepetitionTable};
+use self::{diagnostics::SearchDiagnostics, options::SearchOptions, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
 
 pub mod options;
 pub mod diagnostics;
 pub mod repetition;
+pub mod transpositions;
 
 
 pub struct Searcher<'a> {
     pub diagnostics: SearchDiagnostics,
     pub in_search: bool,
+    pub transposition_table: TranspositionTable<16_777_216>, // 256 MB: 16_777_216
     best_move: Option<Move>,
     backup_move: Move,
     eval: Option<Evaluation<'a>>,
@@ -27,6 +29,7 @@ impl<'a> Searcher<'a> {
     pub fn new() -> Self {
         Self {
             diagnostics: SearchDiagnostics::default(),
+            transposition_table: TranspositionTable::new(),
             best_move: None,
             backup_move: Move::NULL,
             in_search: false,
@@ -58,10 +61,29 @@ impl<'a> Searcher<'a> {
         let mut repetition_table = RepetitionTable::new(&board);
 
         // Iterative Deepening
-        for depth in 1..=256 {
+        for depth in 1..=255 {
             let mut best_move_this_iter = None;
             let mut alpha = Self::NEGATIVE_INFINITY;
             let mut beta = Self::POSITIVE_INFINITY;
+
+            let zobrist_key = board.current_state.zobrist_key;
+            if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth, 0, alpha, beta) {
+                let entry = self.transposition_table.get(zobrist_key);
+                best_move_this_iter = Some(entry.m);
+                alpha = entry.eval;
+
+                self.best_move = best_move_this_iter;
+                self.diagnostics.depth_searched = depth;
+                self.diagnostics.evaluation = alpha;
+
+                // Exit if mate was found
+                if alpha.abs() > Self::IMMEDIATE_MATE_SCORE - 1000 
+                && Self::IMMEDIATE_MATE_SCORE - alpha.abs() <= depth as i32 {
+                    break;
+                }
+
+                continue;
+            }
 
             // Ensure the best move from the previous search is considered first.
             // This way, partial searches can be used as they will either agree on the best move, 
@@ -127,8 +149,8 @@ impl<'a> Searcher<'a> {
     #[allow(clippy::too_many_arguments)]
     fn search(
         &mut self,
-        depth: u16,
-        depth_remaining: u16,
+        depth: u8,
+        depth_remaining: u8,
         mut alpha: i32,
         mut beta: i32,
         board: &mut Board,
@@ -159,6 +181,12 @@ impl<'a> Searcher<'a> {
             return alpha;
         }
 
+        // Check if we've already come across this position, and if so retrieve the evaluation
+        let zobrist_key = board.current_state.zobrist_key;
+        if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth_remaining, depth, alpha, beta) {
+            return tt_eval;
+        }
+
         // Once we hit a leaf node, perform static evaluation of the position
         if depth_remaining == 0 {
             let mut eval = Evaluation::new(board, precomp, magics);
@@ -182,6 +210,8 @@ impl<'a> Searcher<'a> {
         repetition_table.push(board.current_state.zobrist_key, prev_move_was_capture || was_pawn_move);
 
         let mut best_move = Move::NULL;
+        let mut eval_bound = TranspositionNodeType::UpperBound;
+
         for m in moves {
             let captured_ptype = board.square[m.target()].piece_type();
             let is_capture = captured_ptype != Piece::NONE;
@@ -196,6 +226,7 @@ impl<'a> Searcher<'a> {
 
             // Beta cutoff / Fail high
             if eval >= beta {
+                self.transposition_table.store(zobrist_key, depth_remaining, depth, beta, TranspositionNodeType::LowerBound, m);
                 repetition_table.pop();
                 return beta;
             }
@@ -204,10 +235,12 @@ impl<'a> Searcher<'a> {
             if eval > alpha {
                 alpha = eval;
                 best_move = m;
+                eval_bound = TranspositionNodeType::Exact;
             }
         }
 
         repetition_table.pop();
+        self.transposition_table.store(zobrist_key, depth_remaining, depth, alpha, eval_bound, best_move);
 
         alpha
     }
