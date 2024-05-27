@@ -1,11 +1,12 @@
 use std::time::Instant;
 
-use crate::{board::{moves::Move, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
+use crate::{board::{moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
-use self::{diagnostics::SearchDiagnostics, options::SearchOptions};
+use self::{diagnostics::SearchDiagnostics, options::SearchOptions, repetition::RepetitionTable};
 
 pub mod options;
 pub mod diagnostics;
+pub mod repetition;
 
 
 pub struct Searcher<'a> {
@@ -54,6 +55,8 @@ impl<'a> Searcher<'a> {
         let moves = movegen.moves.clone();
         self.backup_move = moves[0];
 
+        let mut repetition_table = RepetitionTable::new(&board);
+
         // Iterative Deepening
         for depth in 1..=256 {
             let mut best_move_this_iter = None;
@@ -73,8 +76,11 @@ impl<'a> Searcher<'a> {
             };
 
             for m in ordered_moves {
+                let captured_ptype = board.square[m.target()].piece_type();
+                let is_capture = captured_ptype != Piece::NONE;
+
                 board.make_move(m, true, zobrist);
-                let eval = -self.search(1, depth - 1, -beta, -alpha, &mut board, precomp, magics, zobrist, &mut movegen);
+                let eval = -self.search(1, depth - 1, -beta, -alpha, &mut board, &mut repetition_table, m, is_capture, precomp, magics, zobrist, &mut movegen);
                 board.unmake_move(m, true);
 
                 if !self.in_search {
@@ -126,6 +132,9 @@ impl<'a> Searcher<'a> {
         mut alpha: i32,
         mut beta: i32,
         board: &mut Board,
+        repetition_table: &mut RepetitionTable,
+        prev_move: Move,
+        prev_move_was_capture: bool,
         precomp: &Precomputed,
         magics: &MagicBitBoards,
         zobrist: &Zobrist,
@@ -139,8 +148,7 @@ impl<'a> Searcher<'a> {
         }
 
         // Consider draw cases
-        // TODO: Also consider three-fold repetition inside the search
-        if board.current_state.fifty_move_counter >= 100 {
+        if board.current_state.fifty_move_counter >= 100 || repetition_table.contains(board.current_state.zobrist_key) {
             return 0;
         }
 
@@ -169,10 +177,17 @@ impl<'a> Searcher<'a> {
             }
         }
 
+        // Update repetition table
+        let was_pawn_move = board.square[prev_move.target()].piece_type() == Piece::PAWN;
+        repetition_table.push(board.current_state.zobrist_key, prev_move_was_capture || was_pawn_move);
+
         let mut best_move = Move::NULL;
         for m in moves {
+            let captured_ptype = board.square[m.target()].piece_type();
+            let is_capture = captured_ptype != Piece::NONE;
+
             board.make_move(m, true, zobrist);
-            let eval = -self.search(depth + 1, depth_remaining - 1, -beta, -alpha, board, precomp, magics, zobrist, movegen);
+            let eval = -self.search(depth + 1, depth_remaining - 1, -beta, -alpha, board, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
             board.unmake_move(m, true);
 
             if !self.in_search {
@@ -181,6 +196,7 @@ impl<'a> Searcher<'a> {
 
             // Beta cutoff / Fail high
             if eval >= beta {
+                repetition_table.pop();
                 return beta;
             }
 
@@ -190,6 +206,8 @@ impl<'a> Searcher<'a> {
                 best_move = m;
             }
         }
+
+        repetition_table.pop();
 
         alpha
     }

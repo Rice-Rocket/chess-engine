@@ -32,6 +32,8 @@ pub trait ExternalUciCapable {
 
     async fn quit(&mut self) -> Result<()>;
 
+    async fn kill(&mut self) -> Result<()>;
+
     async fn get_evaluation_block(&mut self) -> Option<UciEvaluation>;
 
     async fn get_perfts_block(&mut self) -> Result<Vec<UciPerftResults>>;
@@ -49,7 +51,7 @@ pub trait ExternalUciCapable {
 
 
 pub struct ExternalUci {
-    _process: Child,
+    process: Child,
     stdin: ChildStdin,
     state: UciState,
 }
@@ -59,7 +61,7 @@ impl ExternalUci {
         let (process, stdin, stdout) = spawn_process(exe_path, vec![])?;
         let state = UciState::new(stdout).await;
         Ok(ExternalUci {
-            _process: process,
+            process,
             state,
             stdin,
         })
@@ -69,7 +71,7 @@ impl ExternalUci {
         let (process, stdin, stdout) = spawn_process(exe_path, args)?;
         let state = UciState::new(stdout).await;
         Ok(ExternalUci {
-            _process: process,
+            process,
             state,
             stdin,
         })
@@ -202,6 +204,11 @@ impl ExternalUciCapable for ExternalUci {
     async fn quit(&mut self) -> Result<()> {
         self.send_command("quit\n".to_string()).await?;
         self.set_state(UciStateEnum::Initialized).await?;
+        Ok(())
+    }
+
+    async fn kill(&mut self) -> Result<()> {
+        self.process.kill().await.unwrap();
         Ok(())
     }
 

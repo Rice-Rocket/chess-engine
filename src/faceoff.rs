@@ -161,7 +161,7 @@ pub async fn start(mut opponent: ExternalUci, positions: PathBuf, movetime: u32,
     }
 
     opponent.stop().await.unwrap();
-    opponent.quit().await.unwrap();
+    opponent.kill().await.unwrap();
 
     Ok(())
 }
