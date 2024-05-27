@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::{board::{moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
-use self::{diagnostics::SearchDiagnostics, options::SearchOptions, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
+use self::{diagnostics::SearchDiagnostics, options::SearchOptions, ordering::MoveOrdering, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
 
 pub mod options;
 pub mod diagnostics;
@@ -13,7 +13,7 @@ pub mod ordering;
 pub struct Searcher<'a> {
     pub diagnostics: SearchDiagnostics,
     pub in_search: bool,
-    pub transposition_table: TranspositionTable<16_777_216>, // 256 MB: 16_777_216
+    pub transposition_table: TranspositionTable<4_194_304>, // 64 MB: 4_194_304
     best_move: Option<Move>,
     backup_move: Move,
     eval: Option<Evaluation<'a>>,
@@ -59,12 +59,14 @@ impl<'a> Searcher<'a> {
         self.backup_move = moves[0];
 
         let mut repetition_table = RepetitionTable::new(&board);
+        let mut ordering = MoveOrdering::new();
 
         // Iterative Deepening
         for depth in 1..=255 {
             let mut best_move_this_iter = None;
             let mut alpha = Self::NEGATIVE_INFINITY;
             let mut beta = Self::POSITIVE_INFINITY;
+            let mut eval_bound = TranspositionNodeType::UpperBound;
 
             let zobrist_key = board.current_state.zobrist_key;
             if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth, 0, alpha, beta) {
@@ -88,7 +90,7 @@ impl<'a> Searcher<'a> {
             // Order moves and ensure the best move from the previous search is considered first.
             // This way, partial searches can be used as they will either agree on the best move, 
             // or they will have found a better move.
-            let ordered_moves = ordering::order(
+            let ordered_moves = ordering.order(
                 if let Some(m) = self.best_move { m } else { Move::NULL },
                 &moves,
                 &board,
@@ -102,7 +104,7 @@ impl<'a> Searcher<'a> {
                 let is_capture = captured_ptype != Piece::NONE;
 
                 board.make_move(m, true, zobrist);
-                let eval = -self.search(1, depth - 1, -beta, -alpha, &mut board, &mut repetition_table, m, is_capture, precomp, magics, zobrist, &mut movegen);
+                let eval = -self.search(1, depth - 1, -beta, -alpha, &mut board, &mut ordering, &mut repetition_table, m, is_capture, precomp, magics, zobrist, &mut movegen);
                 board.unmake_move(m, true);
 
                 if !self.in_search {
@@ -112,7 +114,12 @@ impl<'a> Searcher<'a> {
                 if eval > alpha {
                     best_move_this_iter = Some(m);
                     alpha = eval;
+                    eval_bound = TranspositionNodeType::Exact;
                 }
+            }
+
+            if let Some(m) = best_move_this_iter {
+                self.transposition_table.store(zobrist_key, depth, 0, alpha, eval_bound, m);
             }
 
             // Search was cancelled
@@ -154,6 +161,7 @@ impl<'a> Searcher<'a> {
         mut alpha: i32,
         mut beta: i32,
         board: &mut Board,
+        ordering: &mut MoveOrdering,
         repetition_table: &mut RepetitionTable,
         prev_move: Move,
         prev_move_was_capture: bool,
@@ -212,7 +220,7 @@ impl<'a> Searcher<'a> {
         let mut best_move = Move::NULL;
         let mut eval_bound = TranspositionNodeType::UpperBound;
 
-        let ordered_moves = ordering::order(
+        let ordered_moves = ordering.order(
             self.transposition_table.get_stored_move(zobrist_key),
             &moves,
             board,
@@ -226,7 +234,7 @@ impl<'a> Searcher<'a> {
             let is_capture = captured_ptype != Piece::NONE;
 
             board.make_move(m, true, zobrist);
-            let eval = -self.search(depth + 1, depth_remaining - 1, -beta, -alpha, board, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
+            let eval = -self.search(depth + 1, depth_remaining - 1, -beta, -alpha, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
             board.unmake_move(m, true);
 
             if !self.in_search {
@@ -236,6 +244,15 @@ impl<'a> Searcher<'a> {
             // Beta cutoff / Fail high
             if eval >= beta {
                 self.transposition_table.store(zobrist_key, depth_remaining, depth, beta, TranspositionNodeType::LowerBound, m);
+
+                if !is_capture {
+                    if (depth as usize) < MoveOrdering::MAX_KILLER_MOVE_DEPTH {
+                        ordering.killers[depth as usize].add(m);
+                    }
+                    let history_score = depth_remaining as i32 * depth_remaining as i32;
+                    ordering.history[board.move_color_idx][m.start()][m.target()] += history_score;
+                }
+
                 repetition_table.pop();
                 return beta;
             }
