@@ -25,6 +25,7 @@ impl<'a> Searcher<'a> {
     const IMMEDIATE_MATE_SCORE: i32 = 1000000;
     const POSITIVE_INFINITY: i32 = i32::MAX;
     const NEGATIVE_INFINITY: i32 = -Self::POSITIVE_INFINITY;
+    const MAX_EXTENSIONS: u8 = 16;
 
     pub fn new() -> Self {
         Self {
@@ -41,24 +42,25 @@ impl<'a> Searcher<'a> {
 
     /// Starts searching for the best move in the position depending on whose turn it is to move. 
     ///
-    /// Assumes that `movegen.generate_moves()` has been called beforehand and that the position
-    /// has valid moves (not stalemate or checkmate).
+    /// Assumes that that the position has valid moves (not stalemate or checkmate).
     pub fn begin_search(
         &mut self,
         opts: SearchOptions,
-        mut board: Board,
+        board: &mut Board,
         precomp: &Precomputed,
         magics: &MagicBitBoards,
         zobrist: &Zobrist,
-        mut movegen: MoveGenerator,
+        movegen: &mut MoveGenerator,
     ) {
         self.opts = opts;
         self.init();
 
+        movegen.generate_moves(board, precomp, magics, false);
+
         let moves = movegen.moves.clone();
         self.backup_move = moves[0];
 
-        let mut repetition_table = RepetitionTable::new(&board);
+        let mut repetition_table = RepetitionTable::new(board);
         let mut ordering = MoveOrdering::new();
 
         // Iterative Deepening
@@ -93,7 +95,7 @@ impl<'a> Searcher<'a> {
             let ordered_moves = ordering.order(
                 if let Some(m) = self.best_move { m } else { Move::NULL },
                 &moves,
-                &board,
+                board,
                 movegen.enemy_attack_map,
                 movegen.enemy_pawn_attack_map,
                 0,
@@ -104,7 +106,11 @@ impl<'a> Searcher<'a> {
                 let is_capture = captured_ptype != Piece::NONE;
 
                 board.make_move(m, true, zobrist);
-                let eval = -self.search(1, depth - 1, -beta, -alpha, &mut board, &mut ordering, &mut repetition_table, m, is_capture, precomp, magics, zobrist, &mut movegen);
+
+                // let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
+                let extension = 0;
+
+                let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, &mut ordering, &mut repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
                 board.unmake_move(m, true);
 
                 if !self.in_search {
@@ -160,6 +166,7 @@ impl<'a> Searcher<'a> {
         depth_remaining: u8,
         mut alpha: i32,
         mut beta: i32,
+        n_extensions: u8,
         board: &mut Board,
         ordering: &mut MoveOrdering,
         repetition_table: &mut RepetitionTable,
@@ -234,7 +241,14 @@ impl<'a> Searcher<'a> {
             let is_capture = captured_ptype != Piece::NONE;
 
             board.make_move(m, true, zobrist);
-            let eval = -self.search(depth + 1, depth_remaining - 1, -beta, -alpha, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
+
+            // If the move is a check, extend the search depth
+            // let extension = if n_extensions < Self::MAX_EXTENSIONS {
+            //     if board.in_check(magics, precomp) { 1 } else { 0 }
+            // } else { 0 };
+            let extension = 0;
+
+            let eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
             board.unmake_move(m, true);
 
             if !self.in_search {

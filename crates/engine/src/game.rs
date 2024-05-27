@@ -26,16 +26,14 @@ impl<'a> Game<'a> {
     pub fn new(start_fen: Option<String>, search_opts: SearchOptions, white: PlayerType, black: PlayerType) -> Self {
         let precomp = Precomputed::new();
         let mut zobrist = Zobrist::new();
-        let board = Board::load_position(start_fen, &mut zobrist);
+        let mut board = Board::load_position(start_fen, &mut zobrist);
         let magics = MagicBitBoards::default();
         let mut movegen = MoveGenerator::default();
         let mut searcher = Searcher::new();
 
-        movegen.generate_moves(&board, &precomp, &magics, false);
         let player_to_move = if board.white_to_move { white } else { black };
-
         if player_to_move == PlayerType::Computer {
-            searcher.begin_search(search_opts, board.clone(), &precomp, &magics, &zobrist, movegen.clone());
+            searcher.begin_search(search_opts, &mut board, &precomp, &magics, &zobrist, &mut movegen);
         }
 
         Self {
@@ -70,7 +68,7 @@ impl<'a> Game<'a> {
 
             },
             PlayerType::Computer => {
-                self.searcher.begin_search(self.search_opts, self.board.clone(), &self.precomp, &self.magics, &self.zobrist, self.movegen.clone());
+                self.searcher.begin_search(self.search_opts, &mut self.board, &self.precomp, &self.magics, &self.zobrist, &mut self.movegen);
             },
         }
 

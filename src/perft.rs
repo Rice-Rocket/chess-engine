@@ -20,10 +20,10 @@ pub fn movegen_test(
     let mut nodes = 0;
 
     for m in movegen.moves.clone().into_iter() {
-        board.make_move(m, false, zobrist);
+        board.make_move(m, true, zobrist);
         let n = movegen_test(board, zobrist, movegen, precomp, magics, depth - 1);
         nodes += n;
-        board.unmake_move(m, false);
+        board.unmake_move(m, true);
     }
 
     nodes

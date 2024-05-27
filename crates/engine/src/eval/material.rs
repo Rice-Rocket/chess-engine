@@ -75,7 +75,6 @@ impl<'a> Evaluation<'a> {
         while pieces.0 != 0 {
             let sqr = Coord::from_idx(pieces.pop_lsb() as i8);
             let ptype = self.board.square[sqr].piece_type();
-            if ptype == Piece::NONE { continue };
             v += if ptype == Piece::PAWN {
                 Self::PSQT_BONUS_MG_PAWN[W::rank(sqr.rank()) as usize][sqr.file() as usize]
             } else {

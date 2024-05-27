@@ -102,8 +102,7 @@ pub fn go(game: &mut Game, cmd: &str) -> Option<()> {
         opts.depth = Some(depth.parse().ok()?);
     }
 
-    game.movegen.generate_moves(&game.board, &game.precomp, &game.magics, false);
-    game.searcher.begin_search(opts, game.board.clone(), &game.precomp, &game.magics, &game.zobrist, game.movegen.clone());
+    game.searcher.begin_search(opts, &mut game.board, &game.precomp, &game.magics, &game.zobrist, &mut game.movegen);
     Some(())
 }
 
