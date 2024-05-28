@@ -11,7 +11,7 @@ impl<'a> Evaluation<'a> {
         let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
-        let supported = self.supported::<W, B>().0;
+        let supported = self.supported[W::index()].0;
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
@@ -82,7 +82,7 @@ impl<'a> Evaluation<'a> {
 
     pub fn king_proximity<W: Color, B: Color>(&self) -> SquareEvaluations {
         let mut eval = SquareEvaluations::new();
-        let mut sqrs = self.passed_leverable::<W, B>();
+        let mut sqrs = self.passed_leverable[W::index()];
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
@@ -112,7 +112,7 @@ impl<'a> Evaluation<'a> {
         let mut eval = SquareEvaluations::new();
 
         let mut sqrs = BitBoard::from_ranks(W::ranks(3..=7));
-        sqrs &= self.passed_leverable::<W, B>();
+        sqrs &= self.passed_leverable[W::index()];
 
         let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         pawns &= !self.board.all_pieces_bitboard.shifted_2d(W::down());
@@ -128,12 +128,12 @@ impl<'a> Evaluation<'a> {
             let forward_file = self.precomp.forward_files[W::index()][sqr];
             let span = self.precomp.pawn_attack_span[W::index()][sqr];
             let push_sqr = sqr.to_bitboard().shifted_2d(W::up());
-            let attacks = self.all_attacks::<W, B>();
-            let enemy_attacks = self.all_attacks::<B, W>();
+            let attacks = self.all_attacks[W::index()];
+            let enemy_attacks = self.all_attacks[B::index()];
 
             let mut defended = (forward_file & attacks).count() as i32;
             let mut not_safe = (forward_file & enemy_attacks).count() as i32;
-            let w_not_safe = (span & self.all_attacks::<B, W>()).count() as i32;
+            let w_not_safe = (span & self.all_attacks[B::index()]).count() as i32;
 
             let mut defended_1 = (push_sqr & attacks).count() as i32;
             let mut not_safe_1 = (push_sqr & enemy_attacks).count() as i32;
@@ -166,7 +166,7 @@ impl<'a> Evaluation<'a> {
 
     pub fn passed_file<W: Color, B: Color>(&self) -> SquareEvaluations {
         let mut eval = SquareEvaluations::new();
-        let mut sqrs = self.passed_leverable::<W, B>();
+        let mut sqrs = self.passed_leverable[W::index()];
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
@@ -178,7 +178,7 @@ impl<'a> Evaluation<'a> {
 
     pub fn passed_rank<W: Color, B: Color>(&self) -> SquareEvaluations {
         let mut eval = SquareEvaluations::new();
-        let mut sqrs = self.passed_leverable::<W, B>();
+        let mut sqrs = self.passed_leverable[W::index()];
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
@@ -189,39 +189,37 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn passed_leverable<W: Color, B: Color>(&self) -> BitBoard {
-        let passed = self.candidate_passed::<W, B>();
+        let passed = self.candidate_passed[W::index()];
         (passed & !self.board.piece_bitboards[B::piece(Piece::PAWN)].shifted_2d(W::down()))
             | (passed & self.board.piece_bitboards[W::piece(Piece::PAWN)].shifted_2d(W::offset(1, 1))
                & !self.board.color_bitboards[B::index()].shifted_2d(Coord::new(1, 0))
-               & (self.all_attacks::<W, B>().shifted_2d(W::offset(1, 0)) | !self.all_doubled_attacks::<B, W>().shifted_2d(W::offset(1, 0))))
+               & (self.all_attacks[W::index()].shifted_2d(W::offset(1, 0)) | !self.all_doubled_attacks[B::index()].shifted_2d(W::offset(1, 0))))
             | (passed & self.board.piece_bitboards[W::piece(Piece::PAWN)].shifted_2d(W::offset(-1, 1))
                & !self.board.color_bitboards[B::index()].shifted_2d(Coord::new(-1, 0))
-               & (self.all_attacks::<W, B>().shifted_2d(W::offset(-1, 0)) | !self.all_doubled_attacks::<B, W>().shifted_2d(W::offset(-1, 0))))
+               & (self.all_attacks[W::index()].shifted_2d(W::offset(-1, 0)) | !self.all_doubled_attacks[B::index()].shifted_2d(W::offset(-1, 0))))
     }
 
     const PASSED_RANK_VAL_MG: [i32; 7] = [0, 10, 17, 15, 62, 168, 276];
-    pub fn passed_mg<W: Color, B: Color>(&self) -> i32 {
-        let sqrs = self.passed_leverable::<W, B>();
-        let mut v = 0;
-
-        v += self.passed_rank::<W, B>().map(|i| Self::PASSED_RANK_VAL_MG[i as usize]).count();
-        v += (self.passed_block::<W, B>() & sqrs).count();
-        v -= 11 * (self.passed_file::<W, B>() & sqrs).count();
-        
-        v
-    }
-
     const PASSED_RANK_VAL_EG: [i32; 7] = [0, 28, 33, 41, 72, 177, 260];
-    pub fn passed_eg<W: Color, B: Color>(&self) -> i32 {
-        let sqrs = self.passed_leverable::<W, B>();
-        let mut v = 0;
+    /// Returns `(mg, eg)`
+    pub fn passed<W: Color, B: Color>(&self) -> (i32, i32) {
+        let mut mg = 0;
+        let mut eg = 0;
 
-        v += self.king_proximity::<W, B>().count();
-        v += self.passed_rank::<W, B>().map(|i| Self::PASSED_RANK_VAL_EG[i as usize]).count();
-        v += self.passed_block::<W, B>().count();
-        v -= 8 * self.passed_file::<W, B>().count();
+        let passed_rank = self.passed_rank::<W, B>();
+        let passed_block = self.passed_block::<W, B>();
+        let passed_file = self.passed_file::<W, B>();
 
-        v
+        mg += passed_rank.map(|i| Self::PASSED_RANK_VAL_MG[i as usize]).count();
+        mg += passed_block.count();
+        mg -= 11 * passed_file.count();
+
+        eg += self.king_proximity::<W, B>().count();
+        eg += passed_rank.map(|i| Self::PASSED_RANK_VAL_EG[i as usize]).count();
+        eg += passed_block.count();
+        eg -= 8 * passed_file.count();
+
+        (mg, eg)
     }
 }
 
@@ -269,13 +267,7 @@ mod tests {
 
     #[test]
     #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
-    fn test_passed_mg() {
-        assert_eval!(- passed_mg, 9, 86, eval);
-    }
-
-    #[test]
-    #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
-    fn test_passed_eg() {
-        assert_eval!(- passed_eg, 42, 92, eval);
+    fn test_passed() {
+        assert_eval!(- passed, (9, 42), (86, 92), eval);
     }
 }

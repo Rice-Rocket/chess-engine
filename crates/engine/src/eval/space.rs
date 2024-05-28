@@ -10,11 +10,11 @@ impl<'a> Evaluation<'a> {
         let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let center = BitBoard::from_ranks(W::ranks(1..=3)) & BitBoard::from_files(2..=5);
 
-        let space = center & !pawns & !self.all_pawn_attacks::<B, W>().0;
+        let space = center & !pawns & !self.all_pawn_attacks[B::index()].0;
         let behind_pawn = (pawns.shifted_2d(W::offset(0, -1))
             | pawns.shifted_2d(W::offset(0, -2))
             | pawns.shifted_2d(W::offset(0, -3)))
-            & !self.all_attacks::<B, W>().0;
+            & !self.all_attacks[B::index()].0;
 
         (space, space & behind_pawn)
     }

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{board::{moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
+use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
 
 use self::{diagnostics::SearchDiagnostics, options::SearchOptions, ordering::MoveOrdering, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
 
@@ -55,9 +55,7 @@ impl<'a> Searcher<'a> {
         self.opts = opts;
         self.init();
 
-        movegen.generate_moves(board, precomp, magics, false);
-
-        let moves = movegen.moves.clone();
+        let moves = movegen.generate_moves(board, precomp, magics, false);
         self.backup_move = moves[0];
 
         let mut repetition_table = RepetitionTable::new(board);
@@ -207,8 +205,7 @@ impl<'a> Searcher<'a> {
             return eval.evaluate::<White, Black>() * if board.white_to_move { 1 } else { -1 };
         }
 
-        movegen.generate_moves(board, precomp, magics, false);
-        let moves = movegen.moves.clone();
+        let moves = movegen.generate_moves(board, precomp, magics, false);
 
         // Consider checkmate and stalemate cases
         if moves.is_empty() {

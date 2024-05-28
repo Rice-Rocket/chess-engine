@@ -13,15 +13,15 @@ impl<'a> Evaluation<'a> {
 
     pub fn outpost_square<W: Color, B: Color>(&self) -> BitBoard {
         BitBoard::from_ranks(W::ranks(3..=5))
-            & self.all_pawn_attacks::<W, B>().0
+            & self.all_pawn_attacks[W::index()].0
             & !self.pawn_attacks_span::<W, B>()
     }
 
     /// Returns `(not supported by pawn, supported by pawn)`
     pub fn reachable_outpost<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
-        let mut reachable = (self.all_knight_attacks::<W, B>().0 | self.all_bishop_xray_attacks::<W, B>().0)
+        let mut reachable = (self.all_knight_attacks[W::index()].0 | self.all_bishop_attacks[W::index()].0)
             & self.outpost_square::<W, B>() & !self.board.color_bitboards[W::index()];
-        let supported = reachable & self.all_pawn_attacks::<W, B>().0;
+        let supported = reachable & self.all_pawn_attacks[W::index()].0;
         let mut supported_origins = BitBoard(0);
         let mut origins = BitBoard(0);
         let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
@@ -259,7 +259,7 @@ impl<'a> Evaluation<'a> {
 
         while rooks.0 != 0 {
             let sqr = Coord::from_idx(rooks.pop_lsb() as i8);
-            if (BitBoard::FILES[sqr.file() as usize] & self.king_ring[W::index()]).0 != 0 {
+            if (BitBoard::FILES[sqr.file() as usize] & self.king_ring::<W, B>(false)).0 != 0 {
                 on_king_ring |= sqr.to_bitboard();
             }
         }
@@ -277,7 +277,7 @@ impl<'a> Evaluation<'a> {
         while bishops.0 != 0 {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
             let ray = self.magics.get_bishop_attacks(sqr, blockers);
-            if (ray & self.king_ring[W::index()]).0 != 0 {
+            if (ray & self.king_ring::<W, B>(false)).0 != 0 {
                 on_king_ring |= sqr.to_bitboard();
             }
         }
@@ -288,66 +288,65 @@ impl<'a> Evaluation<'a> {
     pub fn queen_infiltration<W: Color, B: Color>(&self) -> BitBoard {
         let mut queens = self.board.piece_bitboards[W::piece(Piece::QUEEN)];
         queens &= B::home_side();
-        queens &= !self.all_pawn_attacks::<B, W>().0;
+        queens &= !self.all_pawn_attacks[B::index()].0;
         queens &= !self.pawn_attacks_span::<W, B>();
         queens
     }
 
     const OUTPOST_TOTAL_VALS_MG: [i32; 5] = [0, 31, -7, 30, 56];
-    pub fn pieces_mg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
+    const OUTPOST_TOTAL_VALS_EG: [i32; 5] = [0, 22, 36, 23, 36];
+    /// Returns `(mg, eg)`
+    pub fn pieces<W: Color, B: Color>(&self) -> (i32, i32) {
+        let mut mg = 0;
+        let mut eg = 0;
 
-        v += self.outpost_total::<W, B>().map(|i| Self::OUTPOST_TOTAL_VALS_MG[i as usize]).count();
-        v += 18 * self.minor_behind_pawn::<W, B>().count() as i32;
-        v -= 3 * self.bishop_pawns::<W, B>().count();
-        v -= 4 * self.bishop_xray_pawns::<W, B>().count();
-        v += 6 * self.rook_on_queen_file::<W, B>().count() as i32;
-        v += 16 * self.rook_on_king_ring::<W, B>().count() as i32;
-        v += 24 * self.bishop_on_king_ring::<W, B>().count() as i32;
+        let outpost_total = self.outpost_total::<W, B>();
+        let minor_behind_pawn = self.minor_behind_pawn::<W, B>();
+        let bishop_pawns = self.bishop_pawns::<W, B>();
+        let bishop_xray_pawns = self.bishop_xray_pawns::<W, B>();
+        let rook_on_queen_file = self.rook_on_queen_file::<W, B>();
+        mg += outpost_total.map(|i| Self::OUTPOST_TOTAL_VALS_MG[i as usize]).count();
+        mg += 18 * minor_behind_pawn.count() as i32;
+        mg -= 3 * bishop_pawns.count();
+        mg -= 4 * bishop_xray_pawns.count();
+        mg += 6 * rook_on_queen_file.count() as i32;
+        mg += 16 * self.rook_on_king_ring::<W, B>().count() as i32;
+        mg += 24 * self.bishop_on_king_ring::<W, B>().count() as i32;
+        eg += outpost_total.map(|i| Self::OUTPOST_TOTAL_VALS_EG[i as usize]).count();
+        eg += 3 * minor_behind_pawn.count() as i32;
+        eg -= 7 * bishop_pawns.count();
+        eg -= 5 * bishop_xray_pawns.count();
+        eg += 11 * rook_on_queen_file.count() as i32;
 
         let rook_on_file = self.rook_on_file::<W, B>();
-        v += 19 * rook_on_file.1.count() as i32;
-        v += 48 * rook_on_file.0.count() as i32;
+        mg += 19 * rook_on_file.1.count() as i32;
+        mg += 48 * rook_on_file.0.count() as i32;
+        eg += 7 * rook_on_file.1.count() as i32;
+        eg += 29 * rook_on_file.0.count() as i32;
 
-        v -= self.trapped_rook::<W, B>().count() as i32
-            * 55 * (if self.board.current_state.has_kingside_castle_right(W::is_white()) 
-                || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 });
+        let trapped_rook = self.trapped_rook::<W, B>();
+        let castle_mult = if self.board.current_state.has_kingside_castle_right(W::is_white()) 
+            || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 };
+        mg -= trapped_rook.count() as i32
+            * 55 * castle_mult;
+        eg -= trapped_rook.count() as i32
+            * 13 * castle_mult;
 
-        v -= 56 * self.weak_queen::<W, B>().count() as i32;
-        v -= 2 * self.queen_infiltration::<W, B>().count() as i32;
+        let weak_queen = self.weak_queen::<W, B>().count() as i32;
+        let queen_infiltration = self.queen_infiltration::<W, B>().count() as i32;
+        mg -= 56 * weak_queen;
+        mg -= 2 * queen_infiltration;
+        eg -= 15 * weak_queen;
+        eg += 14 * queen_infiltration;
 
         let king_protector = self.king_protector::<W, B>();
         let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
-        v -= 8 * (king_protector & knights).count();
-        v -= 6 * (king_protector & !knights).count();
-        v += 45 * self.long_diagonal_bishop::<W, B>().count() as i32;
+        mg -= 8 * (king_protector & knights).count();
+        mg -= 6 * (king_protector & !knights).count();
+        mg += 45 * self.long_diagonal_bishop::<W, B>().count() as i32;
+        eg -= 9 * king_protector.count();
 
-        v
-    }
-
-    const OUTPOST_TOTAL_VALS_EG: [i32; 5] = [0, 22, 36, 23, 36];
-    pub fn pieces_eg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
-
-        v += self.outpost_total::<W, B>().map(|i| Self::OUTPOST_TOTAL_VALS_EG[i as usize]).count();
-        v += 3 * self.minor_behind_pawn::<W, B>().count() as i32;
-        v -= 7 * self.bishop_pawns::<W, B>().count();
-        v -= 5 * self.bishop_xray_pawns::<W, B>().count();
-        v += 11 * self.rook_on_queen_file::<W, B>().count() as i32;
-
-        let rook_on_file = self.rook_on_file::<W, B>();
-        v += 7 * rook_on_file.1.count() as i32;
-        v += 29 * rook_on_file.0.count() as i32;
-
-        v -= self.trapped_rook::<W, B>().count() as i32
-            * 13 * (if self.board.current_state.has_kingside_castle_right(W::is_white())
-                || self.board.current_state.has_queenside_castle_right(W::is_white()) { 1 } else { 2 });
-
-        v -= 15 * self.weak_queen::<W, B>().count() as i32;
-        v += 14 * self.queen_infiltration::<W, B>().count() as i32;
-        v -= 9 * self.king_protector::<W, B>().count();
-
-        v
+        (mg, eg)
     }
 }
 
@@ -449,13 +448,7 @@ mod tests {
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
-    fn test_pieces_mg() {
-        assert_eval!(- pieces_mg, -50, -1, eval);
-    }
-
-    #[test]
-    #[evaluation_test("nr1B1q2/1k2p1Q1/p5Rp/p1pnbP2/R1P2B1r/2P2n1P/P3qPBR/4N1K1 w kq - 1 8")]
-    fn test_pieces_eg() {
-        assert_eval!(- pieces_eg, -325, -105, eval);
+    fn test_pieces() {
+        assert_eval!(- pieces, (-50, -191), (-1, -92), eval);
     }
 }

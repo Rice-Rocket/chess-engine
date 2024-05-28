@@ -16,7 +16,7 @@ impl<'a> Evaluation<'a> {
         let friendly_king_rank = W::rank(friendly_king.rank());
         let enemy_king_rank = W::rank(enemy_king.rank());
 
-        let passed = (self.candidate_passed::<W, B>().count() + self.candidate_passed::<B, W>().count()) as i32;
+        let passed = (self.candidate_passed[W::index()].count() + self.candidate_passed[B::index()].count()) as i32;
         let both_flanks = if left_flank && right_flank { 1 } else { 0 };
         let outflanking = ((friendly_king.file() - enemy_king.file()).abs() - (friendly_king.rank() - enemy_king.rank()).abs()) as i32;
         let pure_pawn = if (self.non_pawn_material::<W, B>() + self.non_pawn_material::<B, W>()) == 0 { 1 } else { 0 };
@@ -33,20 +33,17 @@ impl<'a> Evaluation<'a> {
             - 110
     }
 
-    pub fn winnable_total_mg<W: Color, B: Color>(&self, v: i32) -> i32 {
-        (match v {
+    /// Returns `(mg, eg)`
+    pub fn winnable_total<W: Color, B: Color>(&self, v: i32) -> (i32, i32) {
+        let sign = match v {
             0.. => 1,
             0 => 0,
             ..=-1 => -1,
-        }) * (self.winnable::<W, B>() + 50).min(0).max(-v.abs())
-    }
-
-    pub fn winnable_total_eg<W: Color, B: Color>(&self, v: i32) -> i32 {
-        (match v {
-            0.. => 1,
-            0 => 0,
-            ..=-1 => -1,
-        }) * self.winnable::<W, B>().max(-v.abs())
+        };
+        (
+            sign * (self.winnable::<W, B>() + 50).min(0).max(-v.abs()),
+            sign * self.winnable::<W, B>().max(-v.abs()),
+        )
     }
 }
 

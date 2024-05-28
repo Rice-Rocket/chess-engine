@@ -16,7 +16,7 @@ use crate::prelude::*;
 use crate::{utils::fen, move_gen::magics::MagicBitBoards};
 
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Board {
     pub square: [Piece; 64],
     pub king_square: [Coord; 2],
@@ -30,9 +30,8 @@ pub struct Board {
     pub enemy_diagonal_sliders: BitBoard,
 
     pub total_pieces_no_pawns_kings: usize,
-    game_state_history: Vec<GameState>,
-    cached_in_check_val: bool,
-    has_cached_in_check_val: bool,
+    pub game_state_history: Vec<GameState>,
+    pub cached_in_check_val: Option<bool>,
 
     pub white_to_move: bool,
     pub move_color: u8,
@@ -62,8 +61,7 @@ impl Default for Board {
 
             total_pieces_no_pawns_kings: 0,
             game_state_history: Vec::with_capacity(64),
-            cached_in_check_val: false,
-            has_cached_in_check_val: false,
+            cached_in_check_val: None,
 
             white_to_move: true,
             move_color: Piece::WHITE,
@@ -102,8 +100,8 @@ impl Board {
         let start_sqr = mov.start();
         let target_sqr = mov.target();
         let move_flag = mov.move_flag();
-        let is_promotion: bool = mov.is_promotion();
-        let is_en_passant: bool = move_flag == Move::EN_PASSANT_CAPTURE;
+        let is_promotion = mov.is_promotion();
+        let is_en_passant = move_flag == Move::EN_PASSANT_CAPTURE;
 
         let moved_piece = self.square[start_sqr];
         let moved_ptype = moved_piece.piece_type();
@@ -128,8 +126,8 @@ impl Board {
                 self.total_pieces_no_pawns_kings -= 1;
             }
 
-            self.piece_bitboards[captured_piece].toggle_square(capture_sqr.square());
-            self.color_bitboards[self.opponent_color_idx].toggle_square(capture_sqr.square());
+            self.piece_bitboards[captured_piece].clear_square(capture_sqr.square());
+            self.color_bitboards[self.opponent_color_idx].clear_square(capture_sqr.square());
             new_zobrist_key ^= zobrist.pieces_array[capture_sqr][captured_piece.index()];
         }
 
@@ -154,6 +152,7 @@ impl Board {
                 new_zobrist_key ^= zobrist.pieces_array[castling_rook_to][rook_piece.index()];
             }
         }
+
         if is_promotion {
             self.total_pieces_no_pawns_kings += 1;
             let prom_ptype = match move_flag {
@@ -164,8 +163,8 @@ impl Board {
                 _ => Piece::NONE,
             };
             let prom_piece = Piece::new(prom_ptype | self.move_color);
-            self.piece_bitboards[moved_piece].toggle_square(target_sqr.square());
-            self.piece_bitboards[prom_piece].toggle_square(target_sqr.square());
+            self.piece_bitboards[moved_piece].clear_square(target_sqr.square());
+            self.piece_bitboards[prom_piece].set_square(target_sqr.square());
             self.square[target_sqr] = prom_piece;
         }
 
@@ -224,7 +223,7 @@ impl Board {
         };
         self.game_state_history.push(new_state);
         self.current_state = new_state;
-        self.has_cached_in_check_val = false;
+        self.cached_in_check_val = None;
         if !in_search {
             self.repeat_position_history.push(new_state.zobrist_key);
             self.move_log.push(mov);
@@ -273,8 +272,8 @@ impl Board {
                 self.total_pieces_no_pawns_kings += 1;
             }
 
-            self.piece_bitboards[captured_piece].toggle_square(capture_square.square());
-            self.color_bitboards[self.opponent_color_idx].toggle_square(capture_square.square());
+            self.piece_bitboards[captured_piece].set_square(capture_square.square());
+            self.color_bitboards[self.opponent_color_idx].set_square(capture_square.square());
             self.square[capture_square] = captured_piece;
         }
 
@@ -309,8 +308,7 @@ impl Board {
         self.game_state_history.pop();
         self.current_state = self.game_state_history[self.game_state_history.len() - 1];
         self.plycount -= 1;
-        self.has_cached_in_check_val = false;
-
+        self.cached_in_check_val = None;
     }
 
     pub fn make_null_move(&mut self, zobrist: &Zobrist) {
@@ -331,8 +329,7 @@ impl Board {
         self.current_state = new_state;
         self.game_state_history.push(new_state);
         self.update_slider_bitboards();
-        self.has_cached_in_check_val = true;
-        self.cached_in_check_val = false;
+        self.cached_in_check_val = Some(false);
     }
 
     pub fn unmake_null_move(&mut self) {
@@ -341,8 +338,7 @@ impl Board {
         self.game_state_history.pop();
         self.current_state = self.game_state_history[self.game_state_history.len() - 1];
         self.update_slider_bitboards();
-        self.has_cached_in_check_val = true;
-        self.cached_in_check_val = false;
+        self.cached_in_check_val = Some(false);
     }
     
     pub fn load_position(fen_str: Option<String>, zobrist: &mut Zobrist) -> Self {
@@ -399,12 +395,11 @@ impl Board {
     }
 
     pub fn in_check(&mut self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
-        if self.has_cached_in_check_val {
-            return self.cached_in_check_val;
+        if let Some(val) = self.cached_in_check_val {
+            return val;
         }
-        self.cached_in_check_val = self.get_in_check_state(magic, precomp);
-        self.has_cached_in_check_val = true;
-        self.cached_in_check_val
+        self.cached_in_check_val = Some(self.get_in_check_state(magic, precomp));
+        self.cached_in_check_val.unwrap()
     }
 
     fn get_in_check_state(&self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
@@ -484,14 +479,39 @@ impl Board {
 
 impl std::fmt::Debug for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut main_str = String::from("");
-        for y in (0..8).rev() {
-            let mut string = String::new();
-            for x in 0..8 {
-                string += &format!("{:?}", self.square[y * 8 + x]);
+        let mut s = String::new();
+        s.push('\n');
+        let last_move = if let Some(last) = self.move_log.last() { last.target().square() } else { -1 };
+
+        for y in 0..8 {
+            let rank = 7 - y;
+            s.push_str("+---+---+---+---+---+---+---+---+\n");
+
+            for file in 0..8 {
+                let sqr = Coord::new(file, rank);
+                let highlight = sqr.square() == last_move;
+                let piece = self.square[sqr];
+
+                if highlight {
+                    s.push_str(&format!("|({:#?})", piece));
+                } else {
+                    s.push_str(&format!("| {:#?} ", piece));
+                }
+
+                if file == 7 {
+                    s.push_str(&format!("| {}\n", rank + 1));
+                }
             }
-            main_str += &format!("{}\n", string);
+
+            if y == 7 {
+                s.push_str("+---+---+---+---+---+---+---+---+\n");
+                s.push_str("  a   b   c   d   e   f   g   h  \n\n");
+
+                s.push_str(&format!("Fen: {}\n", fen::fen_from_position(self)));
+                s.push_str(&format!("Key: {:X}\n", self.current_state.zobrist_key));
+            }
         }
-        write!(f, "{}", main_str)
+
+        write!(f, "{}", s)
     }
 }

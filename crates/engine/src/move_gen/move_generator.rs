@@ -49,7 +49,7 @@ pub struct MoveGenerator {
 }
 
 impl MoveGenerator {
-    pub fn generate_moves(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards, captures_only: bool) {
+    pub fn generate_moves(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards, captures_only: bool) -> Vec<Move> {
         self.moves.clear();
         self.gen_quiet_moves = !captures_only;
 
@@ -61,6 +61,8 @@ impl MoveGenerator {
             self.gen_knight_moves(board, precomp);
             self.gen_pawn_moves(board, precomp, magic);
         }
+
+        self.moves.clone()
     }
 
     pub fn in_check(&self) -> bool {

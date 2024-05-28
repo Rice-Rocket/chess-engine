@@ -36,6 +36,7 @@ impl<'a> Evaluation<'a> {
                 let s = Coord::from_idx(friendly.pop_lsb() as i8);
                 let pv = self.board.square[s].piece_type();
                 if pv > pval { continue };
+                // if pval == Piece::NONE || pval == Piece::KING { continue };
                 v += Self::Q_OURS[pval as usize - 1][pv as usize];
             }
 
@@ -43,6 +44,7 @@ impl<'a> Evaluation<'a> {
                 let s = Coord::from_idx(enemy.pop_lsb() as i8);
                 let pv = self.board.square[s].piece_type();
                 if pv > pval { continue };
+                // if pval == Piece::NONE || pval == Piece::KING { continue };
                 v += Self::Q_THEIRS[pval as usize - 1][pv as usize];
             }
 

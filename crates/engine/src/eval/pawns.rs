@@ -42,7 +42,7 @@ impl<'a> Evaluation<'a> {
 
     /// Returns `(supported once or more, supported twice)`
     pub fn supported<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
-        let attacks = self.all_pawn_attacks::<W, B>();
+        let attacks = self.all_pawn_attacks[W::index()];
         let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         (pawns & attacks.0, pawns & attacks.1)
     }
@@ -73,7 +73,7 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn connected<W: Color, B: Color>(&self) -> BitBoard {
-        self.supported::<W, B>().0 | self.phalanx::<W, B>()
+        self.supported[W::index()].0 | self.phalanx[W::index()]
     }
 
     const CONNECTED_BONUS_SEED: [i32; 7] = [0, 7, 8, 12, 29, 48, 86];
@@ -83,9 +83,9 @@ impl<'a> Evaluation<'a> {
         let mut connected = self.connected::<W, B>();
         connected &= BitBoard::from_ranks(W::ranks(1..=6));
 
-        let opposed = self.opposed::<W, B>();
-        let phalanx = self.phalanx::<W, B>();
-        let supported = self.supported::<W, B>();
+        let opposed = self.opposed[W::index()];
+        let phalanx = self.phalanx[W::index()];
+        let supported = self.supported[W::index()];
         let blocked = self.board.piece_bitboards[W::piece(Piece::PAWN)] 
             & self.board.piece_bitboards[B::piece(Piece::PAWN)].shifted_2d(W::down());
 
@@ -103,8 +103,8 @@ impl<'a> Evaluation<'a> {
 
     /// Returns `(isolated, backward)`
     pub fn weak_unopposed_pawn<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
-        let unopposed = !self.opposed::<W, B>();
-        (unopposed & self.isolated::<W, B>(), unopposed & self.backward::<W, B>())
+        let unopposed = !self.opposed[W::index()];
+        (unopposed & self.isolated[W::index()], unopposed & self.backward[W::index()])
     }
 
     pub fn weak_lever<W: Color, B: Color>(&self) -> BitBoard {
@@ -127,7 +127,7 @@ impl<'a> Evaluation<'a> {
     pub fn doubled_isolated<W: Color, B: Color>(&self) -> BitBoard {
         let friendly_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let enemy_pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
-        let mut pawns = self.isolated::<W, B>();
+        let mut pawns = self.isolated[W::index()];
         let mut doubled_isolated = BitBoard(0);
 
         while pawns.0 != 0 {
@@ -144,31 +144,45 @@ impl<'a> Evaluation<'a> {
         doubled_isolated
     }
 
-    pub fn pawns_mg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
+    /// Returns `(mg, eg)`
+    pub fn pawns<W: Color, B: Color>(&self) -> (i32, i32) {
+        let mut mg = 0;
+        let mut eg = 0;
 
         let doubled_isolated = self.doubled_isolated::<W, B>();
-        let mut isolated = self.isolated::<W, B>();
-        let mut backward = self.backward::<W, B>();
+        let mut isolated = self.isolated[W::index()];
+        let mut backward = self.backward[W::index()];
 
         isolated &= !doubled_isolated;
         backward &= !(doubled_isolated | isolated);
 
-        v -= 11 * doubled_isolated.count() as i32;
-        v -= 5 * isolated.count() as i32;
-        v -= 9 * backward.count() as i32;
+        mg -= 11 * doubled_isolated.count() as i32;
+        mg -= 5 * isolated.count() as i32;
+        mg -= 9 * backward.count() as i32;
+        eg -= 56 * doubled_isolated.count() as i32;
+        eg -= 15 * isolated.count() as i32;
+        eg -= 24 * backward.count() as i32;
 
-        v -= 11 * self.doubled::<W, B>().count() as i32;
-        v += self.connected_bonus::<W, B>().count();
+        let doubled = self.doubled::<W, B>().count() as i32;
+        let connected_bonus = self.connected_bonus::<W, B>();
+        mg -= 11 * doubled;
+        mg += connected_bonus.count();
+        eg -= 56 * doubled;
+        eg += connected_bonus.zip(self.connected_rank_bonus::<W>()).map(|(b, r)| (b as f32 * r) as i32).count();
 
         let weak_unopposed = self.weak_unopposed_pawn::<W, B>();
-        v -= 13 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
+        mg -= 13 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
+        eg -= 27 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
 
         let blocked = self.blocked::<W, B>();
-        v -= 11 * blocked.0.count() as i32;
-        v -= 3 * blocked.1.count() as i32;
+        mg -= 11 * blocked.0.count() as i32;
+        mg -= 3 * blocked.1.count() as i32;
+        eg -= 4 * blocked.0.count() as i32;
+        eg += 4 * blocked.1.count() as i32;
 
-        v
+        eg -= 56 * self.weak_lever::<W, B>().count() as i32;
+
+        (mg, eg)
     }
 
     fn connected_rank_bonus<W: Color>(&self) -> SquareValues<f32> {
@@ -179,35 +193,6 @@ impl<'a> Evaluation<'a> {
         }
 
         eval
-    }
-
-    pub fn pawns_eg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
-
-        let doubled_isolated = self.doubled_isolated::<W, B>();
-        let mut isolated = self.isolated::<W, B>();
-        let mut backward = self.backward::<W, B>();
-
-        isolated &= !doubled_isolated;
-        backward &= !(doubled_isolated | isolated);
-
-        v -= 56 * doubled_isolated.count() as i32;
-        v -= 15 * isolated.count() as i32;
-        v -= 24 * backward.count() as i32;
-
-        v -= 56 * self.doubled::<W, B>().count() as i32;
-        v += self.connected_bonus::<W, B>().zip(self.connected_rank_bonus::<W>()).map(|(b, r)| (b as f32 * r) as i32).count();
-
-        let weak_unopposed = self.weak_unopposed_pawn::<W, B>();
-        v -= 27 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
-
-        v -= 56 * self.weak_lever::<W, B>().count() as i32;
-
-        let blocked = self.blocked::<W, B>();
-        v -= 4 * blocked.0.count() as i32;
-        v += 4 * blocked.1.count() as i32;
-
-        v
     }
 }
 
@@ -292,16 +277,8 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
-    // 1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7
-    // 113, -42
-    fn test_pawns_mg() {
-        assert_eval!(- pawns_mg, 62, -24, eval);
-    }
-
-    #[test]
     #[evaluation_test("1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7")]
-    fn test_pawns_eg() {
-        assert_eval!(- pawns_eg, -74, -172, eval);
+    fn test_pawns() {
+        assert_eval!(- pawns, (113, -74), (-42, -172), eval);
     }
 }

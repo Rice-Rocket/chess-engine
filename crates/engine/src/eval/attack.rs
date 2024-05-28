@@ -364,21 +364,21 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn all_attacks<W: Color, B: Color>(&self) -> BitBoard {
-        self.all_pawn_attacks::<W, B>().0
-            | self.all_king_attacks::<W, B>()
-            | self.all_knight_attacks::<W, B>().0
-            | self.all_bishop_xray_attacks::<W, B>().0
-            | self.all_rook_xray_attacks::<W, B>().0
-            | self.all_queen_attacks::<W, B>().0
+        self.all_pawn_attacks[W::index()].0
+            | self.all_king_attacks[W::index()]
+            | self.all_knight_attacks[W::index()].0
+            | self.all_bishop_attacks[W::index()].0
+            | self.all_rook_attacks[W::index()].0
+            | self.all_queen_attacks[W::index()].0
     }
 
     pub fn all_doubled_attacks<W: Color, B: Color>(&self) -> BitBoard {
-        let pawns = self.all_pawn_attacks::<W, B>();
-        let knights = self.all_knight_attacks::<W, B>();
-        let bishops = self.all_bishop_xray_attacks::<W, B>();
-        let rooks = self.all_rook_xray_attacks::<W, B>();
-        let queens = self.all_queen_attacks::<W, B>();
-        let kings = self.all_king_attacks::<W, B>();
+        let pawns = self.all_pawn_attacks[W::index()];
+        let knights = self.all_knight_attacks[W::index()];
+        let bishops = self.all_bishop_attacks[W::index()];
+        let rooks = self.all_rook_attacks[W::index()];
+        let queens = self.all_queen_attacks[W::index()];
+        let kings = self.all_king_attacks[W::index()];
 
         let mut doubled = pawns.1 | knights.1 | bishops.1 | rooks.1 | queens.1;
 

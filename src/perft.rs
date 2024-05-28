@@ -18,9 +18,17 @@ pub fn movegen_test(
     if depth == 0 { return 1 };
 
     movegen.generate_moves(board, precomp, magics, false);
+    let moves = movegen.moves.clone();
     let mut nodes = 0;
 
-    for m in movegen.moves.clone().into_iter() {
+    if movegen.moves.is_empty() {
+        return 0;
+    }
+
+    // let mut searcher = Searcher::new();
+    // searcher.begin_search(SearchOptions { movetime: Some(100), depth: None }, board, precomp, magics, zobrist, movegen);
+
+    for m in moves {
         board.make_move(m, true, zobrist);
         
         if eval {

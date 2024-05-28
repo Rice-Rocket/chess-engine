@@ -21,7 +21,26 @@ pub struct Evaluation<'a> {
     pub magics: &'a MagicBitBoards,
 
     pin_rays: [(BitBoard, BitBoard); 2],
-    king_ring: [BitBoard; 2],
+    all_king_attacks: [BitBoard; 2],
+    all_pawn_attacks: [(BitBoard, BitBoard); 2],
+    all_knight_attacks: [(BitBoard, BitBoard); 2],
+    all_bishop_attacks: [(BitBoard, BitBoard); 2],
+    all_rook_attacks: [(BitBoard, BitBoard); 2],
+    all_queen_attacks: [(BitBoard, BitBoard); 2],
+    all_attacks: [BitBoard; 2],
+    all_doubled_attacks: [BitBoard; 2],
+
+    candidate_passed: [BitBoard; 2],
+    passed_leverable: [BitBoard; 2],
+
+    isolated: [BitBoard; 2],
+    opposed: [BitBoard; 2],
+    phalanx: [BitBoard; 2],
+    supported: [(BitBoard, BitBoard); 2],
+    backward: [BitBoard; 2],
+
+    weak_enemies: [BitBoard; 2],
+    mobility_bonus: [(i32, i32); 2],
 }
 
 impl<'a> Evaluation<'a> {
@@ -36,15 +55,69 @@ impl<'a> Evaluation<'a> {
             magics,
 
             pin_rays: [(BitBoard(0), BitBoard(0)); 2],
-            king_ring: [BitBoard(0); 2],
+            all_king_attacks: [BitBoard(0); 2],
+            all_pawn_attacks: [(BitBoard(0), BitBoard(0)); 2],
+            all_knight_attacks: [(BitBoard(0), BitBoard(0)); 2],
+            all_bishop_attacks: [(BitBoard(0), BitBoard(0)); 2],
+            all_rook_attacks: [(BitBoard(0), BitBoard(0)); 2],
+            all_queen_attacks: [(BitBoard(0), BitBoard(0)); 2],
+            all_attacks: [BitBoard(0); 2],
+            all_doubled_attacks: [BitBoard(0); 2],
+
+            candidate_passed: [BitBoard(0); 2],
+            passed_leverable: [BitBoard(0); 2],
+
+            isolated: [BitBoard(0); 2],
+            opposed: [BitBoard(0); 2],
+            phalanx: [BitBoard(0); 2],
+            supported: [(BitBoard(0), BitBoard(0)); 2],
+            backward: [BitBoard(0); 2],
+
+            weak_enemies: [BitBoard(0); 2],
+            mobility_bonus: [(0, 0); 2],
         }
     }
 
     pub fn init<W: Color, B: Color>(&mut self) {
         self.pin_rays[W::index()] = self.pin_rays::<W, B>();
         self.pin_rays[B::index()] = self.pin_rays::<B, W>();
-        self.king_ring[W::index()] = self.king_ring::<W, B>(false);
-        self.king_ring[B::index()] = self.king_ring::<B, W>(false);
+        self.all_king_attacks[W::index()] = self.all_king_attacks::<W, B>();
+        self.all_king_attacks[B::index()] = self.all_king_attacks::<B, W>();
+        self.all_pawn_attacks[W::index()] = self.all_pawn_attacks::<W, B>();
+        self.all_pawn_attacks[B::index()] = self.all_pawn_attacks::<B, W>();
+        self.all_knight_attacks[W::index()] = self.all_knight_attacks::<W, B>();
+        self.all_knight_attacks[B::index()] = self.all_knight_attacks::<B, W>();
+        self.all_bishop_attacks[W::index()] = self.all_bishop_xray_attacks::<W, B>();
+        self.all_bishop_attacks[B::index()] = self.all_bishop_xray_attacks::<B, W>();
+        self.all_rook_attacks[W::index()] = self.all_rook_xray_attacks::<W, B>();
+        self.all_rook_attacks[B::index()] = self.all_rook_xray_attacks::<B, W>();
+        self.all_queen_attacks[W::index()] = self.all_queen_attacks::<W, B>();
+        self.all_queen_attacks[B::index()] = self.all_queen_attacks::<B, W>();
+        self.all_attacks[W::index()] = self.all_attacks::<W, B>();
+        self.all_attacks[B::index()] = self.all_attacks::<B, W>();
+        self.all_doubled_attacks[W::index()] = self.all_doubled_attacks::<W, B>();
+        self.all_doubled_attacks[B::index()] = self.all_doubled_attacks::<B, W>();
+
+        self.candidate_passed[W::index()] = self.candidate_passed::<W, B>();
+        self.candidate_passed[B::index()] = self.candidate_passed::<B, W>();
+        self.passed_leverable[W::index()] = self.passed_leverable::<W, B>();
+        self.passed_leverable[B::index()] = self.passed_leverable::<B, W>();
+
+        self.isolated[W::index()] = self.isolated::<W, B>();
+        self.isolated[B::index()] = self.isolated::<B, W>();
+        self.opposed[W::index()] = self.opposed::<W, B>();
+        self.opposed[B::index()] = self.opposed::<B, W>();
+        self.phalanx[W::index()] = self.phalanx::<W, B>();
+        self.phalanx[B::index()] = self.phalanx::<B, W>();
+        self.supported[W::index()] = self.supported::<W, B>();
+        self.supported[B::index()] = self.supported::<B, W>();
+        self.backward[W::index()] = self.backward::<W, B>();
+        self.backward[B::index()] = self.backward::<B, W>();
+
+        self.weak_enemies[W::index()] = self.weak_enemies::<W, B>();
+        self.weak_enemies[B::index()] = self.weak_enemies::<B, W>();
+        self.mobility_bonus[W::index()] = self.mobility_bonus::<W, B>();
+        self.mobility_bonus[B::index()] = self.mobility_bonus::<B, W>();
     }
 
     /// Evaluation function adapted from the [Stockfish Evaluation Guide](https://hxim.github.io/Stockfish-Evaluation-Guide/).
@@ -60,8 +133,42 @@ impl<'a> Evaluation<'a> {
     pub fn evaluate<W: Color, B: Color>(&mut self) -> i32 {
         self.init::<W, B>();
 
-        let mg = self.middle_game_eval::<W, B>() as f32;
-        let mut eg = self.end_game_eval::<W, B>() as f32;
+        let mut mg = 0;
+        let mut eg = 0;
+
+        let imbalance_total = self.imbalance_total::<W, B>();
+        let pawns = (self.pawns::<W, B>(), self.pawns::<B, W>());
+        let pieces = (self.pieces::<W, B>(), self.pieces::<B, W>());
+        let mobility_bonus = self.mobility_bonus;
+        let threats = (self.threats::<W, B>(), self.threats::<B, W>());
+        let passed = (self.passed::<W, B>(), self.passed::<B, W>());
+        let king = (self.king::<W, B>(), self.king::<B, W>());
+
+        mg += imbalance_total;
+        mg += self.piece_value_mg::<W, B>() - self.piece_value_mg::<B, W>();
+        mg += self.psqt_mg::<W, B>() - self.psqt_mg::<B, W>();
+        mg += pawns.0.0 - pawns.1.0;
+        mg += pieces.0.0 - pieces.1.0;
+        mg += mobility_bonus[W::index()].0 - mobility_bonus[B::index()].0;
+        mg += threats.0.0 - threats.1.0;
+        mg += passed.0.0 - passed.1.0;
+        mg += self.space::<W, B>() - self.space::<B, W>();
+        mg += king.0.0 - king.1.0;
+        mg += self.winnable_total::<W, B>(mg).0;
+
+        eg += imbalance_total;
+        eg += self.piece_value_eg::<W, B>() - self.piece_value_eg::<B, W>();
+        eg += self.psqt_eg::<W, B>() - self.psqt_eg::<B, W>();
+        eg += pawns.0.1 - pawns.1.1;
+        eg += pieces.0.1 - pieces.1.1;
+        eg += mobility_bonus[W::index()].1 - mobility_bonus[B::index()].1;
+        eg += threats.0.1 - threats.1.1;
+        eg += passed.0.1 - passed.1.1;
+        eg += king.0.1 - king.1.1;
+        eg += self.winnable_total::<W, B>(eg).1;
+
+        let mg = mg as f32;
+        let mut eg = eg as f32;
         let p = self.phase::<W, B>() as f32;
         let rule50 = self.rule50() as f32;
 
@@ -88,15 +195,15 @@ impl<'a> Evaluation<'a> {
 
         v += self.piece_value_mg::<W, B>() - self.piece_value_mg::<B, W>();
         v += self.psqt_mg::<W, B>() - self.psqt_mg::<B, W>();
+        v += self.pawns::<W, B>().0 - self.pawns::<B, W>().0;
         v += self.imbalance_total::<W, B>();
-        v += self.pawns_mg::<W, B>() - self.pawns_mg::<B, W>();
-        v += self.pieces_mg::<W, B>() - self.pieces_mg::<B, W>();
-        v += self.mobility_mg::<W, B>() - self.mobility_mg::<B, W>();
-        v += self.threats_mg::<W, B>() - self.threats_mg::<B, W>();
-        v += self.passed_mg::<W, B>() - self.passed_mg::<B, W>();
+        v += self.pieces::<W, B>().0 - self.pieces::<B, W>().0;
+        v += self.mobility_bonus::<W, B>().0 - self.mobility_bonus::<B, W>().0;
+        v += self.threats::<W, B>().0 - self.threats::<B, W>().0;
+        v += self.passed::<W, B>().0 - self.passed::<B, W>().0;
         v += self.space::<W, B>() - self.space::<B, W>();
-        v += self.king_mg::<W, B>() - self.king_mg::<B, W>();
-        v += self.winnable_total_mg::<W, B>(v);
+        v += self.king::<W, B>().0 - self.king::<B, W>().0;
+        v += self.winnable_total::<W, B>(v).0;
 
         v
     }
@@ -106,14 +213,14 @@ impl<'a> Evaluation<'a> {
 
         v += self.piece_value_eg::<W, B>() - self.piece_value_eg::<B, W>();
         v += self.psqt_eg::<W, B>() - self.psqt_eg::<B, W>();
+        v += self.pawns::<W, B>().1 - self.pawns::<B, W>().1;
         v += self.imbalance_total::<W, B>();
-        v += self.pawns_eg::<W, B>() - self.pawns_eg::<B, W>();
-        v += self.pieces_eg::<W, B>() - self.pieces_eg::<B, W>();
-        v += self.mobility_eg::<W, B>() - self.mobility_eg::<B, W>();
-        v += self.threats_eg::<W, B>() - self.threats_eg::<B, W>();
-        v += self.passed_eg::<W, B>() - self.passed_eg::<B, W>();
-        v += self.king_eg::<W, B>() - self.king_eg::<B, W>();
-        v += self.winnable_total_eg::<W, B>(v);
+        v += self.pieces::<W, B>().1 - self.pieces::<B, W>().1;
+        v += self.mobility_bonus::<W, B>().1 - self.mobility_bonus::<B, W>().1;
+        v += self.threats::<W, B>().1 - self.threats::<B, W>().1;
+        v += self.passed::<W, B>().1 - self.passed::<B, W>().1;
+        v += self.king::<W, B>().1 - self.king::<B, W>().1;
+        v += self.winnable_total::<W, B>(v).1;
 
         v
     }
@@ -149,7 +256,7 @@ impl<'a> Evaluation<'a> {
         if sf == 64 {
             let ob = self.opposite_bishops();
             if ob && npm_w == Self::BISHOP_VALUE_MG && npm_b == Self::BISHOP_VALUE_MG {
-                sf = 22 + 4 * self.candidate_passed::<W, B>().count() as i32;
+                sf = 22 + 4 * self.candidate_passed[W::index()].count() as i32;
             } else if ob {
                 sf = 22 + 3 * self.piece_count::<W, B>();
             } else {

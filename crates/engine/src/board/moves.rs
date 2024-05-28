@@ -1,4 +1,5 @@
 use crate::utils::representation;
+use crate::utils::representation::square_name_from_coord;
 use crate::utils::representation::square_name_from_idx;
 
 use super::piece::*;
@@ -10,12 +11,12 @@ const TARGET_SQUARE_MASK: u16 = 0b0000111111000000;
 const FLAG_MASK: u16 = 0b1111000000000000;
 
 
-#[derive(PartialEq, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Default)]
 pub struct Move(u16);
 
 impl std::fmt::Debug for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} -> {}", square_name_from_idx(self.start_idx()), square_name_from_idx(self.target_idx()))
+        write!(f, "{} -> {}", square_name_from_coord(self.start().file(), self.start().rank()), square_name_from_coord(self.target().file(), self.target().rank()))
     }
 }
 

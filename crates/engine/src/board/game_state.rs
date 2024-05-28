@@ -1,4 +1,4 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct GameState {
     pub captured_ptype: u8,
     pub en_passant_file: i8,

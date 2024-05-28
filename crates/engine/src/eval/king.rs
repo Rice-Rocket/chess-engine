@@ -192,7 +192,7 @@ impl<'a> Evaluation<'a> {
         let mut checks = BitBoard(0);
 
         if ty == CheckType::Rook || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.all_rook_xray_attacks::<W, B>().0;
+            let mut moves = self.all_rook_attacks[W::index()].0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -204,7 +204,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::Bishop || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.all_bishop_xray_attacks::<W, B>().0;
+            let mut moves = self.all_bishop_attacks[W::index()].0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -216,7 +216,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::Knight || ty == CheckType::All || ty == CheckType::NotQueen {
-            let mut moves = self.all_knight_attacks::<W, B>().0;
+            let mut moves = self.all_knight_attacks[W::index()].0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -228,7 +228,7 @@ impl<'a> Evaluation<'a> {
         }
 
         if ty == CheckType::All || ty == CheckType::Queen {
-            let mut moves = self.all_queen_attacks::<W, B>().0;
+            let mut moves = self.all_queen_attacks[W::index()].0;
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
@@ -253,10 +253,10 @@ impl<'a> Evaluation<'a> {
             checks &= !self.safe_check::<W, B>(CheckType::Queen);
         }
         
-        checks &= !self.all_attacks::<B, W>() | (self.weak_squares::<W, B>() & self.all_doubled_attacks::<W, B>());
+        checks &= !self.all_attacks[B::index()] | (self.weak_squares::<W, B>() & self.all_doubled_attacks[W::index()]);
 
         if ty == CheckType::Queen {
-            checks &= !self.all_queen_attacks::<B, W>().0;
+            checks &= !self.all_queen_attacks[B::index()].0;
         }
 
         checks
@@ -271,7 +271,7 @@ impl<'a> Evaluation<'a> {
         let mut attacked = BitBoard(0);
         let mut pawn_attacked = BitBoard(0);
         let mut double_pawn_attacked = BitBoard(0);
-        let mut attacked_king_ring = self.precomp.king_ring[self.king_square::<B, W>()] & self.all_attacks::<W, B>();
+        let mut attacked_king_ring = self.precomp.king_ring[self.king_square::<B, W>()] & self.all_attacks[W::index()];
 
         while attacked_king_ring.0 != 0 {
             let sqr = Coord::from_idx(attacked_king_ring.pop_lsb() as i8);
@@ -327,9 +327,9 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn weak_squares<W: Color, B: Color>(&self) -> BitBoard {
-        self.all_attacks::<W, B>() 
-            & !self.all_doubled_attacks::<B, W>()
-            & (!self.all_attacks::<B, W>() | self.all_king_attacks::<B, W>() | self.all_queen_attacks::<B, W>().0)
+        self.all_attacks[W::index()] 
+            & !self.all_doubled_attacks[B::index()]
+            & (!self.all_attacks[B::index()] | self.all_king_attacks[B::index()] | self.all_queen_attacks[B::index()].0)
     }
 
     pub fn unsafe_checks<W: Color, B: Color>(&self) -> BitBoard {
@@ -342,7 +342,7 @@ impl<'a> Evaluation<'a> {
     }
 
     pub fn knight_defender<W: Color, B: Color>(&self) -> BitBoard {
-        self.all_knight_attacks::<W, B>().0 & self.all_king_attacks::<W, B>()
+        self.all_knight_attacks[W::index()].0 & self.all_king_attacks[W::index()]
     }
 
     pub fn blockers_for_king<W: Color, B: Color>(&self) -> BitBoard {
@@ -368,14 +368,14 @@ impl<'a> Evaluation<'a> {
     /// Returns `(attacked exactly once, attacked twice)`
     pub fn flank_attack<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut attacked = self.king_flank::<W, B>();
-        let a = self.all_doubled_attacks::<W, B>();
-        attacked &= self.all_attacks::<W, B>();
+        let a = self.all_doubled_attacks[W::index()];
+        attacked &= self.all_attacks[W::index()];
         (attacked & !a, attacked & a)
     }
 
     pub fn flank_defense<W: Color, B: Color>(&self) -> BitBoard {
         let mut flank = self.king_flank::<W, B>();
-        flank & self.all_attacks::<B, W>()
+        flank & self.all_attacks[B::index()]
     }
 
     pub fn king_danger<W: Color, B: Color>(&self) -> i32 {
@@ -402,7 +402,7 @@ impl<'a> Evaluation<'a> {
             + (3 * king_flank_attack * king_flank_attack / 8)
             - 873 * no_queen
             - (6 * (shelter_strength.0 - shelter_strength.1) / 8)
-            + self.mobility_mg::<W, B>() - self.mobility_mg::<B, W>()
+            + self.mobility_bonus[W::index()].0 - self.mobility_bonus[B::index()].0
             + 37
             + (772.0 * (self.safe_check::<W, B>(CheckType::Queen).count() as f32).min(1.45)) as i32
             + (1084.0 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75)) as i32
@@ -412,26 +412,26 @@ impl<'a> Evaluation<'a> {
         if v > 100 { v } else { 0 }
     }
 
-    pub fn king_mg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
+    // Returns `(mg, eg)`
+    pub fn king<W: Color, B: Color>(&self) -> (i32, i32) {
+        let mut mg = 0;
         let kd = self.king_danger::<W, B>();
         let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
         let flank = self.flank_attack::<W, B>();
-        v -= shelter_strength.0;
-        v += shelter_strength.1;
-        v += kd * kd / 4096;
-        v += 8 * (flank.0.count() + 2 * flank.1.count()) as i32;
-        v += 17 * if self.pawnless_flank::<W, B>() { 1 } else { 0 };
-        v
-    }
+        let pawnless_flank = self.pawnless_flank::<W, B>();
+        mg -= shelter_strength.0;
+        mg += shelter_strength.1;
+        mg += kd * kd / 4096;
+        mg += 8 * (flank.0.count() + 2 * flank.1.count()) as i32;
+        mg += 17 * if pawnless_flank { 1 } else { 0 };
 
-    pub fn king_eg<W: Color, B: Color>(&self) -> i32 {
-        let mut v = 0;
-        v -= 16 * self.king_pawn_distance::<W, B>();
-        v += self.shelter_strength_storm_eg::<W, B>().2;
-        v += 95 * if self.pawnless_flank::<W, B>() { 1 } else { 0 };
-        v += self.king_danger::<W, B>() / 16;
-        v
+        let mut eg = 0;
+        eg -= 16 * self.king_pawn_distance::<W, B>();
+        eg += shelter_strength.2;
+        eg += 95 * if pawnless_flank { 1 } else { 0 };
+        eg += kd / 16;
+
+        (mg, eg)
     }
 }
 
@@ -550,14 +550,8 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1K6/6R1/1P1kPp2/4q1P1/p1r2Np1/4P2r/1Qn5/8 w - - 0 1")]
-    fn test_king_mg() {
-        assert_eval!(- king_mg, 2064, 1298, eval);
-    }
-
-    #[test]
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
-    fn test_king_eg() {
-        assert_eval!(- king_eg, 138, 210, eval);
+    fn test_king() {
+        assert_eval!(- king, (1812, 138), (3168, 210), eval);
     }
 }
