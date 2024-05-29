@@ -27,8 +27,6 @@ impl Coord {
     pub const G8: Self = Self::new(6, 7);
     pub const H8: Self = Self::new(7, 7);
 
-    pub const NULL: Self = Self::A1;
-
     #[inline]
     pub const fn new(file: i8, rank: i8) -> Self {
         debug_assert!(file.abs() < 8);

@@ -213,9 +213,9 @@ impl std::fmt::Debug for BitBoard {
             for file in 0..8 {
                 let coord = Coord::new(file, rank);
                 if self.contains_square(coord.square()) {
-                    row += "1 ";
+                    row += "■";
                 } else {
-                    row += "• ";
+                    row += "□";
                 }
             }
             str += &row;

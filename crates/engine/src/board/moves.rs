@@ -121,3 +121,18 @@ impl Move {
         }
     }
 }
+
+
+#[cfg(test)]
+pub mod tests {
+    use super::{Coord, Move};
+
+    #[test]
+    fn test_move_start_end() {
+        let start = Coord::A8;
+        let target = Coord::A1;
+        let m = Move::from_start_end(start.square(), target.square());
+        assert_eq!(start, m.start());
+        assert_eq!(target, m.target());
+    }
+}

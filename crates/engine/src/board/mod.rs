@@ -49,7 +49,7 @@ impl Default for Board {
     fn default() -> Self {
         Self {
             square: [Piece::NULL; 64],
-            king_square: [Coord::NULL; 2],
+            king_square: [Coord::A1; 2],
 
             piece_bitboards: [BitBoard(0); Piece::MAX_PIECE_INDEX as usize + 1],
             color_bitboards: [BitBoard(0); 2],
@@ -174,14 +174,17 @@ impl Board {
             new_zobrist_key ^= zobrist.en_passant_file[file as usize];
         }
 
-        if prev_castle_state != 0 {
+        if new_castling_rights != 0 {
             if target_sqr == Coord::H1 || start_sqr == Coord::H1 {
                 new_castling_rights &= GameState::CLEAR_WHITE_KINGSIDE_MASK;
-            } else if target_sqr == Coord::A1 || start_sqr == Coord::A1 {
+            } 
+            if target_sqr == Coord::A1 || start_sqr == Coord::A1 {
                 new_castling_rights &= GameState::CLEAR_WHITE_QUEENSIDE_MASK;
-            } else if target_sqr == Coord::H8 || start_sqr == Coord::H8 {
+            } 
+            if target_sqr == Coord::H8 || start_sqr == Coord::H8 {
                 new_castling_rights &= GameState::CLEAR_BLACK_KINGSIDE_MASK;
-            } else if target_sqr == Coord::A8 || start_sqr == Coord::A8 {
+            } 
+            if target_sqr == Coord::A8 || start_sqr == Coord::A8 {
                 new_castling_rights &= GameState::CLEAR_BLACK_QUEENSIDE_MASK;
             }
         }
@@ -485,7 +488,7 @@ impl std::fmt::Debug for Board {
 
         for y in 0..8 {
             let rank = 7 - y;
-            s.push_str("+---+---+---+---+---+---+---+---+\n");
+            s.push_str("+---+---+---+---+---+---+---+---+\n\r");
 
             for file in 0..8 {
                 let sqr = Coord::new(file, rank);
@@ -499,17 +502,22 @@ impl std::fmt::Debug for Board {
                 }
 
                 if file == 7 {
-                    s.push_str(&format!("| {}\n", rank + 1));
+                    s.push_str(&format!("| {}\n\r", rank + 1));
                 }
             }
 
             if y == 7 {
-                s.push_str("+---+---+---+---+---+---+---+---+\n");
-                s.push_str("  a   b   c   d   e   f   g   h  \n\n");
+                s.push_str("+---+---+---+---+---+---+---+---+\n\r");
+                s.push_str("  a   b   c   d   e   f   g   h  \n\n\r");
 
-                s.push_str(&format!("Fen: {}\n", fen::fen_from_position(self)));
-                s.push_str(&format!("Key: {:X}\n", self.current_state.zobrist_key));
+                s.push_str(&format!("Fen: {}\n\r", fen::fen_from_position(self)));
+                s.push_str(&format!("Key: {:X}\n\r", self.current_state.zobrist_key));
             }
+        }
+
+        if f.alternate() {
+            s.push_str(&format!("White Rooks: {:?}\n\r", self.piece_bitboards[Piece::new(Piece::WHITE_ROOK)]));;
+            s.push_str(&format!("Black Rooks: {:?}\n\r", self.piece_bitboards[Piece::new(Piece::BLACK_ROOK)]));;
         }
 
         write!(f, "{}", s)
