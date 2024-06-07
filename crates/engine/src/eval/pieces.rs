@@ -113,7 +113,11 @@ impl<'a> Evaluation<'a> {
             let queen_sqr = Coord::from_idx(queens.pop_lsb() as i8);
             'dirs: for dir in 0..8 {
                 let is_diagonal = dir > 3;
-                let slider = if is_diagonal { self.diagonal_sliders::<B, W>() } else { self.orthogonal_sliders::<B, W>() };
+                let slider = if is_diagonal {
+                    self.board.piece_bitboards[B::piece(Piece::BISHOP)]
+                } else {
+                    self.board.piece_bitboards[B::piece(Piece::ROOK)]
+                };
                 if (self.precomp.dir_ray_mask[queen_sqr][dir] & slider).0 == 0 { continue; }
 
                 let n = self.precomp.num_sqrs_to_edge[queen_sqr][dir];
@@ -181,6 +185,7 @@ impl<'a> Evaluation<'a> {
         let knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
         let mut sqrs = knights | self.board.piece_bitboards[W::piece(Piece::BISHOP)];
         let outposts = self.outpost::<W, B>();
+        let nonpawn_enemies = self.board.color_bitboards[B::index()] & !self.board.piece_bitboards[B::piece(Piece::PAWN)];
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
@@ -204,11 +209,11 @@ impl<'a> Evaluation<'a> {
                 for s in Coord::iter_squares() {
                     if ((sqr.file() - s.file()).abs() == 2 && (sqr.rank() - s.rank()).abs() == 1
                         || (sqr.file() - s.file()).abs() == 1 && (sqr.rank() - s.rank()).abs() == 2)
-                        && self.board.color_bitboards[B::index()].contains_square(s.square()) {
+                        && nonpawn_enemies.contains_square(s.square()) {
                             ea = true;
                         }
                     if ((s.file() < 4 && sqr.file() < 4) || (s.file() >= 4 && sqr.file() >= 4))
-                        && self.board.color_bitboards[B::index()].contains_square(s.square()) {
+                        && nonpawn_enemies.contains_square(s.square()) {
                             count += 1;
                         }
                 }

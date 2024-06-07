@@ -76,18 +76,14 @@ impl<'a> Evaluation<'a> {
         let mut pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
         let other_pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let mut span = Precomputed::pawn_attacks(pawns, B::is_white());
-        pawns &= !self.backward[B::index()];
+        pawns &= !other_pawns.shifted_2d(W::up()) & !self.backward[B::index()];
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
             let pawn_span = self.precomp.pawn_attack_span[B::index()][sqr];
-            let blockers = Precomputed::pawn_attacks((sqr.add_clamp(W::down())).to_bitboard(), B::is_white())
-                & other_pawns & !self.backward[W::index()];
-            if (blockers & pawn_span).0 == 0 {
-                span |= pawn_span;
-            }
+            span |= pawn_span;
         }
-        
+
         span
     }
 }

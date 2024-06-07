@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use engine::{board::{zobrist::Zobrist, Board}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed, search::options::SearchOptions};
+use engine::{board::{zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed, search::options::SearchOptions};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 use external_uci::ExternalUci;
@@ -26,6 +26,36 @@ enum Commands {
 
         #[arg(long, short, value_name = "DEPTH", default_value = "4")]
         depth: u16,
+
+        #[arg(long)]
+        material: bool,
+
+        #[arg(long)]
+        psqt: bool,
+
+        #[arg(long)]
+        imbalance: bool,
+
+        #[arg(long)]
+        pawns: bool,
+
+        #[arg(long)]
+        pieces: bool,
+
+        #[arg(long)]
+        mobility: bool,
+
+        #[arg(long)]
+        threats: bool,
+
+        #[arg(long)]
+        passed: bool,
+
+        #[arg(long)]
+        space: bool,
+
+        #[arg(long)]
+        king: bool,
     },
     Perft {
         #[arg(long, short, value_name = "POSITION_NUMBER", default_value = "1")]
@@ -138,14 +168,93 @@ async fn main() {
     match cli_input.command {
         Commands::Eval {
             fen,
-            depth: _,
+            depth:_,
+            material,
+            psqt,
+            imbalance,
+            pawns,
+            pieces,
+            mobility,
+            threats,
+            passed,
+            space,
+            king,
         } => {
             let precomp = Precomputed::new();
             let magics = MagicBitBoards::default();
             let mut zobrist = Zobrist::new();
             let board = Board::load_position(Some(fen), &mut zobrist);
             let mut eval = Evaluation::new(&board, &precomp, &magics);
-            println!("evaluation: {}", eval.evaluate::<engine::color::White, engine::color::Black>());
+
+            println!("main evaluation: {}", eval.evaluate::<White, Black>());
+            println!("mg evaluation: {}", eval.middle_game_eval::<White, Black>());
+            println!("eg evaluation: {}", eval.end_game_eval::<White, Black>());
+
+            if material {
+                let w = (eval.piece_value_mg::<White, Black>(), eval.piece_value_eg::<White, Black>());
+                let b = (eval.piece_value_mg::<Black, White>(), eval.piece_value_eg::<Black, White>());
+                println!("material evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("material evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if psqt {
+                let w = (eval.psqt_mg::<White, Black>(), eval.psqt_eg::<White, Black>());
+                let b = (eval.psqt_mg::<Black, White>(), eval.psqt_eg::<Black, White>());
+                println!("psqt evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("psqt evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if imbalance {
+                println!("imbalance evaluation (white): {}", eval.imbalance_total::<White, Black>());
+                println!("imbalance evaluation (black): {}", eval.imbalance_total::<Black, White>());
+            }
+
+            if pawns {
+                let w = eval.pawns::<White, Black>();
+                let b = eval.pawns::<Black, White>();
+                println!("pawns evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("pawns evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if pieces {
+                let w = eval.pieces::<White, Black>();
+                let b = eval.pieces::<Black, White>();
+                println!("pieces evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("pieces evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if mobility {
+                let w = eval.mobility_bonus::<White, Black>();
+                let b = eval.mobility_bonus::<Black, White>();
+                println!("mobility evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("mobility evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            } 
+
+            if threats {
+                let w = eval.threats::<White, Black>();
+                let b = eval.threats::<Black, White>();
+                println!("threats evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("threats evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if passed {
+                let w = eval.passed::<White, Black>();
+                let b = eval.passed::<Black, White>();
+                println!("passed evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("passed evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
+
+            if space {
+                println!("space evaluation (white): {}", eval.space::<White, Black>());
+                println!("space evaluation (black): {}", eval.space::<Black, White>());
+            }
+
+            if king {
+                let w = eval.king::<White, Black>();
+                let b = eval.king::<Black, White>();
+                println!("king evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                println!("king evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+            }
         },
         Commands::Perft {
             position,

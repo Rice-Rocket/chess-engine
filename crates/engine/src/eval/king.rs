@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard, sum_sqrs};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard, sum_sqrs};
 use super::Evaluation;
 
 
@@ -271,13 +271,17 @@ impl<'a> Evaluation<'a> {
         let mut attacked = BitBoard(0);
         let mut pawn_attacked = BitBoard(0);
         let mut double_pawn_attacked = BitBoard(0);
-        let mut attacked_king_ring = self.precomp.king_ring[self.king_square::<B, W>()] & self.all_attacks[W::index()];
+        let king_ring = self.king_ring::<W, B>(false);
+        let mut attacked_king_ring = king_ring & self.all_attacks[W::index()];
+
+        let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
+        let pawns_on_king_ring = Precomputed::pawn_attacks(king_ring, B::is_white()) & pawns;
+        let shared_pawn_attack = (pawns_on_king_ring & pawns_on_king_ring.shifted_2d(W::offset(2, 0)));
 
         while attacked_king_ring.0 != 0 {
             let sqr = Coord::from_idx(attacked_king_ring.pop_lsb() as i8);
             let pawn_attacks = self.pawn_attack::<W, B>(None, sqr);
-            attacked |= pawn_attacks
-                | self.knight_attack::<W, B>(None, sqr)
+            attacked |= self.knight_attack::<W, B>(None, sqr)
                 | self.bishop_xray_attack::<W, B>(None, sqr)
                 | self.rook_xray_attack::<W, B>(None, sqr)
                 | self.queen_attack::<W, B>(None, sqr);
@@ -286,7 +290,9 @@ impl<'a> Evaluation<'a> {
             pawn_attacked |= pawn_attacks;
         }
 
-        (attacked | double_pawn_attacked, double_pawn_attacked)
+        pawn_attacked &= !shared_pawn_attack;
+
+        (attacked | pawn_attacked, double_pawn_attacked)
     }
 
     const KING_ATTACK_WEIGHTS: [i32; 4] = [81, 52, 44, 10]; // Knight, bishop, rook, queen
@@ -300,10 +306,13 @@ impl<'a> Evaluation<'a> {
     }
 
     // TODO: Switch to using `SquareEvaluations`
-    pub fn king_attacks<W: Color, B: Color>(&self) -> SquareEvaluations {
+    pub fn king_attacks<W: Color, B: Color>(&self, king_attackers_origin: BitBoard) -> SquareEvaluations {
         let mut eval = SquareEvaluations::new();
+        let mut sqrs = king_attackers_origin & (self.board.color_bitboards[W::index()] 
+            & !(self.board.piece_bitboards[W::piece(Piece::PAWN)] | self.board.piece_bitboards[W::piece(Piece::KING)]));
 
-        for sqr in Coord::iter_squares() {
+        while sqrs.0 != 0 {
+            let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
             let mut adjacent = self.precomp.diagonal_directions[self.king_square::<B, W>()] 
                 | self.precomp.orthogonal_directions[self.king_square::<B, W>()];
 
@@ -355,22 +364,22 @@ impl<'a> Evaluation<'a> {
         let mut flank = !BitBoard::from_ranks(W::ranks(0..=2));
         let kx = self.king_square::<B, W>().file();
 
-        flank &= !(BitBoard::from_files(3..=7) & (if kx == 0 { u64::MAX } else { 0 }));
-        flank &= !(BitBoard::from_files(4..=7) & (if kx < 3 { u64::MAX } else { 0 }));
-        flank &= !((BitBoard::from_files(0..=1) | BitBoard::from_files(6..=7)) & (if (3..5).contains(&kx) { u64::MAX } else { 0 }));
-        flank &= !(BitBoard::from_files(0..=3) & (if kx >= 5 { u64::MAX } else { 0 }));
-        flank &= !(BitBoard::from_files(0..=4) & (if kx == 7 { u64::MAX } else { 0 }));
+        if kx == 0 { flank &= !BitBoard::from_files(3..=7) };
+        if kx < 3 { flank &= !BitBoard::from_files(4..=7) };
+        if (3..5).contains(&kx) { flank &= !(BitBoard::from_files(0..=1) | BitBoard::from_files(6..=7)) };
+        if kx >= 5 { flank &= !BitBoard::from_files(0..=3) };
+        if kx == 7 { flank &= !BitBoard::from_files(0..=4) };
 
         flank
         
     }
 
-    /// Returns `(attacked exactly once, attacked twice)`
+    /// Returns `(attacked once or more, attacked twice)`
     pub fn flank_attack<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut attacked = self.king_flank::<W, B>();
         let a = self.all_doubled_attacks[W::index()];
         attacked &= self.all_attacks[W::index()];
-        (attacked & !a, attacked & a)
+        (attacked, attacked & a)
     }
 
     pub fn flank_defense<W: Color, B: Color>(&self) -> BitBoard {
@@ -382,12 +391,12 @@ impl<'a> Evaluation<'a> {
         let king_attackers_origin = self.king_attackers_origin::<W, B>();
         let count = (king_attackers_origin.0.count() + king_attackers_origin.1.count()) as i32;
         let weight = self.king_attackers_weight::<W, B>();
-        let king_attacks = self.king_attacks::<W, B>().count();
+        let king_attacks = self.king_attacks::<W, B>(king_attackers_origin.0).count();
         let weak = self.weak_bonus::<W, B>().count() as i32;
         let unsafe_checks = self.unsafe_checks::<W, B>().count() as i32;
         let blockers_for_king = self.blockers_for_king::<W, B>().count() as i32;
         let flank_attack_total = self.flank_attack::<W, B>();
-        let king_flank_attack = (flank_attack_total.0.count() + 2 * flank_attack_total.1.count()) as i32;
+        let king_flank_attack = (flank_attack_total.0.count() + flank_attack_total.1.count()) as i32;
         let king_flank_defense = self.flank_defense::<W, B>().count() as i32;
         let no_queen = if self.queen_count::<W, B>() > 0 { 0 } else { 1 };
         let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
@@ -408,6 +417,7 @@ impl<'a> Evaluation<'a> {
             + (1084.0 * (self.safe_check::<W, B>(CheckType::Rook).count() as f32).min(1.75)) as i32
             + (645.0 * (self.safe_check::<W, B>(CheckType::Bishop).count() as f32).min(1.50)) as i32
             + (792.0 * (self.safe_check::<W, B>(CheckType::Knight).count() as f32).min(1.62)) as i32;
+        ;
 
         if v > 100 { v } else { 0 }
     }
@@ -422,7 +432,7 @@ impl<'a> Evaluation<'a> {
         mg -= shelter_strength.0;
         mg += shelter_strength.1;
         mg += kd * kd / 4096;
-        mg += 8 * (flank.0.count() + 2 * flank.1.count()) as i32;
+        mg += 8 * (flank.0.count() + flank.1.count()) as i32;
         mg += 17 * if pawnless_flank { 1 } else { 0 };
 
         let mut eg = 0;
@@ -484,21 +494,15 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1nb2rk1/p2rb3/p5P1/p1K1q1N1/pP1P1BQ1/p1Np4/p1P1P1PR/1R3B2 w q - 4 10")]
+    #[evaluation_test("2q3BB/N3n3/2Qr2pk/Pp1NKp1P/pPR1PrPb/4Pp2/p3b3/4Rn2 w - - 0 1")]
     fn test_king_attackers_origin() {
-        assert_eval!(* - [0, 1] king_attackers_origin, (3, 1), (7, 0), eval);
+        assert_eval!(* - [0, 1] king_attackers_origin, (5, 1), (7, 0), eval);
     }
 
     #[test]
     #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3PnB/1bP2qp1/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
     fn test_king_attackers_weight() {
         assert_eval!(- king_attackers_weight, 54, 135, eval);
-    }
-
-    #[test]
-    #[evaluation_test("1r3q1R/p1p1nR2/n2k1pn1/pQ3P1B/1bP2qpn/QP2r1PP/P1P1P3/2BN2RK b Qkq - 4 3")]
-    fn test_king_attacks() {
-        assert_eval!(+ - king_attacks, 6, 1, eval);
     }
 
     #[test]
@@ -534,7 +538,7 @@ mod tests {
     #[test]
     #[evaluation_test("1nb2rk1/p2rb3/p5P1/2K3N1/pP1P1BQ1/2Npq3/2P1P1PR/1R3B2 w q - 4 10")]
     fn test_flank_attack() {
-        assert_eval!(* - [0, 1] flank_attack, (4, 8), (8, 1), eval);
+        assert_eval!(* - [0, 1] flank_attack, (12, 8), (9, 1), eval);
     }
 
     #[test]
@@ -544,9 +548,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1K6/6R1/1P1kPp2/4q1P1/p1r2Np1/4P2r/1Qn5/8 w - - 0 1")]
+    #[evaluation_test("1n2K3/pP6/P2BpPBp/5PPN/n2k1r1R/PR1pp2p/P1bp1q1p/7N w - - 0 1")]
     fn test_king_danger() {
-        assert_eval!(- king_danger, 2701, 1999, eval);
+        assert_eval!(- king_danger, 2162, 712, eval);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -21,12 +21,9 @@ impl<'a> Evaluation<'a> {
             let mut forward_enemies = self.precomp.forward_files[W::index()][sqr] 
                 & self.board.piece_bitboards[B::piece(Piece::PAWN)];
             let ty1 = if W::is_white() && forward_enemies.0 != 0 {
-                loop {
-                    let s = Coord::from_idx(forward_enemies.pop_lsb() as i8);
-                    if forward_enemies.0 == 0 { break s.rank() }
-                }
+                Coord::from_idx(forward_enemies.msb() as i8).rank()
             } else if forward_enemies.0 != 0 {
-                Coord::from_idx(forward_enemies.pop_lsb() as i8).rank()
+                Coord::from_idx(forward_enemies.lsb() as i8).rank()
             } else {
                 W::max_back_rank()
             };
@@ -34,12 +31,9 @@ impl<'a> Evaluation<'a> {
             let mut span = self.precomp.pawn_attack_span[W::index()][sqr]
                 & self.board.piece_bitboards[B::piece(Piece::PAWN)];
             let ty2 = if W::is_white() && span.0 != 0 {
-                loop {
-                    let s = Coord::from_idx(span.pop_lsb() as i8);
-                    if span.0 == 0 { break s.rank() }
-                }
+                Coord::from_idx(span.msb() as i8).rank()
             } else if span.0 != 0 {
-                Coord::from_idx(span.pop_lsb() as i8).rank()
+                Coord::from_idx(span.lsb() as i8).rank()
             } else {
                 W::max_back_rank()
             };
@@ -50,7 +44,7 @@ impl<'a> Evaluation<'a> {
             }
             if W::above(ty2, sqr.rank() + 2 * W::up_dir()) || W::above(ty1, sqr.rank() + W::up_dir()) { continue };
 
-            if (W::below_eq(ty2, sqr.rank()) && ty1 == sqr.rank() + W::up_dir() && W::above(sqr.rank(), 3))
+            if (W::below_eq(ty2, sqr.rank()) && ty1 == sqr.rank() + W::up_dir() && W::above(sqr.rank(), W::rank(3)))
             && ((friendly_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 1, sqr.rank() + W::down_dir()))
             && !enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 1, sqr.rank()))
             && !enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 2, sqr.rank() + W::up_dir())))
@@ -61,14 +55,11 @@ impl<'a> Evaluation<'a> {
                 continue;
             }
 
-            if enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file(), sqr.rank() + W::up_dir())) { continue };
+            if enemy_pawns.contains_checked(Coord::new(sqr.file(), sqr.rank() + W::up_dir())) { continue };
             
-            let lever = if enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 1, sqr.rank() + W::up_dir())) { 1 } else { 0 }
-                + if enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() + 1, sqr.rank() + W::up_dir())) { 1 } else { 0 };
-            let lever_push = if enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 1, sqr.rank() + 2 * W::up_dir())) { 1 } else { 0 }
-                + if enemy_pawns.contains_checked(Coord::new_unchecked(sqr.file() + 1, sqr.rank() + 2 * W::up_dir())) { 1 } else { 0 };
-            let phalanx = if friendly_pawns.contains_checked(Coord::new_unchecked(sqr.file() - 1, sqr.rank())) { 1 } else { 0 }
-                + if friendly_pawns.contains_checked(Coord::new_unchecked(sqr.file() + 1, sqr.rank())) { 1 } else { 0 };
+            let lever = (Precomputed::pawn_attacks(sqr.to_bitboard(), W::is_white()) & enemy_pawns).count() as i32;
+            let lever_push = (Precomputed::pawn_attacks(sqr.to_bitboard().shifted_2d(W::up()), W::is_white()) & enemy_pawns).count() as i32;
+            let phalanx = (Precomputed::pawn_attacks(sqr.to_bitboard().shifted_2d(W::down()), W::is_white()) & friendly_pawns).count() as i32;
 
             if lever - if supported.contains_square(sqr.square()) { 1 } else { 0 } > 1 { continue };
             if lever_push - phalanx > 0 { continue };
@@ -123,7 +114,7 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
 
             let r = W::rank(sqr.rank());
-            let w = if r > 2 { 5 * r as i32 - 13 } else { 0 };
+            let w = 5 * r as i32 - 13;
 
             let forward_file = self.precomp.forward_files[W::index()][sqr];
             let span = self.precomp.pawn_attack_span[W::index()][sqr];

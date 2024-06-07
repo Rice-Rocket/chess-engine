@@ -86,6 +86,14 @@ impl BitBoard {
         i
     }
 
+    pub fn lsb(&self) -> u32 {
+        self.0.trailing_zeros()
+    }
+
+    pub fn msb(&self) -> u32 {
+        63 ^ self.0.leading_zeros()
+    }
+
     pub fn set_square(&mut self, sqr_idx: i8) {
         self.0 |= 1 << sqr_idx;
     }

@@ -190,13 +190,13 @@ impl<'a> Evaluation<'a> {
 
 
 impl<'a> Evaluation<'a> {
-    fn middle_game_eval<W: Color, B: Color>(&self) -> i32 {
+    pub fn middle_game_eval<W: Color, B: Color>(&self) -> i32 {
         let mut v = 0;
 
         v += self.piece_value_mg::<W, B>() - self.piece_value_mg::<B, W>();
         v += self.psqt_mg::<W, B>() - self.psqt_mg::<B, W>();
-        v += self.pawns::<W, B>().0 - self.pawns::<B, W>().0;
         v += self.imbalance_total::<W, B>();
+        v += self.pawns::<W, B>().0 - self.pawns::<B, W>().0;
         v += self.pieces::<W, B>().0 - self.pieces::<B, W>().0;
         v += self.mobility_bonus::<W, B>().0 - self.mobility_bonus::<B, W>().0;
         v += self.threats::<W, B>().0 - self.threats::<B, W>().0;
@@ -208,7 +208,7 @@ impl<'a> Evaluation<'a> {
         v
     }
 
-    fn end_game_eval<W: Color, B: Color>(&self) -> i32 {
+    pub fn end_game_eval<W: Color, B: Color>(&self) -> i32 {
         let mut v = 0;
 
         v += self.piece_value_eg::<W, B>() - self.piece_value_eg::<B, W>();
@@ -437,7 +437,7 @@ pub mod tests {
 
 
 #[cfg(test)]
-pub(super) mod test_prelude {
+pub(in crate::eval) mod test_prelude {
     pub use crate::precomp::Precomputed;
     pub use crate::board::Board;
     pub use crate::board::zobrist::Zobrist;

@@ -101,10 +101,9 @@ impl<'a> Evaluation<'a> {
         evals
     }
 
-    /// Returns `(isolated, backward)`
-    pub fn weak_unopposed_pawn<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
+    pub fn weak_unopposed_pawn<W: Color, B: Color>(&self) -> BitBoard {
         let unopposed = !self.opposed[W::index()];
-        (unopposed & self.isolated[W::index()], unopposed & self.backward[W::index()])
+        unopposed & (self.isolated[W::index()] | self.backward[W::index()])
     }
 
     pub fn weak_lever<W: Color, B: Color>(&self) -> BitBoard {
@@ -171,8 +170,8 @@ impl<'a> Evaluation<'a> {
         eg += connected_bonus.zip(self.connected_rank_bonus::<W>()).map(|(b, r)| (b as f32 * r) as i32).count();
 
         let weak_unopposed = self.weak_unopposed_pawn::<W, B>();
-        mg -= 13 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
-        eg -= 27 * (weak_unopposed.0.count() as i32 + weak_unopposed.1.count() as i32);
+        mg -= 13 * weak_unopposed.count() as i32;
+        eg -= 27 * weak_unopposed.count() as i32;
 
         let blocked = self.blocked::<W, B>();
         mg -= 11 * blocked.0.count() as i32;
@@ -203,15 +202,15 @@ mod tests {
     use super::*;
 
     #[test]
-    #[evaluation_test("1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7")]
+    #[evaluation_test("K7/Pn3P2/p2np3/r3P1P1/1RpN2k1/B1q2p2/1Pp3P1/1R1b4 w - - 0 1")]
     fn test_isolated() {
-        assert_eval!(+ - isolated, 3, 5, eval);
+        assert_eval!(+ - isolated, 0, 3, eval);
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/p3n2n/np1k1pR1/pQ3P1B/1b1P1qpr/QP3n1P/P4P2/1PB1N1RK w kq - 9 6")]
+    #[evaluation_test("K7/Pn3P2/p2np3/r3P1P1/1RpN2k1/B1q2p2/1Pp3P1/1R1b4 w - - 0 1")]
     fn test_opposed() {
-        assert_eval!(+ - opposed, 5, 4, eval);
+        assert_eval!(+ - opposed, 1, 1, eval);
     }
 
     #[test]
@@ -227,9 +226,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/2n4n/p2knpRp/pQp2PPB/1bP2q1r/5n1P/P1P2P2/2B1N1RK b kq - 0 7")]
+    #[evaluation_test("K7/Pn3P2/p2np3/r3P1P1/1RpN2k1/B1q2p2/1Pp3P1/1R1b4 w - - 0 1")]
     fn test_backward() {
-        assert_eval!(+ - backward, 1, 2, eval);
+        assert_eval!(+ - backward, 2, 2, eval);
     }
 
     #[test]
@@ -253,9 +252,9 @@ mod tests {
     }
 
     #[test]
-    #[evaluation_test("1r3q1R/2n1n2n/pp1k1pR1/pQ3P1B/1b1P1qpr/QP1P1n1P/P4P2/2B1N1RK w kq - 1 7")]
+    #[evaluation_test("K7/Pn3P2/p2np3/r3P1P1/1RpN2k1/B1q2p2/1Pp3P1/1R1b4 w - - 0 1")]
     fn test_weak_unopposed_pawn() {
-        assert_eval!(* - [0, 1] weak_unopposed_pawn, (3, 0), (0, 0), eval);
+        assert_eval!(+ - weak_unopposed_pawn, 1, 3, eval);
     }
 
     #[test]

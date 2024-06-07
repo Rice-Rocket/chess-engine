@@ -91,7 +91,7 @@ impl<'a> Evaluation<'a> {
     }
 
     /// Returns `(all_attacks, double_attacks)`
-    // TODO: Cache this and use if to elimate squares early on for `knight_attack`.
+    // TODO: Use to elimate squares early on for `knight_attack`.
     // Same with all other all attacks functions.
     pub fn all_knight_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
@@ -113,7 +113,6 @@ impl<'a> Evaluation<'a> {
     /// from that square. 
     /// 
     /// Requires: `pin_rays`
-    // TODO: Cache this and switch to `SquareEvaluations`. Same for all below
     pub fn knight_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
         attacks &= !self.pin_rays[W::index()].0;
@@ -143,7 +142,8 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()].0
+                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
             };
@@ -203,7 +203,8 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(rooks.pop_lsb() as i8);
             let moves = self.magics.get_rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()].0
+                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
             };
@@ -262,7 +263,8 @@ impl<'a> Evaluation<'a> {
             let sqr = Coord::from_idx(queens.pop_lsb() as i8);
             let moves = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.pin_rays[W::index()].0
+                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
             };
@@ -305,7 +307,6 @@ impl<'a> Evaluation<'a> {
         attacks
     }
 
-    // TODO: Maybe remove considering pins here and below...  Done
     pub fn all_pawn_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
         let mut attacks = BitBoard(0);
@@ -331,14 +332,7 @@ impl<'a> Evaluation<'a> {
             attacks &= s.to_bitboard();
         }
 
-        let mut res = attacks;
-        while attacks.0 != 0 {
-            let start = Coord::from_idx(attacks.pop_lsb() as i8);
-            if self.pinned::<W, B>(start) && !self.precomp.align_mask[start][self.king_square::<W, B>()].contains_square(sqr.square()) {
-                res.clear_square(start.square());
-            };
-        }
-        res
+        attacks
     }
 
     /// Does not return the doubled attacks, as it is impossible.
