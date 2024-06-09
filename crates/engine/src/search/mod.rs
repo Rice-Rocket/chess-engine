@@ -284,7 +284,7 @@ impl<'a> Searcher<'a> {
             depth,
         );
 
-        for m in ordered_moves {
+        for (i, m) in ordered_moves.into_iter().enumerate() {
             let captured_ptype = board.square[m.target()].piece_type();
             let is_capture = captured_ptype != Piece::NONE;
 
@@ -295,7 +295,20 @@ impl<'a> Searcher<'a> {
                 if board.in_check() { 1 } else { 0 }
             } else { 0 };
 
-            let eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+            let mut eval = 0;
+            let mut needs_full_search = true;
+
+            // Late move reductions: reduce search depth when searching later moves because they
+            // are likely to be bad.
+            if extension == 0 && depth_remaining >= 3 && i >= 3 && !is_capture {
+                eval = -self.search(depth + 1, depth_remaining - 2, -alpha - 1, -alpha, n_extensions, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+                needs_full_search = eval > alpha;
+            }
+
+            if needs_full_search {
+                eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+            }
+
             board.unmake_move(m, true);
 
             if !self.in_search {
