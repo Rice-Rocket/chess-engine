@@ -39,14 +39,14 @@ impl TranspositionEntry {
 
 
 pub struct TranspositionTable<const N: usize> {
-    entries: Box<[TranspositionEntry; N]>,
+    entries: Vec<TranspositionEntry>,
     enabled: bool,
 }
 
 impl<const N: usize> TranspositionTable<N> {
     pub fn new() -> Self {
         Self {
-            entries: Box::new([TranspositionEntry::default(); N]),
+            entries: vec![TranspositionEntry::default(); N],
             enabled: true,
         }
     }

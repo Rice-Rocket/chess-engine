@@ -108,10 +108,10 @@ impl<'a> Evaluation<'a> {
 
         while threats.0 != 0 {
             let sqr = Coord::from_idx(threats.pop_lsb() as i8);
-            let diagonal = self.queen_attack_diagonal::<B, W>(None, sqr).count() > 0;
-            if (diagonal && self.bishop_xray_attack::<W, B>(None, sqr).count() > 0)
-            || (!diagonal && self.rook_xray_attack::<W, B>(None, sqr).count() > 0
-            && self.queen_attack::<B, W>(None, sqr).count() > 0) {
+            let diagonal = self.queen_attack_diagonal::<B, W>(sqr).count() > 0;
+            if (diagonal && self.bishop_xray_attack::<W, B>(sqr).count() > 0)
+            || (!diagonal && self.rook_xray_attack::<W, B>(sqr).count() > 0
+            && self.queen_attack::<B, W>(sqr).count() > 0) {
                 on_queen |= sqr.to_bitboard();
             }
         }

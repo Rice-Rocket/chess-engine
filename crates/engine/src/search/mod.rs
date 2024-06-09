@@ -26,6 +26,7 @@ impl<'a> Searcher<'a> {
     const POSITIVE_INFINITY: i32 = i32::MAX;
     const NEGATIVE_INFINITY: i32 = -Self::POSITIVE_INFINITY;
     const MAX_EXTENSIONS: u8 = 16;
+    const ASPIRATION_WINDOW_SIZE: i32 = 40;
 
     pub fn new() -> Self {
         Self {
@@ -60,70 +61,29 @@ impl<'a> Searcher<'a> {
 
         let mut repetition_table = RepetitionTable::new(board);
         let mut ordering = MoveOrdering::new();
+        let mut score: i32;
+        let mut alpha = Self::NEGATIVE_INFINITY;
+        let mut beta = Self::POSITIVE_INFINITY;
+        let mut left_window = Self::ASPIRATION_WINDOW_SIZE;
+        let mut right_window = Self::ASPIRATION_WINDOW_SIZE;
+        let mut best_move_this_iter = None;
+        let mut depth = 1;
 
-        // Iterative Deepening
-        for depth in 1..=255 {
-            let mut best_move_this_iter = None;
-            let mut alpha = Self::NEGATIVE_INFINITY;
-            let mut beta = Self::POSITIVE_INFINITY;
-            let mut eval_bound = TranspositionNodeType::UpperBound;
-
-            let zobrist_key = board.current_state.zobrist_key;
-            if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth, 0, alpha, beta) {
-                let entry = self.transposition_table.get(zobrist_key);
-                best_move_this_iter = Some(entry.m);
-                alpha = entry.eval;
-
-                self.best_move = best_move_this_iter;
-                self.diagnostics.depth_searched = depth;
-                self.diagnostics.evaluation = alpha;
-
-                // Exit if mate was found
-                if alpha.abs() > Self::IMMEDIATE_MATE_SCORE - 1000 
-                && Self::IMMEDIATE_MATE_SCORE - alpha.abs() <= depth as i32 {
-                    break;
-                }
-
-                continue;
-            }
-
-            // Order moves and ensure the best move from the previous search is considered first.
-            // This way, partial searches can be used as they will either agree on the best move, 
-            // or they will have found a better move.
-            let ordered_moves = ordering.order(
-                if let Some(m) = self.best_move { m } else { Move::NULL },
+        // Iterative Deepening + Aspiration Windows
+        while depth < 255 {
+            (score, best_move_this_iter) = self.search_root(
+                depth,
+                alpha,
+                beta,
                 &moves,
                 board,
-                movegen.enemy_attack_map,
-                movegen.enemy_pawn_attack_map,
-                0,
+                &mut ordering,
+                &mut repetition_table,
+                precomp,
+                magics,
+                zobrist,
+                movegen,
             );
-
-            for m in ordered_moves {
-                let captured_ptype = board.square[m.target()].piece_type();
-                let is_capture = captured_ptype != Piece::NONE;
-
-                board.make_move(m, true, zobrist);
-
-                let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
-
-                let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, &mut ordering, &mut repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
-                board.unmake_move(m, true);
-
-                if !self.in_search {
-                    break;
-                }
-
-                if eval > alpha {
-                    best_move_this_iter = Some(m);
-                    alpha = eval;
-                    eval_bound = TranspositionNodeType::Exact;
-                }
-            }
-
-            if let Some(m) = best_move_this_iter {
-                self.transposition_table.store(zobrist_key, depth, 0, alpha, eval_bound, m);
-            }
 
             // Search was cancelled
             if !self.in_search {
@@ -131,7 +91,7 @@ impl<'a> Searcher<'a> {
                 // we can trust the best move from the partial search is equal or better.
                 if let Some(m) = best_move_this_iter {
                     self.best_move = Some(m);
-                    self.diagnostics.evaluation = alpha;
+                    self.diagnostics.evaluation = score;
                 } 
 
                 if self.best_move.is_none() {
@@ -139,21 +99,117 @@ impl<'a> Searcher<'a> {
                 }
 
                 break;
-            // Search not cancelled
-            } else {
-                self.best_move = best_move_this_iter;
-                self.diagnostics.depth_searched = depth;
-                self.diagnostics.evaluation = alpha;
+            }
 
-                // Exit if mate was found
-                if alpha.abs() > Self::IMMEDIATE_MATE_SCORE - 1000 
-                && Self::IMMEDIATE_MATE_SCORE - alpha.abs() <= depth as i32 {
-                    break;
+            // If the score is outside the current aspiration window, search again with wider
+            // window
+            if score <= alpha {
+                alpha -= left_window;
+                left_window *= 2;
+                best_move_this_iter = None;
+                continue;
+            } else if score >= beta {
+                beta += right_window;
+                right_window *= 2;
+                best_move_this_iter = None;
+                continue;
+            }
+
+            self.best_move = best_move_this_iter;
+            self.diagnostics.depth_searched = depth;
+            self.diagnostics.evaluation = score;
+
+            best_move_this_iter = None;
+            left_window = Self::ASPIRATION_WINDOW_SIZE;
+            right_window = Self::ASPIRATION_WINDOW_SIZE;
+            alpha = score - left_window;
+            beta = score + right_window;
+
+            // Exit if mate was found
+            if score.abs() > Self::IMMEDIATE_MATE_SCORE - 1000 
+            && Self::IMMEDIATE_MATE_SCORE - score.abs() <= depth as i32 {
+                break;
+            }
+
+            depth += 1;
+        }
+
+        self.in_search = false;
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn search_root(
+        &mut self,
+        depth: u8,
+        mut alpha: i32,
+        mut beta: i32,
+        moves: &[Move],
+        board: &mut Board,
+        ordering: &mut MoveOrdering,
+        repetition_table: &mut RepetitionTable,
+        precomp: &Precomputed,
+        magics: &MagicBitBoards,
+        zobrist: &Zobrist,
+        movegen: &mut MoveGenerator,
+    ) -> (i32, Option<Move>) {
+        // If this position was already searched and is stored in the transposition table,
+        // retrieve the value and immediately search at the next depth.
+        let zobrist_key = board.current_state.zobrist_key;
+        if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth, 0, alpha, beta) {
+            let entry = self.transposition_table.get(zobrist_key);
+            return (tt_eval, Some(entry.m));
+        }
+
+        // Order moves and ensure the best move from the previous search is considered first.
+        // This way, partial searches can be used as they will either agree on the best move, 
+        // or they will have found a better move.
+        let ordered_moves = ordering.order(
+            if let Some(m) = self.best_move { m } else { Move::NULL },
+            moves,
+            board,
+            movegen.enemy_attack_map,
+            movegen.enemy_pawn_attack_map,
+            0,
+        );
+
+        let mut best_move = None;
+        let mut best_score = Self::NEGATIVE_INFINITY;
+        let mut eval_bound = TranspositionNodeType::UpperBound;
+
+        for m in ordered_moves {
+            let captured_ptype = board.square[m.target()].piece_type();
+            let is_capture = captured_ptype != Piece::NONE;
+
+            board.make_move(m, true, zobrist);
+
+            // Check extensions
+            let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
+
+            let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
+            board.unmake_move(m, true);
+
+            if !self.in_search {
+                break;
+            }
+
+            // Found a new best move
+            if eval > best_score {
+                best_score = eval;
+
+                if eval > alpha {
+                    best_move = Some(m);
+                    alpha = eval;
+                    eval_bound = TranspositionNodeType::Exact;
                 }
             }
         }
 
-        self.in_search = false;
+        // Store this position in the transposition table
+        if let Some(m) = best_move {
+            self.transposition_table.store(zobrist_key, depth, 0, best_score, eval_bound, m);
+        }
+
+        (best_score, best_move)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -174,6 +230,7 @@ impl<'a> Searcher<'a> {
         zobrist: &Zobrist,
         movegen: &mut MoveGenerator,
     ) -> i32 {
+        // Abort search if we've run out of time
         if let Some(time) = self.opts.movetime {
             if time <= Instant::now().duration_since(self.start_time).as_millis() as u32 {
                 self.in_search = false;
@@ -193,7 +250,8 @@ impl<'a> Searcher<'a> {
             return alpha;
         }
 
-        // Check if we've already come across this position, and if so retrieve the evaluation
+        // Check if we've already come across this position. If so, retrieve the evaluation and
+        // continue to the next position
         let zobrist_key = board.current_state.zobrist_key;
         if let Some(tt_eval) = self.transposition_table.lookup(zobrist_key, depth_remaining, depth, alpha, beta) {
             return tt_eval;
@@ -221,8 +279,10 @@ impl<'a> Searcher<'a> {
         repetition_table.push(board.current_state.zobrist_key, prev_move_was_capture || was_pawn_move);
 
         let mut best_move = Move::NULL;
+        let mut best_score = Self::NEGATIVE_INFINITY;
         let mut eval_bound = TranspositionNodeType::UpperBound;
 
+        // Order moves
         let ordered_moves = ordering.order(
             self.transposition_table.get_stored_move(zobrist_key),
             &moves,
@@ -250,34 +310,41 @@ impl<'a> Searcher<'a> {
                 return 0;
             }
 
-            // Beta cutoff / Fail high
-            if eval >= beta {
-                self.transposition_table.store(zobrist_key, depth_remaining, depth, beta, TranspositionNodeType::LowerBound, m);
-
-                if !is_capture {
-                    if (depth as usize) < MoveOrdering::MAX_KILLER_MOVE_DEPTH {
-                        ordering.killers[depth as usize].add(m);
-                    }
-                    let history_score = depth_remaining as i32 * depth_remaining as i32;
-                    ordering.history[board.move_color_idx][m.start()][m.target()] += history_score;
-                }
-
-                repetition_table.pop();
-                return beta;
-            }
-
             // Found a new best move
-            if eval > alpha {
-                alpha = eval;
-                best_move = m;
-                eval_bound = TranspositionNodeType::Exact;
+            if eval > best_score {
+                best_score = eval;
+
+                if eval > alpha {
+                    alpha = eval;
+                    best_move = m;
+                    eval_bound = TranspositionNodeType::Exact;
+
+                    // Beta cutoff / Fail high
+                    if eval >= beta {
+                        self.transposition_table.store(zobrist_key, depth_remaining, depth, beta, TranspositionNodeType::LowerBound, m);
+
+                        // Update killer moves and history heuristic for move ordering
+                        if !is_capture {
+                            if (depth as usize) < MoveOrdering::MAX_KILLER_MOVE_DEPTH {
+                                ordering.killers[depth as usize].add(m);
+                            }
+                            let history_score = depth_remaining as i32 * depth_remaining as i32;
+                            ordering.history[board.move_color_idx][m.start()][m.target()] += history_score;
+                        }
+
+                        repetition_table.pop();
+                        return beta;
+                    }
+                }
             }
         }
 
         repetition_table.pop();
-        self.transposition_table.store(zobrist_key, depth_remaining, depth, alpha, eval_bound, best_move);
 
-        alpha
+        // Store this evaluation in the transposition table
+        self.transposition_table.store(zobrist_key, depth_remaining, depth, best_score, eval_bound, best_move);
+
+        best_score
     }
 
     fn init(&mut self) {

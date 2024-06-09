@@ -29,7 +29,7 @@ impl<'a> Evaluation<'a> {
         while reachable.0 != 0 {
             let sqr = Coord::from_idx(reachable.pop_lsb() as i8);
             let has_support = supported.contains_square(sqr.square());
-            let attacks = self.knight_attack::<W, B>(None, sqr) | self.bishop_xray_attack::<W, B>(None, sqr);
+            let attacks = self.knight_attack::<W, B>(sqr) | self.bishop_xray_attack::<W, B>(sqr);
             if has_support {
                 supported_origins |= attacks;
             } else {
@@ -59,7 +59,7 @@ impl<'a> Evaluation<'a> {
                 & (if is_light_sqr { BitBoard::LIGHT_SQUARES } else { BitBoard::DARK_SQUARES });
             let blocked = pawns & BitBoard::from_files(2..=5) & self.board.all_pieces_bitboard.shifted_2d(W::down());
 
-            let attacked = if self.pawn_attack::<W, B>(None, sqr).count() > 0 { 0 } else { 1 };
+            let attacked = if self.pawn_attack::<W, B>(sqr).count() > 0 { 0 } else { 1 };
             eval[sqr] = on_sqr_col.count() as i32 * (blocked.count() as i32 + attacked);
         }
 

@@ -24,7 +24,7 @@ impl RepetitionTable {
     }
 
     pub fn push(&mut self, hash: u64, reset: bool) {
-        if self.count <= self.hashes.len() {
+        if self.count < self.hashes.len() {
             self.hashes[self.count] = hash;
             self.start_indices[self.count + 1] = if reset { self.count as u32 } else { self.start_indices[self.count] };
         }
@@ -36,6 +36,10 @@ impl RepetitionTable {
     }
 
     pub fn contains(&self, hash: u64) -> bool {
+        if self.count >= self.hashes.len() {
+            return false;
+        }
+
         let s = self.start_indices[self.count] as usize;
 
         for h in self.hashes.iter().skip(s).take(self.count - 1) {

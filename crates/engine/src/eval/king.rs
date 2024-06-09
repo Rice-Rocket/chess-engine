@@ -280,11 +280,11 @@ impl<'a> Evaluation<'a> {
 
         while attacked_king_ring.0 != 0 {
             let sqr = Coord::from_idx(attacked_king_ring.pop_lsb() as i8);
-            let pawn_attacks = self.pawn_attack::<W, B>(None, sqr);
-            attacked |= self.knight_attack::<W, B>(None, sqr)
-                | self.bishop_xray_attack::<W, B>(None, sqr)
-                | self.rook_xray_attack::<W, B>(None, sqr)
-                | self.queen_attack::<W, B>(None, sqr);
+            let pawn_attacks = self.pawn_attack::<W, B>(sqr);
+            attacked |= self.knight_attack::<W, B>(sqr)
+                | self.bishop_xray_attack::<W, B>(sqr)
+                | self.rook_xray_attack::<W, B>(sqr)
+                | self.queen_attack::<W, B>(sqr);
 
             double_pawn_attacked |= pawn_attacked & pawn_attacks;
             pawn_attacked |= pawn_attacks;
@@ -305,7 +305,6 @@ impl<'a> Evaluation<'a> {
         + (attacks & self.board.piece_bitboards[W::piece(Piece::QUEEN)]).count() as i32 * Self::KING_ATTACK_WEIGHTS[3]
     }
 
-    // TODO: Switch to using `SquareEvaluations`
     pub fn king_attacks<W: Color, B: Color>(&self, king_attackers_origin: BitBoard) -> SquareEvaluations {
         let mut eval = SquareEvaluations::new();
         let mut sqrs = king_attackers_origin & (self.board.color_bitboards[W::index()] 
@@ -319,10 +318,10 @@ impl<'a> Evaluation<'a> {
             let mut v = 0;
             while adjacent.0 != 0 {
                 let s = Coord::from_idx(adjacent.pop_lsb() as i8);
-                v += self.knight_attack::<W, B>(Some(sqr), s).count() as i32
-                    + self.bishop_xray_attack::<W, B>(Some(sqr), s).count() as i32
-                    + self.rook_xray_attack::<W, B>(Some(sqr), s).count() as i32
-                    + self.queen_attack::<W, B>(Some(sqr), s).count() as i32;
+                v += (self.knight_attack::<W, B>(s) & sqr.to_bitboard()).count() as i32
+                    + (self.bishop_xray_attack::<W, B>(s) & sqr.to_bitboard()).count() as i32
+                    + (self.rook_xray_attack::<W, B>(s) & sqr.to_bitboard()).count() as i32
+                    + (self.queen_attack::<W, B>(s) & sqr.to_bitboard()).count() as i32;
             }
 
             eval[sqr] = v;

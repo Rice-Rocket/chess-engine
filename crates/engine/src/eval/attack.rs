@@ -113,12 +113,9 @@ impl<'a> Evaluation<'a> {
     /// from that square. 
     /// 
     /// Requires: `pin_rays`
-    pub fn knight_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn knight_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
         attacks &= !self.pin_rays[W::index()].0;
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
         attacks
     }
 
@@ -157,15 +154,12 @@ impl<'a> Evaluation<'a> {
     /// If s2 specified, only counts attacks coming from that square.  
     ///
     /// Requires: `pin_rays`
-    pub fn bishop_xray_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn bishop_xray_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
         let mut attacks = self.magics.get_bishop_attacks(sqr, blockers) 
             & self.board.piece_bitboards[W::piece(Piece::BISHOP)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
 
         let mut res = attacks;
         while attacks.0 != 0 {
@@ -218,16 +212,13 @@ impl<'a> Evaluation<'a> {
     /// If s2 specified, only counts attacks coming from that square.  
     ///
     /// Requires: `pin_rays`
-    pub fn rook_xray_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn rook_xray_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
             | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
         let mut attacks = self.magics.get_rook_attacks(sqr, blockers) 
             & self.board.piece_bitboards[W::piece(Piece::ROOK)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
 
         let mut res = attacks;
         while attacks.0 != 0 {
@@ -278,13 +269,10 @@ impl<'a> Evaluation<'a> {
     /// from that square. 
     ///
     /// Requires: `pin_rays`
-    pub fn queen_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn queen_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard;
         let mut attacks = (self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers))
             & self.board.piece_bitboards[W::piece(Piece::QUEEN)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
 
         let mut res = attacks;
         while attacks.0 != 0 {
@@ -325,12 +313,9 @@ impl<'a> Evaluation<'a> {
     /// If s2 specified, only counts attacks coming from that square. 
     ///
     /// Requires: `pin_rays`
-    pub fn pawn_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn pawn_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let map = if W::is_white() { self.precomp.black_pawn_attacks[sqr] } else { self.precomp.white_pawn_attacks[sqr] };
         let mut attacks = map & self.board.piece_bitboards[W::piece(Piece::PAWN)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
 
         attacks
     }
@@ -349,11 +334,8 @@ impl<'a> Evaluation<'a> {
 
     /// Calculates the friendly kings attacking `sqr`. If s2 specified, only counts attacks coming
     /// from that square. 
-    pub fn king_attack<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard {
+    pub fn king_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let mut attacks = self.precomp.king_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KING)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
         attacks
     }
 
@@ -388,25 +370,22 @@ impl<'a> Evaluation<'a> {
     ///
     /// Requires: `pin_rays`
     pub fn attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
-        self.pawn_attack::<W, B>(None, sqr)
-            | self.king_attack::<W, B>(None, sqr)
-            | self.knight_attack::<W, B>(None, sqr)
-            | self.bishop_xray_attack::<W, B>(None, sqr)
-            | self.rook_xray_attack::<W, B>(None, sqr)
-            | self.queen_attack::<W, B>(None, sqr)
+        self.pawn_attack::<W, B>(sqr)
+            | self.king_attack::<W, B>(sqr)
+            | self.knight_attack::<W, B>(sqr)
+            | self.bishop_xray_attack::<W, B>(sqr)
+            | self.rook_xray_attack::<W, B>(sqr)
+            | self.queen_attack::<W, B>(sqr)
     }
 
     /// Calculates the friendly queens attacking `sqr` diagonally. If s2 specified, only counts
     /// attacks coming from that square. 
     ///
     /// Requires: `pin_rays`
-    pub fn queen_attack_diagonal<W: Color, B: Color>(&self, s2: Option<Coord>, sqr: Coord) -> BitBoard{
+    pub fn queen_attack_diagonal<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard{
         let blockers = self.board.all_pieces_bitboard;
         let mut attacks = self.magics.get_bishop_attacks(sqr, blockers)
             & self.board.piece_bitboards[W::piece(Piece::QUEEN)];
-        if let Some(s) = s2 {
-            attacks &= s.to_bitboard();
-        }
 
         let mut res = attacks;
         while attacks.0 != 0 {
@@ -429,37 +408,37 @@ mod tests {
     #[test]
     #[evaluation_test("nb2kb1R/pppppppp/6n1/4R2B/Qb2P3/4r3/PPPP1PPP/2BNK1Rq b KQkq e3 0 1")]
     fn test_knight_attack() {
-        assert_eval!(+ knight_attack, 4, 8, eval; None);
+        assert_eval!(+ knight_attack, 4, 8, eval);
     }
 
     #[test]
     #[evaluation_test("rnb1k1nr/pppp1ppp/8/4p2B/1qb1PPQ1/8/PPPB1PPP/RN2K1NR b KQkq - 1 2")]
     fn test_bishop_xray_attack() {
-        assert_eval!(+ bishop_xray_attack, 10, 12, eval; None);
+        assert_eval!(+ bishop_xray_attack, 10, 12, eval);
     }
 
     #[test]
     #[evaluation_test("2p1kbn1/pp1bpppr/r7/3p1q1B/Q7/P2R4/PPP1PPPP/1N2KBNR w KQkq d6 0 2")]
     fn test_rook_xray_attack() {
-        assert_eval!(+ rook_xray_attack, 13, 15, eval; None);
+        assert_eval!(+ rook_xray_attack, 13, 15, eval);
     }
 
     #[test]
     #[evaluation_test("nb2kb1R/pppppppp/6n1/4R2B/1bPP1q2/Q3r3/PPP2PPP/2BNK1R1 b KQkq e3 0 1")]
     fn test_queen_attack() {
-        assert_eval!(+ queen_attack, 11, 15, eval; None);
+        assert_eval!(+ queen_attack, 11, 15, eval);
     }
 
     #[test]
     #[evaluation_test("nb2kb1R/p1p1n2p/1p3pn1/n3R2B/1bPP1qpP/QP2r1P1/P1P2P2/2BNK1R1 w KQkq - 0 2")]
     fn test_pawn_attack() {
-        assert_eval!(+ pawn_attack, 14, 10, eval; None);
+        assert_eval!(+ pawn_attack, 14, 10, eval);
     }
 
     #[test]
     #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_king_attack() {
-        assert_eval!(+ king_attack, 3, 8, eval; None);
+        assert_eval!(+ king_attack, 3, 8, eval);
     }
 
     #[test]
@@ -471,6 +450,6 @@ mod tests {
     #[test]
     #[evaluation_test("nb3b1R/p1pkn2p/1p2Rpn1/n6B/1bPP1qpP/QP2r1P1/P1P2P2/2BN2RK b Qkq - 1 2")]
     fn test_queen_attack_diagonal() {
-        assert_eval!(+ queen_attack_diagonal, 3, 7, eval; None);
+        assert_eval!(+ queen_attack_diagonal, 3, 7, eval);
     }
 }
