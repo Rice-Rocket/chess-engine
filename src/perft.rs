@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, time::Instant};
 use crate::Cli;
 
 use clap::{error::ErrorKind, CommandFactory};
-use engine::{board::{moves::Move, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, search::options::SearchOptions, utils::{fen, representation}};
+use engine::{board::{moves::Move, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, move_gen::move_generator::MoveGenerator, search::options::SearchOptions, utils::{fen, representation}};
 use external_uci::{ExternalUci, ExternalUciCapable, UciPerftResults};
 use termion::color as tcolor;
 
@@ -10,14 +10,12 @@ pub fn movegen_test(
     board: &mut Board,
     zobrist: &Zobrist,
     movegen: &mut MoveGenerator,
-    precomp: &Precomputed,
-    magics: &MagicBitBoards,
     depth: u16,
     eval: bool,
 ) -> u64 {
     if depth == 0 { return 1 };
 
-    movegen.generate_moves(board, precomp, magics, false);
+    movegen.generate_moves(board, false);
     let moves = movegen.moves.clone();
     let mut nodes = 0;
 
@@ -32,11 +30,11 @@ pub fn movegen_test(
         board.make_move(m, true, zobrist);
         
         if eval {
-            let mut evaluation = Evaluation::new(board, precomp, magics);
+            let mut evaluation = Evaluation::new(board);
             evaluation.evaluate::<White, Black>();
         }
 
-        let n = movegen_test(board, zobrist, movegen, precomp, magics, depth - 1, eval);
+        let n = movegen_test(board, zobrist, movegen, depth - 1, eval);
         nodes += n;
         board.unmake_move(m, true);
     }
@@ -48,19 +46,17 @@ pub fn movegen_test_expand(
     board: &mut Board,
     zobrist: &Zobrist,
     movegen: &mut MoveGenerator,
-    precomp: &Precomputed,
-    magics: &MagicBitBoards,
     depth: u16,
 ) -> (u64, Vec<(Move, u64)>) {
     if depth == 0 { return (1, vec![]) };
 
-    movegen.generate_moves(board, precomp, magics, false);
+    movegen.generate_moves(board, false);
     let mut nodes = 0;
     let move_nodes = vec![(Move::NULL, 0); movegen.moves.len()];
 
     for m in movegen.moves.clone().into_iter() {
         board.make_move(m, false, zobrist);
-        let n = movegen_test_expand(board, zobrist, movegen, precomp, magics, depth - 1).0;
+        let n = movegen_test_expand(board, zobrist, movegen, depth - 1).0;
         nodes += n;
         board.unmake_move(m, false);
     }
@@ -214,9 +210,9 @@ pub async fn test_perft(position: u16, depth: u16, fen: &str, expand_branch_node
 
     let start = Instant::now();
     let (nodes, mut move_nodes) = if expand_branch_nodes {
-        movegen_test_expand(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth)
+        movegen_test_expand(&mut game.board, &game.zobrist, &mut game.movegen, depth)
     } else {
-        (movegen_test(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth, eval), vec![])
+        (movegen_test(&mut game.board, &game.zobrist, &mut game.movegen, depth, eval), vec![])
     };
     let time_spent = Instant::now().duration_since(start);
 
@@ -302,8 +298,6 @@ pub fn test_perft_recursive<'a>(
     board: &'a mut Board,
     zobrist: &'a Zobrist,
     movegen: &'a mut MoveGenerator,
-    precomp: &'a Precomputed,
-    magics: &'a MagicBitBoards,
     depth: u16,
 ) -> Pin<Box<dyn Future<Output = u64> + Send + 'a>> {
     Box::pin(async move {
@@ -322,13 +316,13 @@ pub fn test_perft_recursive<'a>(
             }
         };
 
-        movegen.generate_moves(board, precomp, magics, false);
+        movegen.generate_moves(board, false);
         let mut nodes = 0;
         let mut move_nodes = vec![(Move::NULL, 0); movegen.moves.len()];
 
         for (i, m) in movegen.moves.clone().into_iter().enumerate() {
             board.make_move(m, false, zobrist);
-            let n = test_perft_recursive(board, zobrist, movegen, precomp, magics, depth - 1).await;
+            let n = test_perft_recursive(board, zobrist, movegen, depth - 1).await;
             nodes += n;
             move_nodes[i] = (m, n);
             board.unmake_move(m, false);

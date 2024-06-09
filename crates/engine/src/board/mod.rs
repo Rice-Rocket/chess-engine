@@ -13,7 +13,7 @@ use game_state::GameState;
 
 use crate::precomp::Precomputed;
 use crate::prelude::*;
-use crate::{utils::fen, move_gen::magics::MagicBitBoards};
+use crate::{utils::fen, move_gen::magics::Magics};
 
 
 #[derive(Clone, PartialEq, Eq)]
@@ -397,38 +397,38 @@ impl Board {
         board
     }
 
-    pub fn in_check(&mut self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
+    pub fn in_check(&mut self) -> bool {
         if let Some(val) = self.cached_in_check_val {
             return val;
         }
-        self.cached_in_check_val = Some(self.get_in_check_state(magic, precomp));
+        self.cached_in_check_val = Some(self.get_in_check_state());
         self.cached_in_check_val.unwrap()
     }
 
-    fn get_in_check_state(&self, magic: &MagicBitBoards, precomp: &Precomputed) -> bool {
+    fn get_in_check_state(&self) -> bool {
         let king_sqr = self.king_square[self.move_color_idx];
         let blockers = self.all_pieces_bitboard;
 
         if self.enemy_orthogonal_sliders.0 != 0 {
-            let rook_attacks = magic.get_rook_attacks(king_sqr, blockers);
+            let rook_attacks = Magics::rook_attacks(king_sqr, blockers);
             if (rook_attacks & self.enemy_orthogonal_sliders).0 != 0 {
                 return true;
             }
         }
         if self.enemy_diagonal_sliders.0 != 0 {
-            let bishop_attacks = magic.get_bishop_attacks(king_sqr, blockers);
+            let bishop_attacks = Magics::bishop_attacks(king_sqr, blockers);
             if (bishop_attacks & self.enemy_diagonal_sliders).0 != 0 {
                 return true;
             }
         }
 
         let enemy_knights = self.piece_bitboards[Piece::new(Piece::KNIGHT | self.opponent_color)];
-        if (precomp.knight_moves[king_sqr] & enemy_knights).0 != 0 {
+        if (Precomputed::knight_moves(king_sqr) & enemy_knights).0 != 0 {
             return true;
         }
 
         let enemy_pawns = self.piece_bitboards[Piece::new(Piece::PAWN | self.opponent_color)];
-        let pawn_attack_mask = if self.white_to_move { precomp.white_pawn_attacks[king_sqr] } else { precomp.black_pawn_attacks[king_sqr] };
+        let pawn_attack_mask = if self.white_to_move { Precomputed::white_pawn_attacks(king_sqr) } else { Precomputed::black_pawn_attacks(king_sqr) };
         if (pawn_attack_mask & enemy_pawns).0 != 0 {
             return true;
         }

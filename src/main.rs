@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use engine::{board::{zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::PlayerType, move_gen::magics::MagicBitBoards, precomp::Precomputed, search::options::SearchOptions};
+use engine::{board::{zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::PlayerType, move_gen::magics, precomp, search::options::SearchOptions};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 use external_uci::ExternalUci;
@@ -180,11 +180,11 @@ async fn main() {
             space,
             king,
         } => {
-            let precomp = Precomputed::new();
-            let magics = MagicBitBoards::default();
+            precomp::initialize();
+            magics::initialize();
             let mut zobrist = Zobrist::new();
             let board = Board::load_position(Some(fen), &mut zobrist);
-            let mut eval = Evaluation::new(&board, &precomp, &magics);
+            let mut eval = Evaluation::new(&board);
 
             println!("main evaluation: {}", eval.evaluate::<White, Black>());
             println!("mg evaluation: {}", eval.middle_game_eval::<White, Black>());
@@ -313,7 +313,7 @@ async fn main() {
                     }
                 };
 
-                perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, &game.precomp, &game.magics, depth).await;
+                perft::test_perft_recursive(&mut game.board, &game.zobrist, &mut game.movegen, depth).await;
             } else if all {
                 for i in 1..=depth {
                     match perft::test_perft(position, i, &fen, expand_branches, false, eval).await {

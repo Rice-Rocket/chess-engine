@@ -1,7 +1,7 @@
 use std::io::{stdout, Stdout, Write};
 use termion::{async_stdin, clear, color, cursor, event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
-use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, result::GameResult, search::{diagnostics::SearchDiagnostics, options::SearchOptions}, utils};
+use engine::{bitboard::bb::BitBoard, board::{coord::Coord, moves::Move, piece::Piece, Board}, color::{Black, White}, eval::Evaluation, game::{Game, PlayerType}, move_gen::magics::Magics, precomp::Precomputed, result::GameResult, search::{diagnostics::SearchDiagnostics, options::SearchOptions}, utils};
 
 
 // const BOARD_CHARACTERS_LIGHT: &str = "─│┌┐└┘├┤┬┴┼";
@@ -353,7 +353,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                         // NOTE: Used purely for debugging specific functions
                         Key::Char('e') => {
                             let sqr = Coord::from(cursor);
-                            let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                            let mut eval = Evaluation::new(&game.board);
                             if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                             let v = if game.board.white_to_move {
                                 eval.passed_block::<White, Black>()[sqr]
@@ -406,11 +406,11 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                             mode = InputMode::Normal;
                         },
                         Key::Char('m') => {
-                            overlayed_bitboard = Some(game.magics.get_rook_attacks(cursor.into(), game.board.all_pieces_bitboard));
+                            overlayed_bitboard = Some(Magics::rook_attacks(cursor.into(), game.board.all_pieces_bitboard));
                             mode = InputMode::Normal;
                         },
                         Key::Char('M') => {
-                            overlayed_bitboard = Some(game.magics.get_bishop_attacks(cursor.into(), game.board.all_pieces_bitboard));
+                            overlayed_bitboard = Some(Magics::bishop_attacks(cursor.into(), game.board.all_pieces_bitboard));
                             mode = InputMode::Normal;
                         },
                         Key::Char('p') => {
@@ -426,21 +426,21 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                 InputMode::SelectPrecompBitBoard => {
                     match c.unwrap() {
                         Key::Char('s') => {
-                            overlayed_bitboard = Some(game.precomp.white_pawn_support_mask[Coord::from(cursor)]);
+                            overlayed_bitboard = Some(Precomputed::white_pawn_support_mask(Coord::from(cursor)));
                         },
                         Key::Char('S') => {
-                            overlayed_bitboard = Some(game.precomp.black_pawn_support_mask[Coord::from(cursor)]);
+                            overlayed_bitboard = Some(Precomputed::black_pawn_support_mask(Coord::from(cursor)));
                         },
                         Key::Char('p') => {
-                            overlayed_bitboard = Some(game.precomp.white_pawn_attacks[Coord::from(cursor)]);
+                            overlayed_bitboard = Some(Precomputed::white_pawn_attacks(Coord::from(cursor)));
                         },
                         Key::Char('P') => {
-                            overlayed_bitboard = Some(game.precomp.black_pawn_attacks[Coord::from(cursor)]);
+                            overlayed_bitboard = Some(Precomputed::black_pawn_attacks(Coord::from(cursor)));
                         },
 
                         // NOTE: Used purely for debugging
                         Key::Char('e') => {
-                            let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                            let mut eval = Evaluation::new(&game.board);
                             if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                             overlayed_bitboard = Some(if game.board.white_to_move {
                                 eval.king_attackers_origin::<White, Black>().0
@@ -449,7 +449,7 @@ pub fn start(fen: String, white: PlayerType, black: PlayerType, truecolor: bool,
                             });
                         },
                         Key::Char('E') => {
-                            let mut eval = Evaluation::new(&game.board, &game.precomp, &game.magics);
+                            let mut eval = Evaluation::new(&game.board);
                             if game.board.white_to_move { eval.init::<White, Black>() } else { eval.init::<Black, White>() };
                             overlayed_bitboard = Some(if game.board.white_to_move {
                                 eval.pin_rays::<White, Black>().1

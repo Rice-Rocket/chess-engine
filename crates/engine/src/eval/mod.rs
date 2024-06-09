@@ -1,4 +1,4 @@
-use crate::{board::{coord::Coord, piece::Piece, Board}, color::{Black, Color, White}, move_gen::magics::MagicBitBoards, precomp::Precomputed, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece, Board}, color::{Black, Color, White}, move_gen::magics::Magics, precomp::Precomputed, prelude::BitBoard};
 
 pub mod attack;
 pub mod utils;
@@ -17,8 +17,6 @@ pub mod macros;
 
 pub struct Evaluation<'a> {
     pub board: &'a Board,
-    pub precomp: &'a Precomputed,
-    pub magics: &'a MagicBitBoards,
 
     pin_rays: [(BitBoard, BitBoard); 2],
     all_king_attacks: [BitBoard; 2],
@@ -44,15 +42,9 @@ pub struct Evaluation<'a> {
 }
 
 impl<'a> Evaluation<'a> {
-    pub fn new(
-        board: &'a Board,
-        precomp: &'a Precomputed,
-        magics: &'a MagicBitBoards,
-    ) -> Self {
+    pub fn new(board: &'a Board) -> Self {
         Self {
             board,
-            precomp,
-            magics,
 
             pin_rays: [(BitBoard(0), BitBoard(0)); 2],
             all_king_attacks: [BitBoard(0); 2],
@@ -264,7 +256,7 @@ impl<'a> Evaluation<'a> {
                     let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
                     let left_flank = (BitBoard::from_ranks(0..=3) & pawns).0 > 0;
                     let right_flank = (BitBoard::from_ranks(4..=7) & pawns).0 > 0;
-                    let pawnking_b = (self.precomp.king_moves[self.king_square::<B, W>()] 
+                    let pawnking_b = (Precomputed::king_moves(self.king_square::<B, W>()) 
                         & self.board.piece_bitboards[B::piece(Piece::PAWN)]).0 > 0;
                     if left_flank != right_flank && pawnking_b { return 36 };
                 }
@@ -442,7 +434,7 @@ pub(in crate::eval) mod test_prelude {
     pub use crate::board::Board;
     pub use crate::board::zobrist::Zobrist;
     pub use crate::color::{Color, White, Black};
-    pub use crate::move_gen::magics::MagicBitBoards;
+    pub use crate::move_gen::magics::Magics;
     pub use crate::eval::Evaluation;
     pub use crate::assert_eval;
     pub use crate::sum_sqrs;

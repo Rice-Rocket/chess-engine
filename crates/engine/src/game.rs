@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed, prelude::BitBoard, result::GameResult, search::{options::SearchOptions, Searcher}};
+use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, move_gen::{magics::{self, Magics}, move_generator::MoveGenerator}, precomp::{self, Precomputed}, prelude::BitBoard, result::GameResult, search::{options::SearchOptions, Searcher}};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PlayerType {
@@ -10,9 +10,7 @@ pub enum PlayerType {
 
 pub struct Game<'a> {
     pub board: Board,
-    pub precomp: Precomputed,
     pub zobrist: Zobrist,
-    pub magics: MagicBitBoards,
     pub movegen: MoveGenerator,
 
     pub white: PlayerType,
@@ -24,25 +22,23 @@ pub struct Game<'a> {
 
 impl<'a> Game<'a> {
     pub fn new(start_fen: Option<String>, search_opts: SearchOptions, white: PlayerType, black: PlayerType) -> Self {
-        let precomp = Precomputed::new();
+        precomp::initialize();
+        magics::initialize();
         let mut zobrist = Zobrist::new();
         let mut board = Board::load_position(start_fen, &mut zobrist);
-        let magics = MagicBitBoards::default();
         let mut movegen = MoveGenerator::default();
         let mut searcher = Searcher::new();
 
-        movegen.generate_moves(&board, &precomp, &magics, false);
+        movegen.generate_moves(&board, false);
         let player_to_move = if board.white_to_move { white } else { black };
 
         if player_to_move == PlayerType::Computer {
-            searcher.begin_search(search_opts, &mut board, &precomp, &magics, &zobrist, &mut movegen);
+            searcher.begin_search(search_opts, &mut board, &zobrist, &mut movegen);
         }
 
         Self {
             board,
-            precomp,
             zobrist,
-            magics,
             movegen,
             white,
             black,
@@ -70,7 +66,7 @@ impl<'a> Game<'a> {
 
             },
             PlayerType::Computer => {
-                self.searcher.begin_search(self.search_opts, &mut self.board, &self.precomp, &self.magics, &self.zobrist, &mut self.movegen);
+                self.searcher.begin_search(self.search_opts, &mut self.board, &self.zobrist, &mut self.movegen);
             },
         }
 
@@ -82,7 +78,7 @@ impl<'a> Game<'a> {
     }
 
     pub fn get_game_result(&mut self) -> GameResult {
-        self.movegen.generate_moves(&self.board, &self.precomp, &self.magics, false);
+        self.movegen.generate_moves(&self.board, false);
         let moves = &self.movegen.moves;
 
         if moves.is_empty() {

@@ -49,7 +49,7 @@ impl<'a> Evaluation<'a> {
         let mut eval = SquareEvaluations::new();
 
         for sqr in Coord::iter_squares() {
-            eval[sqr] = self.precomp.king_distance[self.king_square::<W, B>()][sqr] as i32;
+            eval[sqr] = Precomputed::king_distance(self.king_square::<W, B>(), sqr) as i32;
         }
 
         eval
@@ -57,11 +57,11 @@ impl<'a> Evaluation<'a> {
 
     /// The enemy's king ring. Squares defended by two pawns are excluded. 
     pub fn king_ring<W: Color, B: Color>(&self, full: bool) -> BitBoard {;
-        let mut king_ring = self.precomp.king_ring[self.king_square::<B, W>()];
+        let mut king_ring = Precomputed::king_ring(self.king_square::<B, W>());
         if full { return king_ring };
 
         let pawns = self.board.piece_bitboards[B::piece(Piece::PAWN)];
-        let offset = self.precomp.pawn_attack_dirs[B::index()];
+        let offset = Precomputed::pawn_attack_dirs(B::index());
         let attacked = pawns.shifted(offset[0].offset()) & pawns.shifted(offset[1].offset());
 
         king_ring & !attacked
@@ -80,7 +80,7 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let pawn_span = self.precomp.pawn_attack_span[B::index()][sqr];
+            let pawn_span = Precomputed::pawn_attack_span(B::index(), sqr);
             span |= pawn_span;
         }
 

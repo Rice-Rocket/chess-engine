@@ -1,7 +1,7 @@
 use crate::board::{coord::Coord, moves::Move, Board, piece::Piece};
 
 use crate::bitboard::bb::BitBoard;
-use super::magics::MagicBitBoards;
+use super::magics::Magics;
 use crate::precomp::Precomputed;
 
 
@@ -49,17 +49,17 @@ pub struct MoveGenerator {
 }
 
 impl MoveGenerator {
-    pub fn generate_moves(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards, captures_only: bool) -> Vec<Move> {
+    pub fn generate_moves(&mut self, board: &Board, captures_only: bool) -> Vec<Move> {
         self.moves.clear();
         self.gen_quiet_moves = !captures_only;
 
-        self.init(board, precomp, magic);
-        self.gen_king_moves(board, precomp);
+        self.init(board);
+        self.gen_king_moves(board);
 
         if !self.in_double_check {
-            self.gen_sliding_moves(board, magic, precomp);
-            self.gen_knight_moves(board, precomp);
-            self.gen_pawn_moves(board, precomp, magic);
+            self.gen_sliding_moves(board);
+            self.gen_knight_moves(board);
+            self.gen_pawn_moves(board);
         }
 
         self.moves.clone()
@@ -69,7 +69,7 @@ impl MoveGenerator {
         self.in_check
     }
     
-    fn init(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards) {
+    fn init(&mut self, board: &Board) {
         self.in_check = false;
         self.in_double_check = false;
         self.check_ray_bitmask = BitBoard(0);
@@ -89,11 +89,11 @@ impl MoveGenerator {
         self.empty_or_enemy_sqrs = self.empty_sqrs | self.enemy_pieces;
         self.move_type_mask = if self.gen_quiet_moves { BitBoard::ALL } else { self.enemy_pieces };
 
-        self.calc_attack_data(board, precomp, magic);
+        self.calc_attack_data(board);
     }
 
-    fn calc_attack_data(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards) {
-        self.gen_sliding_attack_map(board, magic);
+    fn calc_attack_data(&mut self, board: &Board) {
+        self.gen_sliding_attack_map(board);
         let mut start_dir_idx = 0;
         let mut end_dir_idx = 8;
 
@@ -106,10 +106,10 @@ impl MoveGenerator {
         for dir in start_dir_idx..end_dir_idx {
             let is_diagonal = dir > 3;
             let slider = if is_diagonal { board.enemy_diagonal_sliders } else { board.enemy_orthogonal_sliders };
-            if (precomp.dir_ray_mask[self.friendly_king_sqr][dir] & slider).0 == 0 { continue; }
+            if (Precomputed::dir_ray_mask(self.friendly_king_sqr, dir) & slider).0 == 0 { continue; }
 
-            let n = precomp.num_sqrs_to_edge[self.friendly_king_sqr][dir];
-            let dir_offset = precomp.direction_offsets[dir];
+            let n = Precomputed::num_sqrs_to_edge(self.friendly_king_sqr, dir);
+            let dir_offset = Precomputed::direction_offsets(dir);
             let mut is_friendly_piece_along_ray = false;
             let mut ray_mask = BitBoard(0);
 
@@ -145,7 +145,7 @@ impl MoveGenerator {
 
         while knights.0 != 0 {
             let knight_sqr = knights.pop_lsb();
-            let knight_attacks = precomp.knight_moves[knight_sqr as usize];
+            let knight_attacks = Precomputed::knight_moves(Coord::from_idx(knight_sqr as i8));
             opponent_knight_attacks |= knight_attacks;
 
             if (knight_attacks & friendly_king_bitboard).0 != 0 {
@@ -160,14 +160,14 @@ impl MoveGenerator {
         if self.enemy_pawn_attack_map.contains_square(self.friendly_king_sqr.square()) {
             self.in_double_check = self.in_check;
             self.in_check = true;
-            let possible_pawn_attack_origins = if board.white_to_move { precomp.white_pawn_attacks[self.friendly_king_sqr] } else {
-                precomp.black_pawn_attacks[self.friendly_king_sqr]};
+            let possible_pawn_attack_origins = if board.white_to_move { Precomputed::white_pawn_attacks(self.friendly_king_sqr) } else {
+                Precomputed::black_pawn_attacks(self.friendly_king_sqr)};
             let pawn_check_map = enemy_pawns_bitboard & possible_pawn_attack_origins;
             self.check_ray_bitmask |= pawn_check_map;
         }
 
         let enemy_king_sqr = board.king_square[self.enemy_idx];
-        self.enemy_attack_map_no_pawns = self.enemy_sliding_attack_map | opponent_knight_attacks | precomp.king_moves[enemy_king_sqr];
+        self.enemy_attack_map_no_pawns = self.enemy_sliding_attack_map | opponent_knight_attacks | Precomputed::king_moves(enemy_king_sqr);
         self.enemy_attack_map = self.enemy_attack_map_no_pawns | self.enemy_pawn_attack_map;
 
         if !self.in_check {
@@ -175,17 +175,17 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_sliding_attack_map(&mut self, board: &Board, magic: &MagicBitBoards) {
+    fn gen_sliding_attack_map(&mut self, board: &Board) {
         self.enemy_sliding_attack_map = BitBoard(0);
-        self.update_slide_attack(board, magic, board.enemy_orthogonal_sliders, true);
-        self.update_slide_attack(board, magic, board.enemy_diagonal_sliders, false);
+        self.update_slide_attack(board, board.enemy_orthogonal_sliders, true);
+        self.update_slide_attack(board, board.enemy_diagonal_sliders, false);
     }
 
-    fn update_slide_attack(&mut self, board: &Board, magic: &MagicBitBoards, mut piece_board: BitBoard, ortho: bool) {
+    fn update_slide_attack(&mut self, board: &Board, mut piece_board: BitBoard, ortho: bool) {
         let blockers = board.all_pieces_bitboard & !self.friendly_king_sqr.to_bitboard();
         while piece_board.0 != 0 {
             let start = Coord::from_idx(piece_board.pop_lsb() as i8);
-            let move_board = magic.get_slider_attacks(start, blockers, ortho);
+            let move_board = Magics::slider_attacks(start, blockers, ortho);
             self.enemy_sliding_attack_map |= move_board;
         }
     }
@@ -194,9 +194,9 @@ impl MoveGenerator {
         ((self.pin_rays >> sqr.index()) & 1).0 != 0
     }
 
-    fn gen_king_moves(&mut self, board: &Board, bbutils: &Precomputed) {
+    fn gen_king_moves(&mut self, board: &Board) {
         let legal_mask = !(self.enemy_attack_map | self.friendly_pieces);
-        let mut king_moves = bbutils.king_moves[self.friendly_king_sqr] & legal_mask & self.move_type_mask;
+        let mut king_moves = Precomputed::king_moves(self.friendly_king_sqr) & legal_mask & self.move_type_mask;
         while king_moves.0 != 0 {
             let target_sqr = king_moves.pop_lsb() as i8;
             self.moves.push(Move::from_start_end(self.friendly_king_sqr.square(), target_sqr));
@@ -222,7 +222,7 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_sliding_moves(&mut self, board: &Board, magic: &MagicBitBoards, precomp: &Precomputed) {
+    fn gen_sliding_moves(&mut self, board: &Board) {
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
         let mut orthogonal_sliders = board.friendly_orthogonal_sliders;
         let mut diagonal_sliders = board.friendly_diagonal_sliders;
@@ -234,9 +234,9 @@ impl MoveGenerator {
 
         while orthogonal_sliders.0 != 0 {
             let start = Coord::from_idx(orthogonal_sliders.pop_lsb() as i8);
-            let mut move_sqrs = magic.get_rook_attacks(start, self.all_pieces) & move_mask;
+            let mut move_sqrs = Magics::rook_attacks(start, self.all_pieces) & move_mask;
             if self.is_pinned(start) {
-                move_sqrs &= precomp.align_mask[start][self.friendly_king_sqr];
+                move_sqrs &= Precomputed::align_mask(start, self.friendly_king_sqr);
             }
             while move_sqrs.0 != 0 {
                 let target = move_sqrs.pop_lsb() as i8;
@@ -246,9 +246,9 @@ impl MoveGenerator {
 
         while diagonal_sliders.0 != 0 {
             let start = Coord::from_idx(diagonal_sliders.pop_lsb() as i8);
-            let mut move_sqrs = magic.get_bishop_attacks(start, self.all_pieces) & move_mask;
+            let mut move_sqrs = Magics::bishop_attacks(start, self.all_pieces) & move_mask;
             if self.is_pinned(start) {
-                move_sqrs &= precomp.align_mask[start][self.friendly_king_sqr];
+                move_sqrs &= Precomputed::align_mask(start, self.friendly_king_sqr);
             }
             while move_sqrs.0 != 0 {
                 let target = move_sqrs.pop_lsb() as i8;
@@ -257,14 +257,14 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_knight_moves(&mut self, board: &Board, precomp: &Precomputed) {
+    fn gen_knight_moves(&mut self, board: &Board) {
         let friendly_knight_piece = Piece::new(Piece::KNIGHT | self.friendly_color);
         let mut knights = board.piece_bitboards[friendly_knight_piece] & self.not_pin_rays;
         let move_mask = self.empty_or_enemy_sqrs & self.check_ray_bitmask & self.move_type_mask;
 
         while knights.0 != 0 {
             let knight_sqr = knights.pop_lsb() as i8;
-            let mut move_sqrs = precomp.knight_moves[knight_sqr as usize] & move_mask;
+            let mut move_sqrs = Precomputed::knight_moves(Coord::from_idx(knight_sqr)) & move_mask;
             while move_sqrs.0 != 0 {
                 let target = move_sqrs.pop_lsb() as i8;
                 self.moves.push(Move::from_start_end(knight_sqr, target));
@@ -272,7 +272,7 @@ impl MoveGenerator {
         }
     }
 
-    fn gen_pawn_moves(&mut self, board: &Board, precomp: &Precomputed, magic: &MagicBitBoards) {
+    fn gen_pawn_moves(&mut self, board: &Board) {
         let push_dir = if self.white_to_move { 1i8 } else { -1i8 };
         let push_offset = push_dir * 8;
 
@@ -300,8 +300,8 @@ impl MoveGenerator {
                 let target_sqr = single_push_no_proms.pop_lsb() as i8;
                 let start_sqr = target_sqr - push_offset;
                 if !self.is_pinned(Coord::from_idx(start_sqr)) 
-                || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-                == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+                || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+                == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                     self.moves.push(Move::from_start_end(start_sqr, target_sqr));
                 }
             }
@@ -312,8 +312,8 @@ impl MoveGenerator {
                 let target_sqr = double_push.pop_lsb() as i8;
                 let start_sqr = target_sqr - push_offset * 2;
                 if !self.is_pinned(Coord::from_idx(start_sqr)) 
-                || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-                == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+                || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+                == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                     self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::PAWN_TWO_FORWARD));
                 }
             }
@@ -323,8 +323,8 @@ impl MoveGenerator {
             let target_sqr = capture_a.pop_lsb() as i8;
             let start_sqr = target_sqr - push_dir * 7;
             if !self.is_pinned(Coord::from_idx(start_sqr)) 
-            || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-            == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+            || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+            == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                 self.moves.push(Move::from_start_end(start_sqr, target_sqr));
             }
         }
@@ -332,8 +332,8 @@ impl MoveGenerator {
             let target_sqr = capture_b.pop_lsb() as i8;
             let start_sqr = target_sqr - push_dir * 9;
             if !self.is_pinned(Coord::from_idx(start_sqr))
-            || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-            == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+            || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+            == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                 self.moves.push(Move::from_start_end(start_sqr, target_sqr));
             }
         }
@@ -349,8 +349,8 @@ impl MoveGenerator {
             let target_sqr = capture_proms_a.pop_lsb() as i8;
             let start_sqr = target_sqr - push_dir * 7;
             if !self.is_pinned(Coord::from_idx(start_sqr)) 
-            || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-            == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+            || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+            == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                 self.gen_proms(start_sqr, target_sqr);
             }
         }
@@ -358,8 +358,8 @@ impl MoveGenerator {
             let target_sqr = capture_proms_b.pop_lsb() as i8;
             let start_sqr = target_sqr - push_dir * 9;
             if !self.is_pinned(Coord::from_idx(start_sqr)) 
-            || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr] 
-            == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr] {
+            || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+            == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr) {
                 self.gen_proms(start_sqr, target_sqr);
             }
         }
@@ -374,9 +374,9 @@ impl MoveGenerator {
                 while pawns_that_can_ep.0 != 0 {
                     let start_sqr = pawns_that_can_ep.pop_lsb() as i8;
                     if (!self.is_pinned(Coord::from_idx(start_sqr)) 
-                    || precomp.align_mask[start_sqr as usize][self.friendly_king_sqr.index()] 
-                    == precomp.align_mask[target_sqr as usize][self.friendly_king_sqr.index()]) 
-                    && !self.in_check_after_ep(board, magic, start_sqr, target_sqr, captured_pawn_sqr) {
+                    || Precomputed::align_mask(Coord::from_idx(start_sqr), self.friendly_king_sqr) 
+                    == Precomputed::align_mask(Coord::from_idx(target_sqr), self.friendly_king_sqr)) 
+                    && !self.in_check_after_ep(board, start_sqr, target_sqr, captured_pawn_sqr) {
                         self.moves.push(Move::from_start_end_flagged(start_sqr, target_sqr, Move::EN_PASSANT_CAPTURE));
                     }
                 }
@@ -397,11 +397,11 @@ impl MoveGenerator {
         }
     }
 
-    fn in_check_after_ep(&self, board: &Board, magic: &MagicBitBoards, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
+    fn in_check_after_ep(&self, board: &Board, start_sqr: i8, target_sqr: i8, captured_pawn_sqr: i8) -> bool {
         let enemy_ortho = board.enemy_orthogonal_sliders;
         if enemy_ortho.0 != 0 {
             let masked_blockers = self.all_pieces ^ ((1 << captured_pawn_sqr) | (1 << start_sqr) | (1 << target_sqr));
-            let rook_attacks = magic.get_rook_attacks(self.friendly_king_sqr, masked_blockers);
+            let rook_attacks = Magics::rook_attacks(self.friendly_king_sqr, masked_blockers);
             return (rook_attacks & enemy_ortho).0 != 0;
         }
         false

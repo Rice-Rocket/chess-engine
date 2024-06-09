@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::MagicBitBoards, move_generator::MoveGenerator}, precomp::Precomputed};
+use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::Magics, move_generator::MoveGenerator}, precomp::Precomputed};
 
 use self::{diagnostics::SearchDiagnostics, options::SearchOptions, ordering::MoveOrdering, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
 
@@ -48,15 +48,13 @@ impl<'a> Searcher<'a> {
         &mut self,
         opts: SearchOptions,
         board: &mut Board,
-        precomp: &Precomputed,
-        magics: &MagicBitBoards,
         zobrist: &Zobrist,
         movegen: &mut MoveGenerator,
     ) {
         self.opts = opts;
         self.init();
 
-        let moves = movegen.generate_moves(board, precomp, magics, false);
+        let moves = movegen.generate_moves(board, false);
         self.backup_move = moves[0];
 
         let mut repetition_table = RepetitionTable::new(board);
@@ -79,8 +77,6 @@ impl<'a> Searcher<'a> {
                 board,
                 &mut ordering,
                 &mut repetition_table,
-                precomp,
-                magics,
                 zobrist,
                 movegen,
             );
@@ -147,8 +143,6 @@ impl<'a> Searcher<'a> {
         board: &mut Board,
         ordering: &mut MoveOrdering,
         repetition_table: &mut RepetitionTable,
-        precomp: &Precomputed,
-        magics: &MagicBitBoards,
         zobrist: &Zobrist,
         movegen: &mut MoveGenerator,
     ) -> (i32, Option<Move>) {
@@ -183,9 +177,9 @@ impl<'a> Searcher<'a> {
             board.make_move(m, true, zobrist);
 
             // Check extensions
-            let extension = if board.in_check(magics, precomp) { 1 } else { 0 };
+            let extension = if board.in_check() { 1 } else { 0 };
 
-            let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
+            let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
             board.unmake_move(m, true);
 
             if !self.in_search {
@@ -225,8 +219,6 @@ impl<'a> Searcher<'a> {
         repetition_table: &mut RepetitionTable,
         prev_move: Move,
         prev_move_was_capture: bool,
-        precomp: &Precomputed,
-        magics: &MagicBitBoards,
         zobrist: &Zobrist,
         movegen: &mut MoveGenerator,
     ) -> i32 {
@@ -259,11 +251,11 @@ impl<'a> Searcher<'a> {
 
         // Once we hit a leaf node, perform static evaluation of the position
         if depth_remaining == 0 {
-            let mut eval = Evaluation::new(board, precomp, magics);
+            let mut eval = Evaluation::new(board);
             return eval.evaluate::<White, Black>() * if board.white_to_move { 1 } else { -1 };
         }
 
-        let moves = movegen.generate_moves(board, precomp, magics, false);
+        let moves = movegen.generate_moves(board, false);
 
         // Consider checkmate and stalemate cases
         if moves.is_empty() {
@@ -300,10 +292,10 @@ impl<'a> Searcher<'a> {
 
             // If the move is a check, extend the search depth
             let extension = if n_extensions < Self::MAX_EXTENSIONS {
-                if board.in_check(magics, precomp) { 1 } else { 0 }
+                if board.in_check() { 1 } else { 0 }
             } else { 0 };
 
-            let eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, precomp, magics, zobrist, movegen);
+            let eval = -self.search(depth + 1, depth_remaining - 1 + extension, -beta, -alpha, n_extensions + extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
             board.unmake_move(m, true);
 
             if !self.in_search {

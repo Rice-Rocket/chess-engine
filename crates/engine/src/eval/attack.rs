@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{board::{coord::Coord, piece::Piece}, color::{Color, White, Black}, prelude::BitBoard};
+use crate::{board::{coord::Coord, piece::Piece}, move_gen::magics::Magics, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -43,10 +43,10 @@ impl<'a> Evaluation<'a> {
         for dir in start_dir_idx..end_dir_idx {
             let is_diagonal = dir > 3;
             let slider = if is_diagonal { self.diagonal_sliders::<B, W>() } else { self.orthogonal_sliders::<B, W>() };
-            if (self.precomp.dir_ray_mask[self.king_square::<W, B>()][dir] & slider).0 == 0 { continue; }
+            if (Precomputed::dir_ray_mask(self.king_square::<W, B>(), dir) & slider).0 == 0 { continue; }
 
-            let n = self.precomp.num_sqrs_to_edge[self.king_square::<W, B>()][dir];
-            let dir_offset = self.precomp.direction_offsets[dir];
+            let n = Precomputed::num_sqrs_to_edge(self.king_square::<W, B>(), dir);
+            let dir_offset = Precomputed::direction_offsets(dir);
             let mut is_piece_along_ray = false;
             let mut is_friendly_piece = false;
             let mut ray_mask = BitBoard(0);
@@ -101,7 +101,7 @@ impl<'a> Evaluation<'a> {
 
         while knights.0 != 0 {
             let sqr = Coord::from_idx(knights.pop_lsb() as i8);
-            let moves = self.precomp.knight_moves[sqr];
+            let moves = Precomputed::knight_moves(sqr);
             doubled |= attacks & moves;
             attacks |= moves;
         }
@@ -114,7 +114,7 @@ impl<'a> Evaluation<'a> {
     /// 
     /// Requires: `pin_rays`
     pub fn knight_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
-        let mut attacks = self.precomp.knight_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
+        let mut attacks = Precomputed::knight_moves(sqr) & self.board.piece_bitboards[W::piece(Piece::KNIGHT)];
         attacks &= !self.pin_rays[W::index()].0;
         attacks
     }
@@ -123,7 +123,7 @@ impl<'a> Evaluation<'a> {
         if self.pinned::<W, B>(sqr) {
             BitBoard(0)
         } else {
-            self.precomp.knight_moves[sqr]
+            Precomputed::knight_moves(sqr)
         }
     }
 
@@ -137,9 +137,9 @@ impl<'a> Evaluation<'a> {
         
         while bishops.0 != 0 {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
-            let moves = self.magics.get_bishop_attacks(sqr, blockers);
+            let moves = Magics::bishop_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                moves & Precomputed::align_mask(sqr, self.king_square::<W, B>())
                 // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
@@ -158,13 +158,13 @@ impl<'a> Evaluation<'a> {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
-        let mut attacks = self.magics.get_bishop_attacks(sqr, blockers) 
+        let mut attacks = Magics::bishop_attacks(sqr, blockers) 
             & self.board.piece_bitboards[W::piece(Piece::BISHOP)];
 
         let mut res = attacks;
         while attacks.0 != 0 {
             let start = Coord::from_idx(attacks.pop_lsb() as i8);
-            if self.pinned::<W, B>(start) && !self.precomp.align_mask[start][self.king_square::<W, B>()].contains_square(sqr.square()) {
+            if self.pinned::<W, B>(start) && !Precomputed::align_mask(start, self.king_square::<W, B>()).contains_square(sqr.square()) {
                 res.clear_square(start.square());
             };
         }
@@ -175,10 +175,10 @@ impl<'a> Evaluation<'a> {
         let blockers = self.board.all_pieces_bitboard & !(
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]);
-        let mut attacks = self.magics.get_bishop_attacks(sqr, blockers);
+        let mut attacks = Magics::bishop_attacks(sqr, blockers);
 
         if self.pinned::<W, B>(sqr) {
-            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+            attacks &= Precomputed::align_mask(sqr, self.king_square::<W, B>());
         }
 
         attacks
@@ -195,9 +195,9 @@ impl<'a> Evaluation<'a> {
         
         while rooks.0 != 0 {
             let sqr = Coord::from_idx(rooks.pop_lsb() as i8);
-            let moves = self.magics.get_rook_attacks(sqr, blockers);
+            let moves = Magics::rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                moves & Precomputed::align_mask(sqr, self.king_square::<W, B>())
                 // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
@@ -217,13 +217,13 @@ impl<'a> Evaluation<'a> {
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
             | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
-        let mut attacks = self.magics.get_rook_attacks(sqr, blockers) 
+        let mut attacks = Magics::rook_attacks(sqr, blockers) 
             & self.board.piece_bitboards[W::piece(Piece::ROOK)];
 
         let mut res = attacks;
         while attacks.0 != 0 {
             let start = Coord::from_idx(attacks.pop_lsb() as i8);
-            if self.pinned::<W, B>(start) && !self.precomp.align_mask[start][self.king_square::<W, B>()].contains_square(sqr.square()) {
+            if self.pinned::<W, B>(start) && !Precomputed::align_mask(start, self.king_square::<W, B>()).contains_square(sqr.square()) {
                 res.clear_square(start.square());
             };
         }
@@ -235,10 +235,10 @@ impl<'a> Evaluation<'a> {
             self.board.piece_bitboards[Piece::new(Piece::WHITE_QUEEN)] 
             | self.board.piece_bitboards[Piece::new(Piece::BLACK_QUEEN)]
             | self.board.piece_bitboards[W::piece(Piece::ROOK)]);
-        let mut attacks = self.magics.get_rook_attacks(sqr, blockers);
+        let mut attacks = Magics::rook_attacks(sqr, blockers);
 
         if self.pinned::<W, B>(sqr) {
-            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+            attacks &= Precomputed::align_mask(sqr, self.king_square::<W, B>());
         }
 
         attacks
@@ -252,9 +252,9 @@ impl<'a> Evaluation<'a> {
         
         while queens.0 != 0 {
             let sqr = Coord::from_idx(queens.pop_lsb() as i8);
-            let moves = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
+            let moves = Magics::bishop_attacks(sqr, blockers) | Magics::rook_attacks(sqr, blockers);
             let valid = if self.pinned::<W, B>(sqr) {
-                moves & self.precomp.align_mask[sqr][self.king_square::<W, B>()]
+                moves & Precomputed::align_mask(sqr, self.king_square::<W, B>())
                 // moves & (self.pin_rays[W::index()].0 | self.king_square::<W, B>().to_bitboard())
             } else {
                 moves
@@ -271,13 +271,13 @@ impl<'a> Evaluation<'a> {
     /// Requires: `pin_rays`
     pub fn queen_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard;
-        let mut attacks = (self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers))
+        let mut attacks = (Magics::bishop_attacks(sqr, blockers) | Magics::rook_attacks(sqr, blockers))
             & self.board.piece_bitboards[W::piece(Piece::QUEEN)];
 
         let mut res = attacks;
         while attacks.0 != 0 {
             let start = Coord::from_idx(attacks.pop_lsb() as i8);
-            if self.pinned::<W, B>(start) && !self.precomp.align_mask[start][self.king_square::<W, B>()].contains_square(sqr.square()) {
+            if self.pinned::<W, B>(start) && !Precomputed::align_mask(start, self.king_square::<W, B>()).contains_square(sqr.square()) {
                 res.clear_square(start.square());
             };
         }
@@ -286,10 +286,10 @@ impl<'a> Evaluation<'a> {
 
     pub fn queen_attack_from<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
         let blockers = self.board.all_pieces_bitboard;
-        let mut attacks = (self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers));
+        let mut attacks = (Magics::bishop_attacks(sqr, blockers) | Magics::rook_attacks(sqr, blockers));
 
         if self.pinned::<W, B>(sqr) {
-            attacks &= self.precomp.align_mask[sqr][self.king_square::<W, B>()];
+            attacks &= Precomputed::align_mask(sqr, self.king_square::<W, B>());
         }
 
         attacks
@@ -302,7 +302,7 @@ impl<'a> Evaluation<'a> {
         
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let moves = if W::is_white() { self.precomp.white_pawn_attacks[sqr] } else { self.precomp.black_pawn_attacks[sqr] };
+            let moves = if W::is_white() { Precomputed::white_pawn_attacks(sqr) } else { Precomputed::black_pawn_attacks(sqr) };
             doubled |= attacks & moves;
             attacks |= moves;
         }
@@ -314,10 +314,8 @@ impl<'a> Evaluation<'a> {
     ///
     /// Requires: `pin_rays`
     pub fn pawn_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
-        let map = if W::is_white() { self.precomp.black_pawn_attacks[sqr] } else { self.precomp.white_pawn_attacks[sqr] };
-        let mut attacks = map & self.board.piece_bitboards[W::piece(Piece::PAWN)];
-
-        attacks
+        let map = if W::is_white() { Precomputed::black_pawn_attacks(sqr) } else { Precomputed::white_pawn_attacks(sqr) };
+        map & self.board.piece_bitboards[W::piece(Piece::PAWN)]
     }
 
     /// Does not return the doubled attacks, as it is impossible.
@@ -327,7 +325,7 @@ impl<'a> Evaluation<'a> {
         
         while kings.0 != 0 {
             let sqr = Coord::from_idx(kings.pop_lsb() as i8);
-            attacks |= self.precomp.king_moves[sqr];
+            attacks |= Precomputed::king_moves(sqr);
         }
         attacks
     }
@@ -335,8 +333,7 @@ impl<'a> Evaluation<'a> {
     /// Calculates the friendly kings attacking `sqr`. If s2 specified, only counts attacks coming
     /// from that square. 
     pub fn king_attack<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard {
-        let mut attacks = self.precomp.king_moves[sqr] & self.board.piece_bitboards[W::piece(Piece::KING)];
-        attacks
+        Precomputed::king_moves(sqr) & self.board.piece_bitboards[W::piece(Piece::KING)]
     }
 
     pub fn all_attacks<W: Color, B: Color>(&self) -> BitBoard {
@@ -384,13 +381,13 @@ impl<'a> Evaluation<'a> {
     /// Requires: `pin_rays`
     pub fn queen_attack_diagonal<W: Color, B: Color>(&self, sqr: Coord) -> BitBoard{
         let blockers = self.board.all_pieces_bitboard;
-        let mut attacks = self.magics.get_bishop_attacks(sqr, blockers)
+        let mut attacks = Magics::bishop_attacks(sqr, blockers)
             & self.board.piece_bitboards[W::piece(Piece::QUEEN)];
 
         let mut res = attacks;
         while attacks.0 != 0 {
             let start = Coord::from_idx(attacks.pop_lsb() as i8);
-            if self.pinned::<W, B>(start) && !self.precomp.align_mask[start][self.king_square::<W, B>()].contains_square(sqr.square()) {
+            if self.pinned::<W, B>(start) && !Precomputed::align_mask(start, self.king_square::<W, B>()).contains_square(sqr.square()) {
                 res.clear_square(start.square());
             };
         }

@@ -102,7 +102,7 @@ pub fn go(game: &mut Game, cmd: &str) -> Option<()> {
         opts.depth = Some(depth.parse().ok()?);
     }
 
-    game.searcher.begin_search(opts, &mut game.board, &game.precomp, &game.magics, &game.zobrist, &mut game.movegen);
+    game.searcher.begin_search(opts, &mut game.board, &game.zobrist, &mut game.movegen);
     Some(())
 }
 

@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, prelude::BitBoard};
+use crate::{bitboard::square_values::SquareEvaluations, move_gen::magics::Magics, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard};
 use super::Evaluation;
 
 
@@ -118,10 +118,10 @@ impl<'a> Evaluation<'a> {
                 } else {
                     self.board.piece_bitboards[B::piece(Piece::ROOK)]
                 };
-                if (self.precomp.dir_ray_mask[queen_sqr][dir] & slider).0 == 0 { continue; }
+                if (Precomputed::dir_ray_mask(queen_sqr, dir) & slider).0 == 0 { continue; }
 
-                let n = self.precomp.num_sqrs_to_edge[queen_sqr][dir];
-                let dir_offset = self.precomp.direction_offsets[dir];
+                let n = Precomputed::num_sqrs_to_edge(queen_sqr, dir);
+                let dir_offset = Precomputed::direction_offsets(dir);
                 let mut is_piece_along_ray = false;
 
                 for i in 0..n {
@@ -171,7 +171,7 @@ impl<'a> Evaluation<'a> {
 
         while bishops.0 != 0 {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
-            let attacks = self.magics.get_bishop_attacks(sqr, blockers) & !blockers;
+            let attacks = Magics::bishop_attacks(sqr, blockers) & !blockers;
             if (attacks & Self::CENTER_SQUARES).0 != 0 {
                 attacks_center |= sqr.to_bitboard();
             }
@@ -251,7 +251,7 @@ impl<'a> Evaluation<'a> {
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
-            eval[sqr] = (enemy_pawns & self.magics.get_bishop_attacks(sqr, BitBoard(0))).count() as i32
+            eval[sqr] = (enemy_pawns & Magics::bishop_attacks(sqr, BitBoard(0))).count() as i32
         }
 
         eval
@@ -281,7 +281,7 @@ impl<'a> Evaluation<'a> {
 
         while bishops.0 != 0 {
             let sqr = Coord::from_idx(bishops.pop_lsb() as i8);
-            let ray = self.magics.get_bishop_attacks(sqr, blockers);
+            let ray = Magics::bishop_attacks(sqr, blockers);
             if (ray & self.king_ring::<W, B>(false)).0 != 0 {
                 on_king_ring |= sqr.to_bitboard();
             }

@@ -15,10 +15,10 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            if (self.precomp.forward_files[W::index()][sqr] 
+            if (Precomputed::forward_files(W::index(), sqr) 
                 & self.board.piece_bitboards[W::piece(Piece::PAWN)]).0 != 0 { continue };
 
-            let mut forward_enemies = self.precomp.forward_files[W::index()][sqr] 
+            let mut forward_enemies = Precomputed::forward_files(W::index(), sqr) 
                 & self.board.piece_bitboards[B::piece(Piece::PAWN)];
             let ty1 = if W::is_white() && forward_enemies.0 != 0 {
                 Coord::from_idx(forward_enemies.msb() as i8).rank()
@@ -28,7 +28,7 @@ impl<'a> Evaluation<'a> {
                 W::max_back_rank()
             };
 
-            let mut span = self.precomp.pawn_attack_span[W::index()][sqr]
+            let mut span = Precomputed::pawn_attack_span(W::index(), sqr)
                 & self.board.piece_bitboards[B::piece(Piece::PAWN)];
             let ty2 = if W::is_white() && span.0 != 0 {
                 Coord::from_idx(span.msb() as i8).rank()
@@ -116,8 +116,8 @@ impl<'a> Evaluation<'a> {
             let r = W::rank(sqr.rank());
             let w = 5 * r as i32 - 13;
 
-            let forward_file = self.precomp.forward_files[W::index()][sqr];
-            let span = self.precomp.pawn_attack_span[W::index()][sqr];
+            let forward_file = Precomputed::forward_files(W::index(), sqr);
+            let span = Precomputed::pawn_attack_span(W::index(), sqr);
             let push_sqr = sqr.to_bitboard().shifted_2d(W::up());
             let attacks = self.all_attacks[W::index()];
             let enemy_attacks = self.all_attacks[B::index()];
@@ -129,7 +129,7 @@ impl<'a> Evaluation<'a> {
             let mut defended_1 = (push_sqr & attacks).count() as i32;
             let mut not_safe_1 = (push_sqr & enemy_attacks).count() as i32;
 
-            let backward_file = self.precomp.forward_files[B::index()][sqr];
+            let backward_file = Precomputed::forward_files(B::index(), sqr);
             let defenders = self.board.piece_bitboards[W::piece(Piece::ROOK)] | self.board.piece_bitboards[W::piece(Piece::QUEEN)];
             let attackers = self.board.piece_bitboards[B::piece(Piece::ROOK)] | self.board.piece_bitboards[B::piece(Piece::QUEEN)];
 

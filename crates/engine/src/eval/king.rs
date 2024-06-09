@@ -1,6 +1,6 @@
 use proc_macro_utils::evaluation_fn;
 
-use crate::{bitboard::square_values::SquareEvaluations, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard, sum_sqrs};
+use crate::{bitboard::square_values::SquareEvaluations, move_gen::magics::Magics, board::{coord::Coord, piece::Piece}, color::{Black, Color, White}, precomp::Precomputed, prelude::BitBoard, sum_sqrs};
 use super::Evaluation;
 
 
@@ -177,7 +177,7 @@ impl<'a> Evaluation<'a> {
         let mut closest = 6;
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let d = self.precomp.king_distance[sqr][k];
+            let d = Precomputed::king_distance(sqr, k);
             closest = closest.min(d);
         }
 
@@ -196,7 +196,7 @@ impl<'a> Evaluation<'a> {
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
-                let attacks = self.magics.get_rook_attacks(sqr, blockers);
+                let attacks = Magics::rook_attacks(sqr, blockers);
                 if attacks.contains_square(king.square()) {
                     checks.set_square(sqr.square());
                 }
@@ -208,7 +208,7 @@ impl<'a> Evaluation<'a> {
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
-                let attacks = self.magics.get_bishop_attacks(sqr, blockers);
+                let attacks = Magics::bishop_attacks(sqr, blockers);
                 if attacks.contains_square(king.square()) {
                     checks.set_square(sqr.square());
                 }
@@ -220,7 +220,7 @@ impl<'a> Evaluation<'a> {
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
-                let attacks = self.precomp.knight_moves[sqr];
+                let attacks = Precomputed::knight_moves(sqr);
                 if attacks.contains_square(king.square()) {
                     checks.set_square(sqr.square());
                 }
@@ -232,7 +232,7 @@ impl<'a> Evaluation<'a> {
 
             while moves.0 != 0 {
                 let sqr = Coord::from_idx(moves.pop_lsb() as i8);
-                let attacks = self.magics.get_bishop_attacks(sqr, blockers) | self.magics.get_rook_attacks(sqr, blockers);
+                let attacks = Magics::bishop_attacks(sqr, blockers) | Magics::rook_attacks(sqr, blockers);
                 if attacks.contains_square(king.square()) {
                     checks.set_square(sqr.square());
                 }
@@ -312,8 +312,8 @@ impl<'a> Evaluation<'a> {
 
         while sqrs.0 != 0 {
             let sqr = Coord::from_idx(sqrs.pop_lsb() as i8);
-            let mut adjacent = self.precomp.diagonal_directions[self.king_square::<B, W>()] 
-                | self.precomp.orthogonal_directions[self.king_square::<B, W>()];
+            let mut adjacent = Precomputed::diagonal_directions(self.king_square::<B, W>()) 
+                | Precomputed::orthogonal_directions(self.king_square::<B, W>());
 
             let mut v = 0;
             while adjacent.0 != 0 {

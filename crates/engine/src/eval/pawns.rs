@@ -11,7 +11,7 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let adj_files = self.precomp.adjacent_file_mask[sqr.file() as usize];
+            let adj_files = Precomputed::adjacent_file_mask(sqr.file() as usize);
             if (adj_files & self.board.piece_bitboards[W::piece(Piece::PAWN)]).0 == 0 {
                 isolated |= sqr.to_bitboard();
             }
@@ -26,7 +26,7 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let forward = self.precomp.forward_files[W::index()][sqr];
+            let forward = Precomputed::forward_files(W::index(), sqr);
             if (forward & self.board.piece_bitboards[B::piece(Piece::PAWN)]).0 != 0 {
                 opposed |= sqr.to_bitboard();
             }
@@ -58,7 +58,7 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let span = self.precomp.pawn_attack_span[B::index()][sqr + W::up()];
+            let span = Precomputed::pawn_attack_span(B::index(), sqr + W::up());
             if (span & self.board.piece_bitboards[W::piece(Piece::PAWN)]).0 == 0 {
                 backward |= sqr.to_bitboard();
             }
@@ -131,9 +131,9 @@ impl<'a> Evaluation<'a> {
 
         while pawns.0 != 0 {
             let sqr = Coord::from_idx(pawns.pop_lsb() as i8);
-            let behind_pawns = self.precomp.forward_files[B::index()][sqr] & friendly_pawns;
-            let opposers = self.precomp.forward_files[W::index()][sqr] & enemy_pawns;
-            let adjacent = self.precomp.adjacent_file_mask[sqr.file() as usize] & enemy_pawns;
+            let behind_pawns = Precomputed::forward_files(B::index(), sqr) & friendly_pawns;
+            let opposers = Precomputed::forward_files(W::index(), sqr) & enemy_pawns;
+            let adjacent = Precomputed::adjacent_file_mask(sqr.file() as usize) & enemy_pawns;
             
             if behind_pawns.count() > 0 && adjacent.count() == 0 && opposers.count() > 0 {
                 doubled_isolated |= sqr.to_bitboard();
