@@ -1,34 +1,63 @@
-# Chess Engine In Rust (V2)
+# Chess Engine (V2)
 
 ## Description
 
-A Chess Engine built in Rust using [Bevy ECS](https://bevyengine.org/).
+A Chess Engine built in Rust.
 
-### Game Features
-
-- [x] Player vs Player, Player vs Engine, and Engine vs Engine modes.
-- [x] Fast pseudo-legal move generation using magic bitboards.
-- [x] Legal moves generation that accounts for pins and checks.
-- [x] Castling and En Passant (AKA the bane of my existence).
-
-### AI Features
+### Features
 
 #### Search
 
-- [x] Iterative Deepening
-- [x] Alpha-beta pruning with move ordering
-- [x] Transposition Tables
-- [x] Quiescence Search
-- [x] Depth Reductions
-- [x] Search Extensions
+- Iterative Deepening
+- Aspiration Windows
+- Transposition Tables
+- Move Ordering
+    - Internal Iterative Deepening
+    - History Heuristic
+    - Killer Heuristic
+    - MVV/LVA
+- Extensions
+    - Check Extensions
+- Pruning
+    - Alpha-beta Pruning
+- Reductions
+    - Late Move Reductions
 
 #### Evaluation
 
-- [x] Tapered Evaluation
-- [x] Material Bonuses
-- [x] Piece Square Tables
-- [x] Imbalance Evaluation
-- [x] Mobility Evaluation
+- Tapered Evaluation
+- Material
+    - Point Values
+    - Bishop Pair
+    - Imbalance Tables
+- Piece-Square Tables
+- Space
+- Mobility
+    - Trapped Pieces
+    - Rooks on (Semi) Open Files
+- Outposts
+- Pawn Structure
+    - Supported Pawn
+    - Backward Pawn
+    - Doubled Pawn
+    - Isolated Pawn
+    - Blocked Pawn
+    - Phalanx
+    - Connected Pawns
+    - Passed Pawn
+    - King Proximity
+- Threats
+    - Queen Infiltration
+    - Restricted Squares
+    - Slider/Knight on Queen
+    - Weak Pieces
+    - Hanging Pieces
+- King Safety
+    - Attacking King Ring
+    - Pawn Shelter
+    - Pawn Storm
+    - Checks
+    - Square Control
 
 
 ## Installation

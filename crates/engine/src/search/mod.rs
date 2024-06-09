@@ -170,7 +170,7 @@ impl<'a> Searcher<'a> {
         let mut best_score = Self::NEGATIVE_INFINITY;
         let mut eval_bound = TranspositionNodeType::UpperBound;
 
-        for m in ordered_moves {
+        for (i, m) in ordered_moves.into_iter().enumerate() {
             let captured_ptype = board.square[m.target()].piece_type();
             let is_capture = captured_ptype != Piece::NONE;
 
@@ -179,7 +179,20 @@ impl<'a> Searcher<'a> {
             // Check extensions
             let extension = if board.in_check() { 1 } else { 0 };
 
-            let eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+            let mut eval = 0;
+            let mut needs_full_search = true;
+
+            // Late move reductions: reduce search depth when searching later moves because they
+            // are likely to be bad.
+            if extension == 0 && depth >= 3 && i >= 3 && !is_capture {
+                eval = -self.search(1, depth - 2, -alpha - 1, -alpha, extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+                needs_full_search = eval > alpha;
+            }
+
+            if needs_full_search {
+                eval = -self.search(1, depth - 1 + extension, -beta, -alpha, extension, board, ordering, repetition_table, m, is_capture, zobrist, movegen);
+            }
+
             board.unmake_move(m, true);
 
             if !self.in_search {
