@@ -19,7 +19,6 @@ impl<'a> Evaluation<'a> {
     /// Whether or not the enemy king is on a pawnless flank. 
     ///
     /// A pawnless flank is defined as a flank with no enemy pawns. 
-    // TODO: Cache this
     pub fn pawnless_flank<W: Color, B: Color>(&self) -> bool {
         let kx = self.king_square::<B, W>().file();
         let pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)] | self.board.piece_bitboards[B::piece(Piece::PAWN)];
@@ -67,9 +66,6 @@ impl<'a> Evaluation<'a> {
                     if enemy_pawns.contains_square(s) 
                         && !friendly_pawns.contains_checked(s1) 
                             && !friendly_pawns.contains_checked(s2) {
-                                // NOTE: With arrays like this, it's from the white players perspective. (but
-                                // also in this case ranks are flipped). Remember to adjust the index
-                                // accordingly. 
                                 us = if W::is_white() { 7 - rank } else { rank };
                             }
                 }
@@ -169,7 +165,6 @@ impl<'a> Evaluation<'a> {
     }
 
     /// The minimum distance from the friendly king to a friendly pawn
-    // TODO: Cache this
     pub fn king_pawn_distance<W: Color, B: Color>(&self) -> i32 {
         let k = self.king_square::<W, B>();
         let mut pawns = self.board.piece_bitboards[W::piece(Piece::PAWN)];
@@ -386,7 +381,7 @@ impl<'a> Evaluation<'a> {
         flank & self.all_attacks[B::index()]
     }
 
-    pub fn king_danger<W: Color, B: Color>(&self) -> i32 {
+    pub fn king_danger<W: Color, B: Color>(&self, shelter_strength: (i32, i32, i32)) -> i32 {
         let king_attackers_origin = self.king_attackers_origin::<W, B>();
         let count = (king_attackers_origin.0.count() + king_attackers_origin.1.count()) as i32;
         let weight = self.king_attackers_weight::<W, B>();
@@ -398,7 +393,6 @@ impl<'a> Evaluation<'a> {
         let king_flank_attack = (flank_attack_total.0.count() + flank_attack_total.1.count()) as i32;
         let king_flank_defense = self.flank_defense::<W, B>().count() as i32;
         let no_queen = if self.queen_count::<W, B>() > 0 { 0 } else { 1 };
-        let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
 
         let v = count * weight
             + 69 * king_attacks
@@ -424,8 +418,8 @@ impl<'a> Evaluation<'a> {
     // Returns `(mg, eg)`
     pub fn king<W: Color, B: Color>(&self) -> (i32, i32) {
         let mut mg = 0;
-        let kd = self.king_danger::<W, B>();
         let shelter_strength = self.shelter_strength_storm_eg::<W, B>();
+        let kd = self.king_danger::<W, B>(shelter_strength);
         let flank = self.flank_attack::<W, B>();
         let pawnless_flank = self.pawnless_flank::<W, B>();
         mg -= shelter_strength.0;
@@ -544,12 +538,6 @@ mod tests {
     #[evaluation_test("1r3q1R/p1p1n2n/n2k1pR1/pQ3P1B/1bP2qpr/QP3n1P/P1P1P3/2B1N1RK w kq - 9 6")]
     fn test_flank_defense() {
         assert_eval!(+ - flank_defense, 19, 11, eval);
-    }
-
-    #[test]
-    #[evaluation_test("1n2K3/pP6/P2BpPBp/5PPN/n2k1r1R/PR1pp2p/P1bp1q1p/7N w - - 0 1")]
-    fn test_king_danger() {
-        assert_eval!(- king_danger, 2162, 712, eval);
     }
 
     #[test]

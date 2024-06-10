@@ -26,7 +26,17 @@ impl MoveOrdering {
         }
     }
 
-    pub fn order(&self, firstmove: Move, moves: &[Move], board: &Board, opp_attacks: BitBoard, opp_pawn_attacks: BitBoard, depth: u8) -> Vec<Move> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn order(
+        &self,
+        firstmove: Move,
+        moves: &[Move],
+        board: &Board,
+        opp_attacks: BitBoard,
+        opp_pawn_attacks: BitBoard,
+        depth: u8,
+        in_q_search: bool,
+    ) -> Vec<Move> {
         let opps = board.enemy_diagonal_sliders | board.enemy_orthogonal_sliders 
             | board.piece_bitboards[Piece::new(Piece::KNIGHT | board.opponent_color)];
         let mut scores = Vec::with_capacity(moves.len());
@@ -76,7 +86,7 @@ impl MoveOrdering {
             }
 
             if !is_capture {
-                let is_killer = depth < Self::MAX_KILLER_MOVE_DEPTH as u8 && self.killers[depth as usize].matches(*m);
+                let is_killer = !in_q_search && depth < Self::MAX_KILLER_MOVE_DEPTH as u8 && self.killers[depth as usize].matches(*m);
                 score += if is_killer { Self::KILLER_BIAS } else { Self::NORMAL_BIAS };
                 score += self.history[board.move_color_idx][m.start()][m.target()];
             }

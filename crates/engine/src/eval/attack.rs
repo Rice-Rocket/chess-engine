@@ -91,7 +91,7 @@ impl<'a> Evaluation<'a> {
     }
 
     /// Returns `(all_attacks, double_attacks)`
-    // TODO: Use to elimate squares early on for `knight_attack`.
+    // TODO: Use to eliminate squares early on for `knight_attack`.
     // Same with all other all attacks functions.
     pub fn all_knight_attacks<W: Color, B: Color>(&self) -> (BitBoard, BitBoard) {
         let mut knights = self.board.piece_bitboards[W::piece(Piece::KNIGHT)];

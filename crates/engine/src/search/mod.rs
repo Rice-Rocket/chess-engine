@@ -164,6 +164,7 @@ impl<'a> Searcher<'a> {
             movegen.enemy_attack_map,
             movegen.enemy_pawn_attack_map,
             0,
+            false,
         );
 
         let mut best_move = None;
@@ -264,8 +265,7 @@ impl<'a> Searcher<'a> {
 
         // Once we hit a leaf node, perform static evaluation of the position
         if depth_remaining == 0 {
-            let mut eval = Evaluation::new(board);
-            return eval.evaluate::<White, Black>() * if board.white_to_move { 1 } else { -1 };
+            return Self::quiescence_search(alpha, beta, board, ordering, zobrist, movegen);
         }
 
         let moves = movegen.generate_moves(board, false);
@@ -295,6 +295,7 @@ impl<'a> Searcher<'a> {
             movegen.enemy_attack_map,
             movegen.enemy_pawn_attack_map,
             depth,
+            false,
         );
 
         for (i, m) in ordered_moves.into_iter().enumerate() {
@@ -363,6 +364,59 @@ impl<'a> Searcher<'a> {
         self.transposition_table.store(zobrist_key, depth_remaining, depth, best_score, eval_bound, best_move);
 
         best_score
+    }
+
+    fn quiescence_search(
+        mut alpha: i32,
+        mut beta: i32,
+        board: &mut Board,
+        ordering: &mut MoveOrdering,
+        zobrist: &Zobrist,
+        movegen: &mut MoveGenerator,
+    ) -> i32 {
+        let mut eval = Evaluation::new(board).evaluate::<White, Black>() * if board.white_to_move { 1 } else { -1 };
+
+        // Check for beta cutoff
+        if eval >= beta {
+            return beta;
+        }
+
+        // TODO: Delta pruning
+
+        if eval > alpha {
+            alpha = eval;
+        }
+
+        let moves = movegen.generate_moves(board, true);
+
+        // Order moves
+        let ordered_moves = ordering.order(
+            Move::NULL,
+            &moves,
+            board,
+            movegen.enemy_attack_map,
+            movegen.enemy_pawn_attack_map,
+            0,
+            true,
+        );
+
+        for (i, m) in ordered_moves.into_iter().enumerate() {
+            board.make_move(m, true, zobrist);
+            eval = -Self::quiescence_search(-beta, -alpha, board, ordering, zobrist, movegen);
+            board.unmake_move(m, true);
+
+            // Found a new best move
+            if eval > alpha {
+                alpha = eval;
+
+                // Beta cutoff / Fail high
+                if eval >= beta {
+                    return beta;
+                }
+            }
+        }
+
+        alpha
     }
 
     fn init(&mut self) {
