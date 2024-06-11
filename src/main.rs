@@ -1,9 +1,10 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use engine::{board::{zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::PlayerType, move_gen::magics, precomp, search::options::SearchOptions};
+use engine::{board::{piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, game::PlayerType, move_gen::magics, precomp, search::{options::SearchOptions, see::static_exchange_eval}};
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand, ValueEnum};
 use engine::game::Game;
 use external_uci::ExternalUci;
+use faceoff::move_from_name;
 
 mod perft;
 mod tui;
@@ -26,6 +27,9 @@ enum Commands {
 
         #[arg(long, short, value_name = "DEPTH", default_value = "4")]
         depth: u16,
+
+        #[arg(long, value_name = "MOVE")]
+        see: Option<String>,
 
         #[arg(long)]
         material: bool,
@@ -160,6 +164,17 @@ impl From<CommandPlayerType> for PlayerType {
     }
 }
 
+macro_rules! throw {
+    ($kind:ident; $($e:tt)+) => {
+        let err = Cli::command().error(
+            ErrorKind::$kind,
+            format!($($e)+),
+        );
+        let _ = err.print();
+        return;
+    }
+}
+
 
 #[tokio::main]
 async fn main() {
@@ -168,6 +183,7 @@ async fn main() {
     match cli_input.command {
         Commands::Eval {
             fen,
+            see,
             depth:_,
             material,
             psqt,
@@ -186,74 +202,88 @@ async fn main() {
             let board = Board::load_position(Some(fen), &mut zobrist);
             let mut eval = Evaluation::new(&board);
 
-            println!("main evaluation: {}", eval.evaluate::<White, Black>());
-            println!("mg evaluation: {}", eval.middle_game_eval::<White, Black>());
-            println!("eg evaluation: {}", eval.end_game_eval::<White, Black>());
+            if let Some(m_name) = see {
+                let Some(m) = move_from_name(&board, &m_name) else {
+                    throw!(InvalidValue; "{} is not a valid move", m_name);
+                };
+                let attacker = board.square[m.start()];
+                let target = board.square[m.target()];
+                if attacker.piece_type() == Piece::NONE || target.piece_type() == Piece::NONE {
+                    throw!(InvalidValue; "{} is not a valid capture in this position", m_name);
+                }
 
-            if material {
-                let w = (eval.piece_value_mg::<White, Black>(), eval.piece_value_eg::<White, Black>());
-                let b = (eval.piece_value_mg::<Black, White>(), eval.piece_value_eg::<Black, White>());
-                println!("material evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("material evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                let v = static_exchange_eval(&board, m, target, attacker);
+                println!("SEE: {}", v);
+            } else {
+                println!("main evaluation: {}", eval.evaluate::<White, Black>());
+                println!("mg evaluation: {}", eval.middle_game_eval::<White, Black>());
+                println!("eg evaluation: {}", eval.end_game_eval::<White, Black>());
 
-            if psqt {
-                let w = (eval.psqt_mg::<White, Black>(), eval.psqt_eg::<White, Black>());
-                let b = (eval.psqt_mg::<Black, White>(), eval.psqt_eg::<Black, White>());
-                println!("psqt evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("psqt evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                if material {
+                    let w = (eval.piece_value_mg::<White, Black>(), eval.piece_value_eg::<White, Black>());
+                    let b = (eval.piece_value_mg::<Black, White>(), eval.piece_value_eg::<Black, White>());
+                    println!("material evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("material evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if imbalance {
-                println!("imbalance evaluation (white): {}", eval.imbalance_total::<White, Black>());
-                println!("imbalance evaluation (black): {}", eval.imbalance_total::<Black, White>());
-            }
+                if psqt {
+                    let w = (eval.psqt_mg::<White, Black>(), eval.psqt_eg::<White, Black>());
+                    let b = (eval.psqt_mg::<Black, White>(), eval.psqt_eg::<Black, White>());
+                    println!("psqt evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("psqt evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if pawns {
-                let w = eval.pawns::<White, Black>();
-                let b = eval.pawns::<Black, White>();
-                println!("pawns evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("pawns evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                if imbalance {
+                    println!("imbalance evaluation (white): {}", eval.imbalance_total::<White, Black>());
+                    println!("imbalance evaluation (black): {}", eval.imbalance_total::<Black, White>());
+                }
 
-            if pieces {
-                let w = eval.pieces::<White, Black>();
-                let b = eval.pieces::<Black, White>();
-                println!("pieces evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("pieces evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                if pawns {
+                    let w = eval.pawns::<White, Black>();
+                    let b = eval.pawns::<Black, White>();
+                    println!("pawns evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("pawns evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if mobility {
-                let w = eval.mobility_bonus::<White, Black>();
-                let b = eval.mobility_bonus::<Black, White>();
-                println!("mobility evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("mobility evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            } 
+                if pieces {
+                    let w = eval.pieces::<White, Black>();
+                    let b = eval.pieces::<Black, White>();
+                    println!("pieces evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("pieces evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if threats {
-                let w = eval.threats::<White, Black>();
-                let b = eval.threats::<Black, White>();
-                println!("threats evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("threats evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                if mobility {
+                    let w = eval.mobility_bonus::<White, Black>();
+                    let b = eval.mobility_bonus::<Black, White>();
+                    println!("mobility evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("mobility evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                } 
 
-            if passed {
-                let w = eval.passed::<White, Black>();
-                let b = eval.passed::<Black, White>();
-                println!("passed evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("passed evaluation (black): (mg = {}, eg = {})", b.0, b.1);
-            }
+                if threats {
+                    let w = eval.threats::<White, Black>();
+                    let b = eval.threats::<Black, White>();
+                    println!("threats evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("threats evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if space {
-                println!("space evaluation (white): {}", eval.space::<White, Black>());
-                println!("space evaluation (black): {}", eval.space::<Black, White>());
-            }
+                if passed {
+                    let w = eval.passed::<White, Black>();
+                    let b = eval.passed::<Black, White>();
+                    println!("passed evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("passed evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
 
-            if king {
-                let w = eval.king::<White, Black>();
-                let b = eval.king::<Black, White>();
-                println!("king evaluation (white): (mg = {}, eg = {})", w.0, w.1);
-                println!("king evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                if space {
+                    println!("space evaluation (white): {}", eval.space::<White, Black>());
+                    println!("space evaluation (black): {}", eval.space::<Black, White>());
+                }
+
+                if king {
+                    let w = eval.king::<White, Black>();
+                    let b = eval.king::<Black, White>();
+                    println!("king evaluation (white): (mg = {}, eg = {})", w.0, w.1);
+                    println!("king evaluation (black): (mg = {}, eg = {})", b.0, b.1);
+                }
             }
         },
         Commands::Perft {
@@ -277,12 +307,7 @@ async fn main() {
                     5 => "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
                     6 => "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
                     _ => {
-                        let err = Cli::command().error(
-                            ErrorKind::InvalidValue,
-                            format!("position {} does not exist. valid positions are from 1-6", position),
-                            );
-                        let _ = err.print();
-                        return;
+                        throw!(InvalidValue; "position {} does not exist. valid positions are from 1-6", position);
                     },
                 }.to_string()
             };
@@ -304,12 +329,7 @@ async fn main() {
                 match &mut cmd {
                     Ok(proc) => proc.kill().unwrap(),
                     Err(_) => {
-                        let err = Cli::command().error(
-                            ErrorKind::Io,
-                            "stockfish executable not found. make sure stockfish is installed and in your PATH"
-                        );
-                        let _ = err.print();
-                        return;
+                        throw!(Io; "stockfish executable not found. make sure stockfish is installed and in your PATH");
                     }
                 };
 
@@ -353,22 +373,12 @@ async fn main() {
                     match faceoff::start(opponent, positions, movetime, display).await {
                         Ok(()) => (),
                         Err(e) => {
-                            let err = Cli::command().error(
-                                ErrorKind::Io,
-                                &e,
-                            );
-                            let _ = err.print();
-                            return
+                            throw!(Io; "{}", e);
                         }
                     }
                 },
                 Err(_) => {
-                    let err = Cli::command().error(
-                        ErrorKind::Io,
-                        "engine path executable not found"
-                    );
-                    let _ = err.print();
-                    return;
+                    throw!(Io; "engine path executable not found");
                 }
             };
         },

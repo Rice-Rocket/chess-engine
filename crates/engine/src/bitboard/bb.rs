@@ -77,6 +77,10 @@ impl BitBoard {
         Self::RANK_1 << (rank as usize * 8)
     }
 
+    pub fn from_bit(bit: u32) -> Self {
+        BitBoard(1 << bit)
+    }
+
 
     pub fn pop_lsb(&mut self) -> u32 {
         let i = unsafe { *DE_BRUIJ_TABLE.get_unchecked(

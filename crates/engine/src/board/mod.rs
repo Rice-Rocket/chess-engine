@@ -381,7 +381,7 @@ impl Board {
         let black_castle = (if loaded_pos.black_castle_kingside { 1 << 2 } else { 0 }) | (if loaded_pos.black_castle_queenside { 1 << 3 } else { 0 });
         let castling_rights = white_castle | black_castle;
 
-        board.plycount = (loaded_pos.move_count as usize - 1) * 2 + (if board.white_to_move { 0 } else { 1 });
+        board.plycount = (loaded_pos.move_count.max(1) as usize - 1) * 2 + (if board.white_to_move { 0 } else { 1 });
         board.current_state = GameState {
             captured_ptype: Piece::NONE,
             en_passant_file: loaded_pos.ep_file,

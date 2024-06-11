@@ -2,13 +2,14 @@ use std::time::Instant;
 
 use crate::{board::{coord::Coord, moves::Move, piece::Piece, zobrist::Zobrist, Board}, color::{Black, White}, eval::Evaluation, move_gen::{magics::Magics, move_generator::MoveGenerator}, precomp::Precomputed};
 
-use self::{diagnostics::SearchDiagnostics, options::SearchOptions, ordering::MoveOrdering, repetition::RepetitionTable, transpositions::{TranspositionNodeType, TranspositionTable}};
+use self::{diagnostics::SearchDiagnostics, options::SearchOptions, ordering::MoveOrdering, repetition::RepetitionTable, see::static_exchange_eval, transpositions::{TranspositionNodeType, TranspositionTable}};
 
 pub mod options;
 pub mod diagnostics;
 pub mod repetition;
 pub mod transpositions;
 pub mod ordering;
+pub mod see;
 
 pub struct Searcher<'a> {
     pub diagnostics: SearchDiagnostics,

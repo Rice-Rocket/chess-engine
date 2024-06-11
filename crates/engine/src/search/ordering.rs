@@ -101,7 +101,7 @@ impl MoveOrdering {
     }
 
 
-    fn piece_value_score(ptype: u8) -> i32 {
+    pub fn piece_value_score(ptype: u8) -> i32 {
         match ptype {
             Piece::PAWN => 100,
             Piece::KNIGHT => 300,

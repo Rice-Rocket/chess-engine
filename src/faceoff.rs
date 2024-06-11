@@ -185,7 +185,7 @@ fn name_from_square(c: Coord) -> Option<String> {
     Some(s)
 }
 
-fn move_from_name(board: &Board, m: &str) -> Option<Move> {
+pub fn move_from_name(board: &Board, m: &str) -> Option<Move> {
     if m.len() < 4 { return None };
     let start_sqr = square_from_name(&m[0..2])?;
     let target_sqr = square_from_name(&m[2..4])?;
