@@ -1,7 +1,8 @@
 [package]
-name = "chess-engine"
-version = "0.1.0"
+name = "chess-a-tron"
+version = "0.2.14"
 edition = "2021"
+authors = [ "Killian Hourihan" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
