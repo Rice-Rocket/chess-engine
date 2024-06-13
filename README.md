@@ -68,19 +68,21 @@ Download the executable from the 'releases' section and run it with:
 
 ```sh
 # Show the help menu
-chessatron help
+./chessatron help
 ```
 
 ## Compiling from Source
 
-- Install Rust as instructed [Here](https://www.rust-lang.org/tools/install).
-- Download and unzip the source code.
-- Open a terminal in the directory just created by unzipping the file.
-- Compile and run the code using the following commands: 
+- Install rust as instructed [here](https://www.rust-lang.org/tools/install).
+- Run the following commands from the terminal in a directory of your choosing: 
 
 ```sh
+# Clone the source code into `./chessatron/`
+git clone https://github.com/Rice-Rocket/chess-engine.git ./chessatron
+# Enter the folder with source code
+cd chessatron
 # Compile the code in release mode
 cargo build --release
-# Run the code in release mode
-cargo run --release
+# Run the binary and show the help menu
+cargo run --release -- help
 ```
