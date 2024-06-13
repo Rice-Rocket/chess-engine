@@ -1,8 +1,8 @@
-# Chess Engine (V2)
+# Chess-a-tron (V2)
 
 ## Description
 
-A Chess Engine built in Rust.
+A relatively powerful chess engine built in rust.
 
 ### Features
 
@@ -11,17 +11,20 @@ A Chess Engine built in Rust.
 - Iterative Deepening
 - Aspiration Windows
 - Transposition Tables
+    - Depth-preferred Replacement Strategy
 - Move Ordering
     - Internal Iterative Deepening
     - History Heuristic
     - Killer Heuristic
     - MVV/LVA
-- Extensions
-    - Check Extensions
-- Pruning
-    - Alpha-beta Pruning
-- Reductions
-    - Late Move Reductions
+- Selectivity
+    - Extensions
+        - Check Extensions
+    - Pruning
+        - Alpha-beta Pruning (fail-high / beta cutoff)
+    - Reductions
+        - Late Move Reductions
+    - Quiescence Search
 
 #### Evaluation
 
@@ -59,8 +62,16 @@ A Chess Engine built in Rust.
     - Checks
     - Square Control
 
-
 ## Installation
+
+Download the executable from the 'releases' section and run it with:
+
+```sh
+# Show the help menu
+chessatron help
+```
+
+## Compiling from Source
 
 - Install Rust as instructed [Here](https://www.rust-lang.org/tools/install).
 - Download and unzip the source code.

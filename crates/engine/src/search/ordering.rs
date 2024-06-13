@@ -12,7 +12,7 @@ impl MoveOrdering {
     const CAPTURED_PIECE_MULTIPLIER: i32 = 100;
 
     const MILLION: i32 = 1000000;
-    const FIRST_MOVE_SCORE: i32 = 100 * Self::MILLION;
+    const FIRST_MOVE_SCORE: i32 = 1000 * Self::MILLION;
     const WINNING_CAPTURE_BIAS: i32 = 8 * Self::MILLION;
     const PROMOTION_BIAS: i32 = 6 * Self::MILLION;
     const LOSING_CAPTURE_BIAS: i32 = 2 * Self::MILLION;

@@ -52,6 +52,7 @@ pub fn start() {
 
         if !finished {
             if let Some(bestmove) = game.searcher.best_move() {
+                println!("info depth {}", game.searcher.diagnostics.depth_searched);
                 println!("bestmove {}", name_from_move(bestmove).unwrap());
                 finished = true;
             }

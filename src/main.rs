@@ -23,51 +23,69 @@ pub struct Cli {
 enum Commands {
     /// Evaluate the given chess position.
     Eval {
+        /// FEN position to evaluate.
         fen: String,
 
+        /// The depth at which to search.
         #[arg(long, short, value_name = "DEPTH", default_value = "4")]
         depth: u16,
 
+        /// Evaluate the static exchange evaluation of a given move. Overrides all other evaluation
+        /// arguments.
         #[arg(long, value_name = "MOVE")]
         see: Option<String>,
 
+        /// Show the material evaluation.
         #[arg(long)]
         material: bool,
 
+        /// Show the piece-square evaluation.
         #[arg(long)]
         psqt: bool,
 
+        /// Show the material imbalance.
         #[arg(long)]
         imbalance: bool,
 
+        /// Show the pawn evaluation.
         #[arg(long)]
         pawns: bool,
 
+        /// Show the pieces evaluation (outposts, etc.)
         #[arg(long)]
         pieces: bool,
 
+        /// Show the mobility evaluation.
         #[arg(long)]
         mobility: bool,
 
+        /// Show the threats evaluation.
         #[arg(long)]
         threats: bool,
 
+        /// Show the passed pawns evaluation.
         #[arg(long)]
         passed: bool,
 
+        /// Show the space evaluation.
         #[arg(long)]
         space: bool,
 
+        /// Show the king safety evaluation.
         #[arg(long)]
         king: bool,
     },
+    /// Bench the move generation speed.
     Perft {
+        /// The preset position to use.
         #[arg(long, short, value_name = "POSITION_NUMBER", default_value = "1")]
         position: u16,
 
+        /// The FEN position to use.
         #[arg(long, short, value_name = "FEN")]
         fen: Option<String>,
 
+        /// The depth at which to test move generation.
         #[arg(long, short, value_name = "DEPTH")]
         depth: u16,
 
@@ -81,9 +99,11 @@ enum Commands {
         #[arg(long, short)]
         eval: bool,
 
+        /// Show each branch of the tree search (each move that is generated).
         #[arg(long, short = 'b')]
         expand_branches: bool,
 
+        /// Recursively compare against stockfish. Requires stockfish to be in your PATH.
         #[arg(long, short = 'r')]
         test_recursive: bool,
 
@@ -132,6 +152,7 @@ enum Commands {
         #[arg(long, short = 't', default_value = "100")]
         movetime: u32,
 
+        /// The method with which to display the games as they are played.
         #[arg(long, short, value_name = "DISPLAY_METHOD", default_value = "none")]
         display: CommandDisplayMethod,
     },
